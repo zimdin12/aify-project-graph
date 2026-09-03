@@ -32,6 +32,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { getTrackedDirtyFilesSync, getDirtyFilesSync } from '../../../mcp/stdio/freshness/git.js';
+import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
 function git(repo, ...args) {
   execFileSync('git', ['-C', repo, ...args], { stdio: 'ignore' });
@@ -94,8 +95,16 @@ describe('a tracked file stays visible to the dirty counter whatever .gitignore 
     // 2026-07-27 field report (dirty=592 from untracked noise) comes straight back.
     await writeFile(join(repo, 'src', 'scratch.log'), 'ignored\n');
     const porcelain = execFileSync('git', ['-C', repo, 'status', '--porcelain'], { encoding: 'utf8' });
-    expect(porcelain, 'fixture precondition: git must NOT report an ignored untracked file')
-      .not.toMatch(/scratch\.log/);
+    // ⛔ THE RATCHET CAUGHT ME WRITING THIS AS A BARE `not.toMatch`, in the same cycle where I wrote
+    // "positive control on every zero" into my own operating rules. A bare negative assertion passes
+    // just as happily when the matcher is dead, and this precondition is load-bearing: if git DID
+    // report the ignored file, the real assertion below would be testing nothing.
+    expectAbsentWithLiveMatcher(
+      /scratch\.log/,
+      { forbidden: '?? src/scratch.log', allowed: ' M src/plain.js' },
+      porcelain,
+      'fixture precondition: git must NOT report an ignored untracked file',
+    );
 
     expect(getTrackedDirtyFilesSync(repo)).not.toContain('src/scratch.log');
     expect(getDirtyFilesSync(repo)).not.toContain('src/scratch.log');
