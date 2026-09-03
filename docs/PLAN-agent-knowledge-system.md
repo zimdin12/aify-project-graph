@@ -255,9 +255,19 @@ reads BEFORE editing — the most consequential place for the defect to survive.
 - `graph_trace` — excluded on a correctness argument: an uncommitted file can only ADD an edge, never
   remove one, so a FOUND path stays true; and its no-path branch already passes `freshness` to
   `buildAbsenceTrustLine`. Its claim is "there IS a path", not "this is the only path".
-- `graph_explain_diff` — ⚠ **OPEN, not settled.** No single symbol to key on as written, but an
-  uncommitted file CAN contain callers of the changed symbols, so the hazard is not obviously absent.
-  Keying on the SET of changed symbols would be a real extension. Recorded as unmeasured.
+- `graph_explain_diff` — ✅ **CLOSED 2026-09-03, and my exclusion reason was wrong.** Measured
+  (`docs/evidence/m2-contract/FINDING-explain-diff-undercounts-blast-radius.md`, three controls): the
+  verb DOES enumerate the callers of the changed symbols, and an uncommitted caller made that
+  enumeration silently short — on the verb whose whole job is to say what a change will break. It now
+  keys the gate on the SET of changed symbols. ⭐ "No single queried symbol" was an accurate
+  observation about the ARGUMENT and a false inference about the DATA: the names sit in
+  `changedSymbols`, in the verb's own result.
+  ⛔ The probe's FIRST run was void and its verdict looked responsible — it fired the abandon rule and
+  concluded "excluded on an argument". `graphExplainDiff` returns a structured object, I had wrapped
+  it in `String()`, and every regex tested `[object Object]`. **The false verdict was the conservative
+  one and agreed with what I already believed.**
+
+⇒ **7 of 8 consumers wired.** Only `graph_trace` is excluded, on a correctness argument.
 
 Such a result states what it did NOT model: indirection, macros, conditional compilation,
 extern-without-header, included `.cpp`, cross-language. Separate "no callers in indexed scope" from
