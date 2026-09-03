@@ -71,10 +71,19 @@ async function prepare(klass, arm) {
   const state = { indexed: false, attestation: null };
   if (arm === 'graph') {
     await repo.index();
-    state.indexed = repo.isIndexed();
-    if (!state.indexed) throw new Error('graph arm was not indexed — that is a mislabelled nograph arm');
+    if (!repo.isIndexed()) throw new Error('graph arm was not indexed — that is a mislabelled nograph arm');
     if (klass.id === 'C6-torn-graph-safety') state.attestation = await repo.tear();
   }
+  // ⛔ MEASURED FOR BOTH ARMS, NOT ASSUMED FOR ONE. `indexed` used to be initialised false and only
+  // ever written on the graph path, so a nograph row asserted "not indexed" WITHOUT LOOKING. That is
+  // an assumption recorded as an observation, in the field that certifies the control arm was
+  // untreated.
+  //
+  // ⚠ WHY IT MATTERS MORE THAN IT LOOKS: if an index ever leaked into the control arm, every cell
+  // would compare graph against graph and report "same" — and "the graph made no difference" is the
+  // most damaging false result available here, because it is indistinguishable from a genuine null.
+  // `isIndexed()` is one existsSync; there is no reason not to measure both.
+  state.indexed = repo.isIndexed();
   return { repo, state };
 }
 
@@ -279,6 +288,18 @@ function printReport(byTier, rows, { isMock }) {
   const unindexed = rows.filter((r) => r.arm === 'graph' && !r.state?.indexed);
   console.log(`graph rows that were actually indexed: ${rows.filter((r) => r.arm === 'graph').length - unindexed.length}`
     + `/${rows.filter((r) => r.arm === 'graph').length}`);
+
+  // ⛔ THE CONTROL ARM NEEDS ITS OWN AUDIT, AND ONLY THE TREATMENT HAD ONE. Verifying that the graph
+  // arm WAS indexed says nothing about whether the nograph arm was accidentally indexed too. A
+  // leaked index makes every cell a graph-vs-graph comparison that reports "same" — which reads as a
+  // genuine null result rather than a broken experiment.
+  const nograph = rows.filter((r) => r.arm === 'nograph');
+  const contaminated = nograph.filter((r) => r.state?.indexed);
+  console.log(`nograph rows verifiably NOT indexed: ${nograph.length - contaminated.length}/${nograph.length}`
+    + (contaminated.length
+      ? `  ⛔ INVALID — ${contaminated.length} control row(s) HAD an index: `
+        + `${contaminated.map((r) => r.classId).join(', ')}. These cells compare graph against graph.`
+      : '  OK'));
   if (isMock) {
     console.log('\n⛔ MOCK EXECUTOR. Every number above is plumbing, not evidence. It says nothing');
     console.log('   whatsoever about the product, and must never be reported as a result.');
