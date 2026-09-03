@@ -50,7 +50,13 @@ describe('the ambiguity message offers a remedy that works', () => {
     // The displayed spelling must work as input, or the remedy is inert in a second way.
     const retried = String(await graphCallers({ repoRoot: repo, symbol: 'src::alpha::render' }));
     expect(retried, 'the displayed form must resolve').toMatch(/alphaCaller/);
-    expect(retried).not.toMatch(/AMBIGUOUS MATCH/);
+    expectAbsentWithLiveMatcher(
+      /AMBIGUOUS MATCH/,
+      { forbidden: 'AMBIGUOUS MATCH for "render". 2 concrete candidates found:',
+        allowed: 'EDGE alphaCaller→src::alpha::render CALLS src/useAlpha.js:2' },
+      retried,
+      'retrying with the named remedy must leave the ambiguity behind, not reproduce it',
+    );
   }, 120_000);
 
   it('⛔ it no longer recommends file=, which provably cannot disambiguate', async () => {
