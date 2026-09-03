@@ -382,10 +382,49 @@ function spineScopeClause(db, noun) {
 // and is matched explicitly rather than by adding an alias, which would change backend selection.
 const CPP_FAMILY_BUCKET = 'c_cpp';
 
+// ⛔ EVERY CONFIGURED LANGUAGE MUST APPEAR HERE, INCLUDING THE ONES WITH NOTHING TO SAY.
+//
+// This clause used to exist for C/C++ alone, so the other ten languages in `LANGUAGE_CONFIGS` — the
+// product's own primary ones among them — got `''`. On the ABSENCE path, which is the answer that
+// licenses a deletion, that reads as "everything was modelled". Measured 2 of 12.
+// See docs/evidence/m2-contract/FINDING-not-modelled-is-cpp-only.md
+//
+// ⭐ THE MAP IS THE FORCED DOOR. A test asserts every language in the real registry has a key here,
+// so adding a language makes someone DECIDE rather than inherit silence by default. `null` is a
+// recorded decision ("nothing verified for this language yet"); a MISSING key is a test failure.
+//
+// ⚠ EACH STRING IS A SEMANTIC CLAIM AND EACH WAS FIXTURED BEFORE IT WAS WRITTEN — no edge from
+// caller to callee while an ordinary direct call in the same file produced one
+// (`scripts/probe-dynamic-dispatch-blindspots.mjs`). Do not add an entry from intuition.
+const DYNAMIC_DISPATCH_NOTE = ' This states what the analysis cannot see, NOT that this symbol is affected.';
+export const NOT_MODELLED_BY_LANGUAGE = Object.freeze({
+  javascript: ' NOT MODELLED: a call through a computed key — table[name](), obj[k]() — is invisible'
+    + ' to the heuristic graph.' + DYNAMIC_DISPATCH_NOTE,
+  typescript: ' NOT MODELLED: a call through a computed key — table[name](), obj[k]() — is invisible'
+    + ' to the heuristic graph.' + DYNAMIC_DISPATCH_NOTE,
+  python: ' NOT MODELLED: a call made through getattr(obj, name)() is invisible to the heuristic'
+    + ' graph.' + DYNAMIC_DISPATCH_NOTE,
+  // ⚠ MEASURED AS SILENT, NOT INVESTIGATED. These are recorded decisions, not oversights: no fixture
+  // has yet established which constructs our extractor misses for them, and a clause asserting a
+  // blind spot without one would be an invented claim.
+  php: null,
+  go: null,
+  rust: null,
+  ruby: null,
+  java: null,
+  glsl: null,
+  css: null,
+  // c and cpp are handled by the richer tier-dependent clause below.
+  c: null,
+  cpp: null,
+});
+
 export function constructCoverageClause(language) {
   const raw = String(language || '').trim().toLowerCase();
   if (!raw) return '';
-  if (normalizeLanguage(raw) !== 'cpp' && raw !== CPP_FAMILY_BUCKET) return '';
+  if (normalizeLanguage(raw) !== 'cpp' && raw !== CPP_FAMILY_BUCKET) {
+    return NOT_MODELLED_BY_LANGUAGE[normalizeLanguage(raw)] ?? NOT_MODELLED_BY_LANGUAGE[raw] ?? '';
+  }
   return ' NOT MODELLED: a macro-generated call is invisible to BOTH tiers. The rest is'
     + ' TIER-DEPENDENT — the heuristic graph misses function-pointer calls that clangd resolves,'
     + ' while clangd covers only what the compile DB compiles, so calls in an inactive #ifdef branch'
