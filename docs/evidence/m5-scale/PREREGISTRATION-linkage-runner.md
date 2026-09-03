@@ -105,3 +105,18 @@ fixed now, before results:
 
 A run. Nothing here changes the fact that no real executor ships, and that pointing `--executor` at
 an agent adapter is a separate deliberate act requiring Steven's budget decision.
+
+### D. Cost is CAPTURED and deliberately NOT reported as a delta
+
+Every row carries `score.cost` — `{ toolCalls, tokens, durationMs }` — persisted in the run JSON, so
+"faster" is recoverable for any later analysis.
+
+⛔ **No cost delta is reported, for the reason in A:** at n=1 a token or duration difference between
+two single runs is noisier than the safety verdict, and quoting "the graph arm used X% fewer tokens"
+from one pair is precisely the per-cell claim this amendment forbids. If cost is ever reported it
+must be as a DIRECTION COUNT across pairs, like the other axes, and never as a percentage.
+
+⚠ **It lives at `row.score.cost`, NOT `row.cost`.** Recorded because I checked the row level, found
+nothing, and concluded the data was being discarded — one step from "fixing" a data-loss defect that
+was not occurring. That was the third time in one session that checking at the wrong name or nesting
+level produced a confident wrong answer against correct code.
