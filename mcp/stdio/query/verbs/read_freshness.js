@@ -149,26 +149,43 @@ const RELEVANCE_SCAN_CAP = 25;
  * nothing rather than reporting the subset it managed to scan — a count over an unknown denominator
  * is the defect this repo keeps finding, not a conservative fallback.
  *
+ * ⚠ ACCEPTS A SET, NOT ONLY ONE NAME. `graph_explain_diff` has no single QUERIED symbol — it
+ * explains a range — but it does enumerate the callers of the CHANGED symbols, and those are named
+ * in its own result. I first excluded it for having "no single symbol", which generalised from the
+ * shape of the argument to the absence of the data. The gate needs a set to key on; the set exists.
+ *
  * @param {object} freshness  carries `uncommittedSources` (tri-state; null = tree unobserved)
- * @param {string} symbol     the queried name
+ * @param {string|string[]} symbol  the queried name, or the set of changed names
  * @param {string} repoRoot   for resolving the relative paths
  * @param {Function} [readFile] injected for testing
  */
 export function uncommittedMentionClause(freshness, symbol, repoRoot, readFile = null) {
+  // Normalise to a set of non-empty names. A caller passing [] gets silence, which is correct: no
+  // names means nothing to be relevant to.
+  const names = (Array.isArray(symbol) ? symbol : [symbol])
+    .filter((s) => typeof s === 'string' && s.length > 0);
   const files = freshness?.uncommittedSources;
   // null (tree unobserved) is silent here on purpose: the absence path already tells a reader that
   // the check did not happen, and repeating it on every successful result is the noise this whole
   // design avoids.
   if (!Array.isArray(files) || files.length === 0) return '';
   if (files.length > RELEVANCE_SCAN_CAP) return '';
-  if (!symbol || typeof symbol !== 'string') return '';
+  if (names.length === 0) return '';
 
   const read = readFile ?? ((p) => readFileSync(p, 'utf8'));
   const hits = [];
+  let matched = null;
   for (const entry of files) {
     let text;
     try { text = read(join(repoRoot, entry.path)); } catch { return ''; }
-    if (typeof text === 'string' && text.includes(symbol)) hits.push(entry);
+    if (typeof text !== 'string') continue;
+    const hit = names.find((n) => text.includes(n));
+    if (hit) {
+      hits.push(entry);
+      // Name ONE symbol in the message rather than the whole set: the reader needs a checkable
+      // pointer, and listing every changed name on a large diff is the warning wall again.
+      if (matched === null) matched = hit;
+    }
   }
   if (hits.length === 0) return '';
 
@@ -176,7 +193,7 @@ export function uncommittedMentionClause(freshness, symbol, repoRoot, readFile =
   const shown = hits.slice(0, SHOWN).map((f) => `${f.path} (${f.why})`).join(', ');
   const more = hits.length > SHOWN ? `, +${hits.length - SHOWN} more` : '';
   return `MAY BE INCOMPLETE: ${shown}${more} — uncommitted, so not indexed, and `
-    + `mentions "${symbol}". Commit or graph_index({force:true}) to include it.`;
+    + `mentions "${matched}". Commit or graph_index({force:true}) to include it.`;
 }
 
 // ⛔ A BLOCKER RETURNED AS A STRING IS INDISTINGUISHABLE FROM DATA, AND A CONSUMER WILL LAUNDER IT.

@@ -172,3 +172,67 @@ describe('graph_change_plan carries the disclosure too', () => {
     expect(out).toMatch(/newcaller\.js/);
   }, 120_000);
 });
+
+// ⛔ graph_explain_diff KEYS ON THE SET OF CHANGED SYMBOLS, not a single queried one.
+//
+// It enumerates the callers of the changed symbols (`affected_1hop.by_file`), so an uncommitted
+// caller makes that enumeration short — on the verb whose entire job is to say what a change will
+// break. I first excluded it for having "no single symbol", which generalised from the shape of the
+// ARGUMENT to the absence of the DATA: the names are in `changedSymbols`.
+//
+// ⚠ THIS VERB RETURNS A STRUCTURED OBJECT, not prose. The probe that found this wrapped it in
+// String(), collapsing it to "[object Object]", and the resulting false verdict was the
+// CONSERVATIVE one — it agreed with what I already believed. Hence JSON.stringify here.
+describe('graph_explain_diff discloses an uncommitted caller of a CHANGED symbol', () => {
+  let diffRepo = null;
+  afterAll(() => { if (diffRepo) rmSync(diffRepo, { recursive: true, force: true }); });
+
+  it('★★★ names the uncommitted file, keyed on the changed-symbol set', async () => {
+    const { graphIndex: gi } = await import('../../../mcp/stdio/query/verbs/index.js');
+    const { graphExplainDiff } = await import('../../../mcp/stdio/query/verbs/explain_diff.js');
+    diffRepo = mkdtempSync(join(tmpdir(), 'apg-explaindiff-test-'));
+    mkdirSync(join(diffRepo, 'src'), { recursive: true });
+    writeFileSync(join(diffRepo, 'src', 'base.js'), 'export function target() { return 0; }\n');
+    writeFileSync(join(diffRepo, 'src', 'caller1.js'),
+      "import { target } from './base.js';\nexport function committedCaller() { return target(); }\n");
+    const g = (...a) => execFileSync('git', ['-C', diffRepo, ...a], { encoding: 'utf8', stdio: 'pipe' });
+    g('init', '-q'); g('config', 'user.email', 't@t'); g('config', 'user.name', 't');
+    g('add', '-A'); g('commit', '-qm', 'base');
+    writeFileSync(join(diffRepo, 'src', 'base.js'), 'export function target(extra) { return extra ?? 1; }\n');
+    g('add', '-A'); g('commit', '-qm', 'change target');
+    await gi({ repoRoot: diffRepo, force: false });
+
+    const asText = (v) => (typeof v === 'string' ? v : JSON.stringify(v, null, 1));
+    const before = asText(await graphExplainDiff({ repoRoot: diffRepo, range: 'HEAD~1..HEAD' }));
+    expect(before, 'CONTROL: the verb must enumerate callers, or there is no claim to protect')
+      .toMatch(/caller1\.js/);
+    expectAbsentWithLiveMatcher(
+      /MAY BE INCOMPLETE/,
+      {
+        forbidden: 'MAY BE INCOMPLETE: src/newcaller.js (untracked) — uncommitted, so not indexed',
+        allowed: '"file": "src/caller1.js", "affected_symbols": ["committedCaller"]',
+      },
+      before,
+      'CONTROL: a clean tree carries no clause',
+    );
+
+    writeFileSync(join(diffRepo, 'src', 'newcaller.js'),
+      "import { target } from './base.js';\nexport function uncommittedCaller() { return target(1); }\n");
+    await gi({ repoRoot: diffRepo, force: false });
+
+    const after = asText(await graphExplainDiff({ repoRoot: diffRepo, range: 'HEAD~1..HEAD' }));
+    expectAbsentWithLiveMatcher(
+      /uncommittedCaller/,
+      {
+        forbidden: '"affected_symbols": ["uncommittedCaller"]',
+        // The caller that IS enumerated, and it shares a suffix — a matcher loose enough to confuse
+        // the two fails here instead of passing quietly.
+        allowed: '"affected_symbols": ["committedCaller"]',
+      },
+      after,
+      'the uncommitted caller is genuinely absent — that is the gap',
+    );
+    expect(after, 'so the blast radius must be flagged as possibly short').toMatch(/MAY BE INCOMPLETE/);
+    expect(after).toMatch(/newcaller\.js/);
+  }, 180_000);
+});

@@ -319,7 +319,15 @@ export async function graphExplainDiff({ repoRoot, range, staged = false, files,
     // heuristic unless clangd edges back it; say so explicitly.
     let trustLine = '';
     try {
-      trustLine = await buildTrustLine({ edges: affectedEdges, db, repoRoot });
+      // ⛔ THE SET OF CHANGED SYMBOLS, not a single queried one. This verb enumerates the callers of
+      // the changed symbols (`affected_1hop.by_file`), so an uncommitted caller makes that
+      // enumeration short — measured, on the verb whose job is to say what a change will break.
+      // I first excluded it for having "no single symbol", which generalised from the shape of the
+      // argument to the absence of the data: the names are right there in `changedSymbols`.
+      trustLine = await buildTrustLine({
+        edges: affectedEdges, db, repoRoot,
+        freshness, symbol: changedSymbols.map((s) => s.label).filter(Boolean),
+      });
     } catch { trustLine = RESULTS_TRUST_UNAVAILABLE; }
     const affectedIsHeuristic = !hasLspVerifiedEdge(affectedEdges);
 
