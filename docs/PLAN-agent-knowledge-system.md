@@ -333,9 +333,23 @@ The machinery exists but is opt-in and partial.
   field probe tried to produce it by timing and never achieved overlap at all.
   ⛔ **Tier: PASSES IN TESTS, never exercised for real.** The injected sync is not `ensureFresh`, so
   this is a property of the COALESCER and says nothing about the indexer beneath it.
-  ⛔ **Still open: the COST half** — sustained editing on a large repo, where the question is not
-  correctness but whether overlapping bursts do pathological repeated work. Plus WSL/`/mnt` where the
-  watcher is default-off for unrelated reasons, and a large C++ repo.
+  ⛔ **The COST half is STILL OPEN — and the attempt to measure it found something else.**
+  `docs/evidence/m3-freshness/FINDING-debounce-starves-under-continuous-editing.md`
+  (prereg `1caff29d`, run `docs/evidence/m3-freshness/RUN-sustained-edit-cost.txt`): 229 structural edits at 250 ms over 60 s produced **1 sync, and it
+  did not overlap any edit**. The preregistered abandon rule fired, so nothing in that run answers the
+  cost question and its numbers must not be quoted as if it did.
+  ⭐⭐ **The mechanism is in the code, not inferred from one run:** `watcher.js:126-127` clears and
+  restarts the flush timer on EVERY event with **no maximum wait**, so while events arrive closer
+  together than `debounceMs` (default 750 ms) the burst never flushes at all.
+  ⛔⛔ **A THIRD reason the default stays off, and this one is about the feature's VALUE, not its
+  cost:** during fast sustained editing the watcher delivers no freshness whatsoever, then pays one
+  large bill afterwards. ⚠ Precondition stated exactly: it needs inter-event gaps below 750 ms.
+  Whether real agent workloads sustain that is NOT measured.
+  ⭐ **Why the obvious fix is not applied yet:** a maximum wait converts "no work during editing" into
+  "continuous work during editing" — which IS the unmeasured cost above. Measure overlapping-sync
+  cost by driving `ensureFresh` directly at a controlled rate, THEN decide the maximum wait.
+  ⛔ Also still open: WSL/`/mnt` where the watcher is default-off for unrelated reasons, and a large
+  C++ repo.
   ⚠ **And the blocker's own wording was wrong:** "starts a background process for every install"
   names the wrong thing. `startWatcher` registers ONE recursive `fs.watch` handle **inside the
   existing server process**, with no polling fallback and deliberately not one watch per directory.

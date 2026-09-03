@@ -1,0 +1,32 @@
+# Probe run — sustained-edit cost under the watcher
+
+Command:  node scripts/probe-sustained-edit-cost.mjs
+Prereg:   docs/evidence/m3-freshness/PREREGISTRATION-sustained-edit-cost.md (committed 1caff29d, BEFORE this run)
+Date:     2026-09-03T05:40:14Z
+Commit:   1caff29de8bb71495d93c06e89c254a156ec52b3
+Platform: win32, node v22.20.0
+
+```
+cloning C:\Docker\aify-project-graph -> C:\Users\ADMINI~1\AppData\Local\Temp\apg-sustained-GPmcJo\repo ...
+building the initial graph (a full rebuild; NOT part of the measurement) ...
+  initial build: 67268 ms
+sustained editing for 60000 ms, one structural edit every 250 ms ...
+idle control for 15000 ms (watcher running, no edits) ...
+
+=== CONTROLS ===
+METER can see cost:      485.0 ms CPU for a 500 ms busy loop  PASS
+IDLE arm:                0 sync(s), 2093.0 ms CPU over 15000 ms
+
+=== SUSTAINED EDITING ARM ===
+edits issued:            229
+syncs run:               1
+a sync overlapped edits: false
+mean sync wall:          53097.0 ms   (preregistered pathological threshold: > 210 ms)
+max sync wall:           53097 ms
+process CPU:             51500 ms over 111929 ms wall = 46.0% of one core  (threshold: > 30%)
+drained after last edit: DID NOT DRAIN within 30 s   (threshold: > 1500 ms)
+
+⛔ ABANDON RULE FIRED: sustained load was never produced
+   (syncs=1, overlap=false). CONCLUDE NOTHING about sustained cost.
+```
+PROBE_EXIT=2  (0=ACCEPTABLE, 1=PATHOLOGICAL, 2=ABANDONED/control failed)
