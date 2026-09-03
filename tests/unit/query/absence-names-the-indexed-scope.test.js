@@ -23,8 +23,14 @@ describe('an absence names the population the heuristic graph searched', () => {
   it('★★★ the count is stated, with the limit it implies', async () => {
     const line = await buildAbsenceTrustLine({ noun: 'callers', db: dbWith(881) });
     expect(line).toMatch(/INDEXED SCOPE: 881 files/);
+    // ⚠ WORDING COLLAPSED 2026-09-03. This asserted the long form, "not a statement about the
+    // repository". There are no longer two wordings: `brief` was introduced for NO MATCH after
+    // measuring that "not the whole repository" carries the same guarantee in 48 fewer bytes, and
+    // keeping both was paying for a distinction the measurement had dissolved — on a surface just
+    // measured at 2.4x the warning wall this project once removed. The LIMIT is what matters and is
+    // still asserted; only its spelling changed.
     expect(line, 'the number alone invites a completeness reading it cannot support')
-      .toMatch(/not a statement about the repository/);
+      .toMatch(/not the whole repository/);
   });
 
   it('⛔ POSITIVE CONTROL: a different count renders differently — else the number is decoration', async () => {

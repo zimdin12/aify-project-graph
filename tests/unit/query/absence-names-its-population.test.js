@@ -1,3 +1,8 @@
+// ⚠ LABEL RENAMED 2026-09-03: this clause was `SCOPE:`, and a live absence answer carried SCOPE
+// TWICE for two different facts — the code-intel collection coverage (now `LSP SCOPE:`) and this,
+// which relations were searched (now `RELATIONS:`). Measured with four controls in
+// docs/evidence/m2-contract/FINDING-three-scopes-two-labels.md. The CONTENT is unchanged; only
+// the label moved, so these assertions track the rename rather than a behaviour change.
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -89,7 +94,7 @@ describe('an absence claim names the population it searched', () => {
     const out = String(await graphCallers({ repoRoot, symbol: 'ReferencedOnly' }));
 
     expect(out).toMatch(/^NO CALLERS/m);
-    expect(out).toMatch(/^SCOPE: /m);
+    expect(out).toMatch(/^RELATIONS: /m);
     // The searched family and the skipped one are both named, with the count the graph holds.
     for (const r of EXECUTION_FAMILY) expect(out).toContain(r);
     expect(out).toContain('REFERENCES');
@@ -106,7 +111,7 @@ describe('an absence claim names the population it searched', () => {
     //
     // ⇒ A fail-silent path cannot be verified by observing it. This asserts the line is PRESENT.
     const out = String(await graphCallers({ repoRoot, symbol: 'ReferencedOnly' }));
-    expect(out).toMatch(/^SCOPE: this verb searched/m);
+    expect(out).toMatch(/^RELATIONS: this verb searched/m);
   });
 
   it('⭐ NEGATIVE CONTROL: a symbol with no edge in either family gets NO scope line', async () => {
@@ -114,9 +119,9 @@ describe('an absence claim names the population it searched', () => {
     const out = String(await graphCallers({ repoRoot, symbol: 'TrulyUnused' }));
     expect(out).toMatch(/^NO CALLERS/m);
     expectAbsentWithLiveMatcher(
-      /^SCOPE: /m,
+      /^RELATIONS: /m,
       {
-        forbidden: 'SCOPE: this verb searched the strict call graph (CALLS/INVOKES/PASSES_THROUGH)',
+        forbidden: 'RELATIONS: this verb searched the strict call graph (CALLS/INVOKES/PASSES_THROUGH)',
         allowed: 'TRUST: absence is from the heuristic graph and is NOT exhaustive',
       },
       out,
@@ -142,7 +147,7 @@ describe('an absence claim names the population it searched', () => {
     expect(callers).toMatch(/^NO CALLERS/m);       // strict call graph: genuinely none
     expect(preflight).toMatch(/^CALLERS 1 total/m); // wider family: one
     // The reconciliation an agent needs is present in the narrower answer.
-    expect(callers).toMatch(/^SCOPE: /m);
+    expect(callers).toMatch(/^RELATIONS: /m);
     // ⚠ The remedy names graph_impact, NOT graph_preflight: the default tool profile does not list
     // preflight, and the repo's remedy-reachability guard rejects pointing a reader at a verb they
     // cannot call. The reconciliation still has to be reachable, so it names the one that is.
@@ -174,7 +179,7 @@ describe('an absence claim names the population it searched', () => {
       // test_uses_it REFERENCES a class and calls nothing — the at-risk shape, outgoing.
       const out = String(await graphCallees({ repoRoot, symbol: 'test_uses_it' }));
       expect(out).toMatch(/^NO CALLEES/m);
-      expect(out).toMatch(/^SCOPE: /m);
+      expect(out).toMatch(/^RELATIONS: /m);
       expect(out).toMatch(/1 REFERENCES/);
     });
 
@@ -193,9 +198,9 @@ describe('an absence claim names the population it searched', () => {
       const out = String(await graphCallees({ repoRoot, symbol: 'TrulyUnused' }));
       expect(out).toMatch(/^NO CALLEES/m);
       expectAbsentWithLiveMatcher(
-        /^SCOPE: /m,
+        /^RELATIONS: /m,
         {
-          forbidden: 'SCOPE: this verb searched the strict call graph (CALLS/INVOKES/PASSES_THROUGH)',
+          forbidden: 'RELATIONS: this verb searched the strict call graph (CALLS/INVOKES/PASSES_THROUGH)',
           allowed: 'TRUST: absence is from the heuristic graph and is NOT exhaustive',
         },
         out,
@@ -209,7 +214,7 @@ describe('an absence claim names the population it searched', () => {
       // the other.
       const callers = String(await graphCallers({ repoRoot, symbol: 'ReferencedOnly' }));
       const callees = String(await graphCallees({ repoRoot, symbol: 'test_uses_it' }));
-      const shared = /^SCOPE: this verb searched the strict call graph \(CALLS\/INVOKES\/PASSES_THROUGH\) and did NOT search REFERENCES/m;
+      const shared = /^RELATIONS: this verb searched the strict call graph \(CALLS\/INVOKES\/PASSES_THROUGH\) and did NOT search REFERENCES/m;
       expect(callers).toMatch(shared);
       expect(callees).toMatch(shared);
     });

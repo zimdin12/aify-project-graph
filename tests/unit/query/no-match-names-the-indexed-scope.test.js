@@ -57,12 +57,14 @@ describe('a NO MATCH names the population that was searched', () => {
     // The reason this wording exists at all. If someone lengthens it, the ratio that justified
     // putting it on NO MATCH stops holding, and this fails rather than silently regressing.
     const brief = indexedScopeClause(dbWith(881), { brief: true });
-    const full = indexedScopeClause(dbWith(881));
     const SMALLEST_REAL_NO_MATCH = 251; // measured, scripts/probe-no-match-byte-budget.mjs
     const pct = (brief.length / (SMALLEST_REAL_NO_MATCH + brief.length)) * 100;
-    expect(pct, `brief clause is ${pct.toFixed(1)}% of the smallest real NO MATCH`).toBeLessThan(25);
-    expect(full.length, 'and the full form is genuinely longer — or brief is pointless')
-      .toBeGreaterThan(brief.length);
+    expect(pct, `clause is ${pct.toFixed(1)}% of the smallest real NO MATCH`).toBeLessThan(25);
+    // ⚠ THE full/brief COMPARISON IS GONE, DELIBERATELY. It asserted the long form was longer — true
+    // until the two wordings were collapsed into one, at which point the assertion was pinning a
+    // distinction that no longer earns its bytes. What still matters is that the ONE wording carries
+    // the limit, which is asserted here rather than left to the vanished comparison.
+    expect(brief, 'the single wording must still carry the limit').toMatch(/not the whole repository/);
   });
 
   it('⛔ both surfaces get their number from ONE owner', () => {

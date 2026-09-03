@@ -157,8 +157,14 @@ export function indexedScopeClause(db, { brief = false } = {}) {
   } catch { return ''; }
   if (typeof files !== 'number' || files <= 0) return '';
   const noun = `${files} file${files === 1 ? '' : 's'}`;
-  return brief
-    ? ` INDEXED SCOPE: ${noun} — not the whole repository.`
-    : ` INDEXED SCOPE: ${noun} — this absence is within that scope,`
-      + ' not a statement about the repository.';
+  // ⛔ ONE WORDING NOW, AND THE LONG ONE IS GONE. `brief` was introduced for the NO MATCH surface
+  // after measuring that it still carries the limit — "not the whole repository" is the whole
+  // guarantee the long form spent 48 more bytes to make. Keeping two wordings of one fact was paying
+  // for a distinction that measurement had already dissolved, on a surface this project had just
+  // measured as 2.4x the warning wall it once removed.
+  //
+  // ⚠ The parameter is kept so callers do not all have to change and so the budget gate keeps its
+  // two named surfaces; both branches deliberately produce the same text.
+  void brief;
+  return ` INDEXED SCOPE: ${noun} — not the whole repository.`;
 }

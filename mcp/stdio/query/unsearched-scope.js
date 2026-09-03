@@ -68,7 +68,12 @@ export function unsearchedRelationNote({
     const incoming = column === 'to_id';
     const direction = incoming ? 'pointing at' : 'out of';
     const misreading = incoming ? '"nothing uses it"' : '"it uses nothing"';
-    return `${'\n'}SCOPE: this verb searched the strict call graph (${searched.join('/')}) and did NOT `
+    // ⛔ 'RELATIONS', NOT 'SCOPE'. Measured: a live absence answer carried SCOPE twice, for two
+    // different facts — the code-intel collection's coverage, and this, which relations were
+    // searched. Two labels for one word is a parsing cost paid by every reader, and it is fixable
+    // without any theory of what a reader values.
+    // docs/evidence/m2-contract/FINDING-three-scopes-two-labels.md
+    return `${'\n'}RELATIONS: this verb searched the strict call graph (${searched.join('/')}) and did NOT `
       + `search ${unsearched.join('/')} — of which this graph holds ${detail} ${direction} "${symbol}". `
       + `So this absence does NOT mean ${misreading} — ${remedy}`;
   } catch {

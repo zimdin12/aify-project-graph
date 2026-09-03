@@ -303,11 +303,11 @@ function spineScopeClause(db, noun) {
   if (!c) return '';
   if (c.cause === 'no_code_intel_collection') {
     // Phrased without the noun so it stays grammatical across callers/callees/impact/neighbors.
-    return ` SCOPE: no code-intel collection exists for this repository, so nothing here is`
+    return ` LSP SCOPE: no code-intel collection exists for this repository, so nothing here is`
       + ` compiler-verified — run graph_collect_code_intel to build the trust spine.`;
   }
   if (c.cause === 'no_compile_db') {
-    return ` SCOPE: the C++ collection ran with no compile_commands.json, so clangd resolved no`
+    return ` LSP SCOPE: the C++ collection ran with no compile_commands.json, so clangd resolved no`
       + ` call and this absence is a FLOOR — generate one with -DCMAKE_EXPORT_COMPILE_COMMANDS=ON.`;
   }
   // ⛔ NAME THE COVERAGE, NOT JUST THE LANGUAGE. Measured on this repository, the newest collection
@@ -335,7 +335,7 @@ function spineScopeClause(db, noun) {
   const coverage = (c.files_processed !== null && c.files_eligible !== null)
     ? `, which processed ${c.files_processed} of ${c.files_eligible} eligible files`
     : ', whose file coverage was not recorded';
-  return ` SCOPE: the newest code-intel collection is ${c.language}${coverage};`
+  return ` LSP SCOPE: the newest code-intel collection is ${c.language}${coverage};`
     + ` anything outside it is heuristic only.`;
 }
 

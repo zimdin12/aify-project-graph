@@ -31,8 +31,10 @@ const db = {
 // Any addition fails this test, which forces the trim that was missing while the surface was
 // assembled. Both numbers are ABOVE the 445 B wall this project removed once, so they are
 // stop-growth lines and not targets: the correct direction for either is DOWN.
-const CAVEAT_CEILING_BYTES = 641;        // javascript, clean tree
-const WORST_CASE_CEILING_BYTES = 1042;   // cpp + an uncommitted source — what an agent actually meets
+// ⬇ LOWERED 2026-09-03 after collapsing two wordings of the indexed-scope clause into one. The
+// ratchet only ever moves DOWN without a stated reason; moving it up requires one in the diff.
+const CAVEAT_CEILING_BYTES = 598;        // javascript, clean tree      (was 641)
+const WORST_CASE_CEILING_BYTES = 999;    // cpp + an uncommitted source (was 1042)
 const NO_MATCH_CEILING_BYTES = 157;      // the OTHER surface, shared by nine verbs
 
 describe('the absence caveat surface has an aggregate budget', () => {
