@@ -416,6 +416,27 @@ The machinery exists but is opt-in and partial.
     ⚠ Neither correction measures a false-reconfirm rate, and whether a claim is ever anchored to a
     `Symbol` node rather than the `Function` node over the same code is unmeasured, so correction 2
     may not bite. The recommendation above still stands on the behavioural leg.
+- ✅ **DECIDED 2026-09-03 — DROP M3b, on measurement rather than judgement.** Two runs closed it:
+  - **The ~77% model was right and slightly conservative: measured 81.5%**
+    (`docs/evidence/m3-freshness/FINDING-reconfirm-false-rate.md`, preregistered before the run).
+    600 commits, 1185 files, 9465 claims woken at file granularity, 1749 symbols actually moved —
+    about five woken for every one that moved. All five controls passed.
+    ⚠ The FIRST run read 91.5% and was measuring THIS SESSION: 60 commits inside a two-day window,
+    only 21 touching code, and those unusually comment-heavy. Same instrument, +10 points from the
+    population alone, with every control still passing — controls cannot see a badly chosen
+    population.
+  - **There is nothing to reconfirm** (`docs/evidence/m3-freshness/FINDING-m3b-has-no-claim-store.md`).
+    Of 877 doc→code edges only **41 target a code symbol**; 442 are whole-file pointers and 236 are
+    doc→doc links. Broken pointers are ALREADY detected and shipped (`no_such_path` →
+    `.aify-graph/doc-link-misses.json`). And the schema holds four tables with no claims, anchors or
+    lineage: a reconfirm needs stored CLAIMS ("X validates its input"), the system stores POINTERS
+    ("see X"), and the fingerprint excludes bodies so it is blind to exactly the claims a store
+    would hold.
+  ⇒ Building it means creating a substrate that does not exist, to serve claims the existing
+  substrate cannot see, for a population of 41. It fails the purpose test, and the stop condition
+  says to name that rather than keep building.
+  ⚠ CEILING: one repository, whose docs reference files far more than symbols. A codebase with
+  denser symbol-level documentation could support a different answer; that has not been measured.
 - **Stop when — the single ~10% ceiling was SPLIT by review, and the split is right:**
   - **Carrier correctness: zero tolerance.** A prompt must never name an unchanged population as
     changed. Identity ambiguity, missing baseline, moved span or unreadable bytes become typed
@@ -587,7 +608,7 @@ M1b bounded per-identity answers              | DONE  (overloads split; refusal 
 M2  action/absence contracts                  | DONE  (scope + construct coverage, 5 consumers)
 M3  freshness/reconfirmation                  | ANSWERED, NOT BUILT
                                               |   M3a cost objection REFUSED; default NOT flipped
-                                              |   M3b dispositioned: scope to structural, or drop
+                                              |   M3b DECIDED 2026-09-03: DROP, on measurement
 M4  wider-task surface experiment             | HYPOTHESIS REFUTED — do NOT narrow
 M5  expensive scale A/B                       | WIRED, green, spends nothing
                                               |   BLOCKED on ONE thing: the 72-run budget
