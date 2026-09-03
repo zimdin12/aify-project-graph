@@ -31,6 +31,22 @@ export async function getDirtyFiles(repoRoot) {
 
 export function getDirtyFileEntriesSync(repoRoot) {
   const stdout = execGit(repoRoot, ['status', '--porcelain']);
+  // TWO IGNORE SETS, BECAUSE THERE ARE TWO IGNORE SYSTEMS AND ONLY ONE OF THEM GIT KNOWS ABOUT.
+  //
+  // `.aifyignore` and the built-in directory list (`.codex_tmp`, `worktrees`, `node_modules`, …) are
+  // OURS. Git has never heard of them, so git's output must still be filtered through them — that is
+  // what the four `getDirtyFiles` cases in git.test.js pin, and they are right.
+  //
+  // ⛔ THE PATTERNS PARSED OUT OF .gitignore ARE A DIFFERENT MATTER, AND RE-APPLYING THEM IS THE BUG.
+  // Git already applied them, correctly, including negations. Our parser cannot express negation
+  // precedence — `loadEffectiveIgnoredDirs`'s own comment says so, ten lines up from here — so
+  // running it over git's answer can only prune files git deliberately re-included.
+  //
+  // ⚠ AND THAT REMEDY ALREADY EXISTED. `skipGitignore: true` was added for sweep.js, whose hazard is
+  // identical: git's answer is authoritative and the parser was pre-filtering it. It was applied to
+  // the caller where it was found and not to this one. One fix is not a sweep.
+  const ownIgnores = loadEffectiveIgnoredDirs(repoRoot, { skipGitignore: true });
+  // The walk below never passes through git at all, so it needs the full set, .gitignore included.
   const ignoredDirs = loadEffectiveIgnoredDirs(repoRoot);
 
   return stdout
@@ -43,7 +59,17 @@ export function getDirtyFileEntriesSync(repoRoot) {
       path: normalizeRepoRelativePath(entry.path),
     }))
     .filter((entry) => entry.path)
-    .filter((entry) => !pathContainsIgnoredDir(entry.path, ignoredDirs));
+    // ⛔ ONLY WALK OUTPUT IS RE-FILTERED. Measured on this repository before the fix, on an otherwise
+    // clean tree: `git status --porcelain` reported " M docs/evidence/suite/latest.log" and this
+    // function returned []. `.gitignore` carries `*.log` at line 4 and the negation
+    // `!docs/evidence/suite/*.log` at line 11 — written deliberately so suite evidence could be
+    // committed. Git honours that negation; `pathContainsIgnoredDir` does not, so the file this
+    // project uses as its own push evidence was invisible to the freshness machinery and
+    // `graph_packet` rendered `dirty=0` on a dirty tree. A dirty count that reads LOW is the
+    // fail-open direction: it tells an agent the snapshot agrees with the source when it does not.
+    .filter((entry) => !pathContainsIgnoredDir(entry.path, entry.fromExpansion ? ignoredDirs : ownIgnores))
+    // `fromExpansion` is internal routing, not part of this function's contract.
+    .map(({ fromExpansion, ...entry }) => entry);
 }
 
 export function getDirtyFilesSync(repoRoot) {
@@ -234,10 +260,24 @@ function parseStatusLine(line) {
   };
 }
 
+// ⛔ WHO NAMED THIS PATH — GIT, OR OUR OWN DIRECTORY WALK? The two need opposite treatment, and
+// collapsing them is what made a tracked file invisible.
+//
+// A path git NAMED is already ignore-correct by git's evaluation: git does not apply .gitignore to
+// tracked files at all, and does not list ignored untracked ones. Re-filtering those through our own
+// approximation can only DROP what git deliberately reported.
+//
+// A path our WALK produced is different. Git reports an untracked directory as one `?? dir/` entry,
+// so the files inside it never passed git's per-file check and genuinely do need filtering.
+//
+// `fromExpansion` carries that distinction to the filter instead of leaving it to be guessed.
 function expandEntry(repoRoot, entry, ignoredDirs) {
   const normalized = normalizeRepoRelativePath(entry.path);
-  if (!entry.untracked || !normalized.endsWith('/')) return [{ ...entry, path: normalized }];
-  return expandUntrackedDirectory(repoRoot, normalized, ignoredDirs).map((path) => ({ ...entry, path }));
+  if (!entry.untracked || !normalized.endsWith('/')) {
+    return [{ ...entry, path: normalized, fromExpansion: false }];
+  }
+  return expandUntrackedDirectory(repoRoot, normalized, ignoredDirs)
+    .map((path) => ({ ...entry, path, fromExpansion: true }));
 }
 
 function expandUntrackedDirectory(repoRoot, relDir, ignoredDirs) {
