@@ -217,12 +217,12 @@ function buildResolvers(db) {
     WHERE json_extract(extra, '$.qname') = ?
   `);
 
-  const findByQnameSuffix = db.raw.prepare(`
-    SELECT *
-    FROM nodes
-    WHERE json_extract(extra, '$.qname') = ?
-       OR json_extract(extra, '$.qname') LIKE ?
-  `);
+  // (The per-candidate qname-suffix SELECT that stood here is gone: it full-scanned `nodes` on every
+  // lookup because its LIKE pattern always began with '%'. See qnameSuffixIndex below.)
+
+  // Natural rowid order, so a bucket lists its nodes in the same relative order the old
+  // per-candidate SELECT returned them in. Callers rank these rows.
+  const allNodesForSuffixIndex = db.raw.prepare(`SELECT * FROM nodes`);
 
   const findByLabel = db.raw.prepare(`
     SELECT *
@@ -282,6 +282,60 @@ function buildResolvers(db) {
   const pendingNodes = [];
   const pendingByQname = new Map();
   const pendingByLabel = new Map();
+  // ⛔ THE SUFFIX INDEX EXISTS BECAUSE ITS ABSENCE COST 69% OF AN INCREMENTAL INDEX.
+  //
+  // `findByQnameSuffix` used to run `pendingNodes.filter(...)` on every lookup — O(candidates x
+  // pendingNodes) — while `findByExactQname` and `findByLabel` beside it read prebuilt Maps. Two of
+  // three finders were indexed and this one was not. Measured 2026-09-03 at 38.29 s of a 55 s run
+  // (docs/evidence/m3-freshness/FINDING-one-edit-costs-a-full-rebuild.md).
+  //
+  // ⚠ WHY EVERY DOTTED SUFFIX, AND WHY THAT IS EXACTLY EQUIVALENT. The old predicate accepted a node
+  // when `qname === candidate || qname.endsWith('.' + candidate)` — i.e. exactly when the candidate
+  // is one of the qname's dotted suffixes, the whole qname included. Enumerating those suffixes at
+  // registration turns the same predicate into a lookup without widening or narrowing it.
+  //
+  // ⚠ ORDER IS PRESERVED, and it matters: callers rank the returned rows. Buckets are appended in
+  // `registerPending` order, which is `pendingNodes` order, so a bucket lists its nodes in the same
+  // relative order the old filter produced.
+  const pendingByQnameSuffix = new Map();
+
+  // ⛔ ONE TABLE SCAN, NOT ONE PER CANDIDATE. The statement this replaces was
+  //     WHERE json_extract(extra,'$.qname') = ?  OR  json_extract(extra,'$.qname') LIKE ?
+  // and the LIKE pattern always began with '%', which no index can serve. The OR then denied the
+  // '=' branch its index too, so every candidate full-scanned `nodes` and ran json_extract on every
+  // row. Measured 2026-09-03: 37.11 s of a 44.9 s incremental index — 82.6% — AFTER the pending-side
+  // scan had already been removed, which is how the SQL was identified as the real cost rather than
+  // the JS filter the profile frame is named for.
+  //
+  // ⚠ SAFE TO SNAPSHOT because `resolveRefs` calls `buildResolvers(db)` once and performs NO writes
+  // to `nodes` while resolving — new symbols go to `pendingNodes` and are persisted by the caller
+  // afterwards. So this snapshot is exactly what the per-candidate query would have seen.
+  //
+  // ⛔ AND IT IS NOT BYTE-EQUIVALENT TO THE OLD PREDICATE — read this before "simplifying" it back.
+  // SQL LIKE treats `_` as "any single character", and identifiers are full of underscores, so
+  // `LIKE '%.get_name'` also matched a qname ending `.getXname`. This match is LITERAL. That makes
+  // it stricter, and it makes it agree with the pending-node half beside it, which always used a
+  // literal `endsWith`. The two halves of one lookup disagreed on wildcard semantics.
+  let nodeQnameSuffixIndex = null;
+
+  function qnameSuffixIndex() {
+    if (nodeQnameSuffixIndex) return nodeQnameSuffixIndex;
+    const index = new Map();
+    for (const row of allNodesForSuffixIndex.all()) {
+      const node = normalizeNode(row);
+      const qname = node?.extra?.qname ?? '';
+      if (!qname) continue;
+      const parts = qname.split('.');
+      for (let i = 0; i < parts.length; i += 1) {
+        const suffix = parts.slice(i).join('.');
+        const bucket = index.get(suffix) ?? [];
+        bucket.push(node);
+        index.set(suffix, bucket);
+      }
+    }
+    nodeQnameSuffixIndex = index;
+    return index;
+  }
 
   function registerPending(node) {
     const normalized = normalizeNode(node);
@@ -292,6 +346,14 @@ function buildResolvers(db) {
       const existing = pendingByQname.get(qname) ?? [];
       existing.push(normalized);
       pendingByQname.set(qname, existing);
+
+      const parts = qname.split('.');
+      for (let i = 0; i < parts.length; i += 1) {
+        const suffix = parts.slice(i).join('.');
+        const bucket = pendingByQnameSuffix.get(suffix) ?? [];
+        bucket.push(normalized);
+        pendingByQnameSuffix.set(suffix, bucket);
+      }
     }
 
     const label = normalized.label ?? '';
@@ -398,13 +460,10 @@ function buildResolvers(db) {
       );
     },
     findByQnameSuffix(candidate) {
-      const pending = pendingNodes.filter((node) => {
-        const qname = node.extra?.qname ?? '';
-        return qname === candidate || qname.endsWith(`.${candidate}`);
-      });
+      // See pendingByQnameSuffix and qnameSuffixIndex above for why both halves are lookups.
       return mergeRows(
-        normalizeRows(findByQnameSuffix.all(candidate, `%.${candidate}`)),
-        pending,
+        qnameSuffixIndex().get(candidate) ?? [],
+        pendingByQnameSuffix.get(candidate) ?? [],
       );
     },
     findByLabel(label) {

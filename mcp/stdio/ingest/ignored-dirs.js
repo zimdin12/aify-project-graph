@@ -62,7 +62,25 @@ function isPathPattern(value) {
   return /[/*?[\]]/u.test(value);
 }
 
+// ⛔ COMPILED ONCE PER PATTERN. `pathMatchesPattern` calls this from inside a `.some()` over the
+// path's segments, so before this cache a fresh RegExp was constructed for every segment, of every
+// pattern, on every path tested. Measured 2026-09-03 at 7.27 s — 13.2% of a 55 s incremental index
+// (docs/evidence/m3-freshness/FINDING-one-edit-costs-a-full-rebuild.md).
+//
+// ⚠ Safe to cache because this is a pure function of one string: the same pattern always compiles to
+// the same expression, and the returned RegExp carries no /g or /y, so it holds no `lastIndex` state
+// that a second caller could disturb.
+const globCache = new Map();
+
 function globToRegExp(pattern) {
+  const cached = globCache.get(pattern);
+  if (cached) return cached;
+  const compiled = compileGlob(pattern);
+  globCache.set(pattern, compiled);
+  return compiled;
+}
+
+function compileGlob(pattern) {
   let out = '^';
   for (let i = 0; i < pattern.length; i += 1) {
     const ch = pattern[i];
