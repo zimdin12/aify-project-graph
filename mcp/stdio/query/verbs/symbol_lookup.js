@@ -322,7 +322,21 @@ export function buildAmbiguousMatchMessage(symbol, rows, limit = 5, rowsTotal = 
     ? 'These are an OVERLOAD SET — same qualified name, DIFFERENT PARAMETER TYPES (shown in parentheses). No amount of namespace qualification separates them, so do NOT retry with a longer name. Scope to one definition with file= plus the line shown above, or use code_intel_references at that position for per-symbol evidence.'
     : qualified
       ? 'These are DISTINCT definitions (same name, different namespace/file) — class qualification did not disambiguate. Add more namespace qualification (Namespace::Class::method) or query one file to avoid overstating impact.'
-      : 'Retry with a qualified symbol (Class::method / Namespace::Class::method) or use a file-specific query.';
+      // ⛔ "or use a file-specific query" WAS A REMEDY THAT CANNOT CHANGE THE ANSWER. Measured: the
+      // target is resolved by `expandClassRollupTargets(db, symbol)`, which never receives `file`;
+      // `file` filters the CALLER's path afterwards (callers.js). So `{symbol:'render',
+      // file:'src/alpha.js'}` still returns AMBIGUOUS MATCH — verified with the file pointing at the
+      // target's own module AND at a caller's.
+      //
+      // ⚠ THIS IS THE DEFECT CLASS THIS FILE FAMILY ALREADY NAMES, in noMatchMessage: "the remedy
+      // must be an action that can change the answer". The ambiguity message was recommending the
+      // one thing that provably cannot resolve the ambiguity it reports.
+      //
+      // ⇒ Point at the candidates printed directly above instead. Measured usable as input in all
+      // four spellings — `src::alpha::render`, `src.alpha.render`, `alpha::render`, `alpha.render`
+      // all resolve — so this is an action, not a restatement of the question.
+      : 'Retry with one of the qualified names listed above — they resolve as shown. `file=` filters'
+        + ' which CALLERS are listed, not which definition is meant, so it cannot disambiguate this.';
 
   const crossLanguageNote = crossLanguage
     ? [
