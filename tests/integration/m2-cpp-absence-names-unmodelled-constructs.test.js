@@ -66,14 +66,24 @@ describe('M2 — a real C++ absence names what was not modelled', () => {
     expect(text).toMatch(/inactive #ifdef branch/);
   });
 
-  it('⛔ a JavaScript repo pays ZERO bytes for it, through the same verb', async () => {
+  it('★★★ a JavaScript repo names its OWN blind spot, and never the C++ one', async () => {
+    // ⚠ THIS ASSERTED "ZERO BYTES" UNTIL 2026-09-03, on the premise that unmodelled call constructs
+    // are a C/C++ phenomenon. A fixture falsified it: JS `table[name]()` and `o[k]()` produce no
+    // caller edge while a direct call in the same file does. The wall argument survives and is now
+    // carried by the eight languages with no verified blind spot, which still pay nothing.
+    //
+    // ⛔ THE PART THAT MUST NOT REGRESS is that each language names ITS OWN constructs. A JS repo
+    // carrying the C++ sentence would be a false caveat — the failure mode the sibling
+    // extern-without-header test exists to prevent, in the other direction.
     const text = String(await graphCallers({ repoRoot: jsRepo, symbol: 'alpha.Widget.render', top_k: 10, depth: 1 }));
+    expect(text, 'a JS absence states what JS analysis cannot see').toMatch(/NOT MODELLED/);
+    expect(text, 'and names the JS construct').toMatch(/computed key/);
     expectAbsentWithLiveMatcher(
-      /NOT MODELLED/,
+      /macro-generated/,
       { forbidden: 'NOT MODELLED: a macro-generated call is invisible to BOTH tiers.',
-        allowed: 'absence is from the heuristic graph and is NOT exhaustive' },
+        allowed: 'NOT MODELLED: a call through a computed key — table[name](), obj[k]()' },
       text,
-      'the construct clause is C/C++ only; a JS repo must not carry it',
+      'a JS repo must never carry the C++ construct list',
     );
   });
 
