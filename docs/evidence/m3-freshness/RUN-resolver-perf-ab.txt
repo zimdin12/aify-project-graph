@@ -54,3 +54,24 @@ constant, the hashes are identical.
 
 ⇒ A plausible causal story for an artifact is more dangerous than an unexplained one, and this story
 was credible precisely because the mechanism it named genuinely exists.
+
+## ⛔ NOUN CORRECTION (2026-09-03, after b4a1c0fd) — the headline measured the wrong thing
+
+Commit b4a1c0fd is titled "one edit no longer costs a full rebuild — 52.0 s -> 19.6 s". Both numbers
+are FULL REBUILD times. The finding was about a ONE-EDIT INCREMENTAL, and the only incremental
+numbers on record at that point (42-44 s) had just the FIRST of the three fixes applied. So the
+headline attached a real measurement to the wrong noun, and understated the result.
+
+Re-measured with all three fixes, same clone, same source, only the code varying:
+
+    PRE-FIX   one-edit incremental   49,194 ms / 49,356 ms   (processedFiles=4)
+    POST-FIX  one-edit incremental    6,803 ms /  6,745 ms / 6,924 ms   (processedFiles=4)
+
+    mean 49,275 ms -> 6,824 ms   =  86.2% reduction
+
+⇒ The correct headline is **one edit: 49.3 s -> 6.8 s**. The full-rebuild figure is a different
+measurement of a different noun and is not the claim the finding made.
+
+⚠ Full-rebuild timings vary more than the incremental ones across clones and warmth (19,559 ms,
+29,685 ms, 52,041 ms observed for the same code on different clones/runs). The incremental A/B
+repeated within one clone is the stable comparison; do not quote the rebuild spread as a result.

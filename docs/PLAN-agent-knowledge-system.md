@@ -348,6 +348,12 @@ The machinery exists but is opt-in and partial.
   ⭐ **Why the obvious fix is not applied yet:** a maximum wait converts "no work during editing" into
   "continuous work during editing" — which IS the unmeasured cost above. Measure overlapping-sync
   cost by driving `ensureFresh` directly at a controlled rate, THEN decide the maximum wait.
+  ⭐⭐ **AND THAT TRADE MOVED ON 2026-09-03.** A one-edit incremental now costs **6.8 s, down from
+  49.3 s** (86.2%, same clone, only the code varying —
+  `docs/evidence/m3-freshness/RUN-resolver-perf-ab.txt`). Every cost argument in this section was
+  conducted against a per-sync price that is now roughly a seventh of what it was, which makes a
+  maximum wait far more affordable than when the objection was written. It does not make the
+  measurement optional — it changes the number that measurement will find.
   ⛔ Also still open: WSL/`/mnt` where the watcher is default-off for unrelated reasons, and a large
   C++ repo.
   ⚠ **And the blocker's own wording was wrong:** "starts a background process for every install"
