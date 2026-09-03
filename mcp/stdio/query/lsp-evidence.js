@@ -296,6 +296,36 @@ export function spineCoverage(db) {
 // and that duplicate-anchor count is what exposed the overclaim.
 //
 // Now it renders `spineCoverage`'s verdict as a sentence and decides nothing itself.
+/**
+ * Name the population the HEURISTIC graph actually searched.
+ *
+ * ⛔ M2's second half — "separate 'no callers in indexed scope' from 'no callers' and NAME the
+ * scope" — was unmet for this tier. `spineScopeClause` below names the COMPILER-VERIFIED scope well
+ * ("processed 73 of 627 eligible files"), but a repo with no collection has only the heuristic tier,
+ * and that named nothing. Measured: neither absence shape stated an indexed population.
+ * See docs/evidence/m2-contract/FINDING-absence-does-not-name-the-indexed-scope.md
+ *
+ * ⚠ "No callers" from a graph that indexed 881 files and the same sentence from one that indexed 200
+ * are the identical string, and the agent deciding whether to delete cannot tell them apart.
+ *
+ * ⛔ NUMERATOR ONLY, AND DELIBERATELY. A denominator — how many source files the repository holds —
+ * would need a walk this path does not do, and inventing one lets a reader compute a completeness
+ * figure nobody measured. That is the rule `spineScopeClause` already states for its own ratio
+ * ("UNKNOWN STAYS UNKNOWN"), applied here rather than restated and broken.
+ *
+ * ⚠ SILENT ON AN UNREADABLE COUNT, not reassuring: a failed query must not render as "0 files".
+ */
+function indexedScopeClause(db) {
+  if (!db) return '';
+  let files = null;
+  try {
+    files = db.get(`SELECT COUNT(*) AS c FROM nodes WHERE type = 'File'`)?.c ?? null;
+  } catch { return ''; }
+  if (typeof files !== 'number' || files <= 0) return '';
+  return ` INDEXED SCOPE: ${files} file${files === 1 ? '' : 's'} — this absence is within that scope,`
+    + ' not a statement about the repository.';
+}
+
 function spineScopeClause(db, noun) {
   const c = spineCoverage(db);
   if (!c) return '';
@@ -470,6 +500,11 @@ export const RESULTS_TRUST_UNAVAILABLE =
 
 export async function buildAbsenceTrustLine({ noun = 'edges', db, language = null, freshness = null } = {}) {
   const scope = db ? spineScopeClause(db, noun) : '';
+  // ⛔ M2's SECOND HALF: name what the heuristic tier searched, not only what the verified tier
+  // missed. `scope` above describes the code-intel collection; this describes the graph itself, and
+  // a repo with no collection has only the graph. Measured absent on both absence shapes before it
+  // was added.
+  const indexedScope = db ? indexedScopeClause(db) : '';
   // Zero bytes on a repo with no C/C++ — the 445-byte warning wall this project already had to tear
   // out was unconditional prose, and the lesson was that a caveat everyone skims protects nobody.
   const constructs = constructCoverageClause(language);
@@ -490,7 +525,7 @@ export async function buildAbsenceTrustLine({ noun = 'edges', db, language = nul
   const uncommitted = uncommittedSourceClause(freshness ?? {});
   return `TRUST: absence is from the heuristic graph and is NOT exhaustive — `
     + `for a trustworthy "no ${noun}" check use code_intel_references `
-    + `(live clangd, per-symbol evidence), or verify with rg.${scope}${constructs}`
+    + `(live clangd, per-symbol evidence), or verify with rg.${indexedScope}${scope}${constructs}`
     + (uncommitted ? `\n${uncommitted}` : '');
 }
 
