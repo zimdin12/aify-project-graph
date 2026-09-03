@@ -68,6 +68,27 @@ describe('a non-empty result names uncommitted files that MENTION the queried sy
     );
   }, 120_000);
 
+  it('⛔ SUBSTRING-ONLY: an uncommitted file containing `retarget` does NOT count as mentioning `target`', async () => {
+    // The measured defect, end to end. Before the identifier-boundary fix this file fired the clause
+    // and told the agent it mentioned `target` — 47.4% of relevance decisions on this repo's own
+    // short labels were of exactly this kind.
+    writeFileSync(join(repo, 'src', 'substring-only.js'),
+      'export function retargeted() { return 1; }\nexport const budgetTarget = 2;\n');
+    await graphIndex({ repoRoot: repo, force: false });
+
+    const out = String(await graphCallers({ repoRoot: repo, symbol: 'target' }));
+    expect(out, 'the result must still be the real one').toMatch(/committedCaller/);
+    expectAbsentWithLiveMatcher(
+      /substring-only\.js/,
+      {
+        forbidden: 'MAY BE INCOMPLETE: src/substring-only.js (untracked) — uncommitted',
+        allowed: 'MAY BE INCOMPLETE: src/newcaller.js (untracked) — uncommitted',
+      },
+      out,
+      'a file where the name only sits inside longer identifiers must not be called a mention',
+    );
+  }, 120_000);
+
   it('★★★ an uncommitted file that DOES mention the symbol is named, with a remedy', async () => {
     writeFileSync(join(repo, 'src', 'newcaller.js'),
       "import { target } from './base.js';\nexport function uncommittedCaller() { return target(); }\n");

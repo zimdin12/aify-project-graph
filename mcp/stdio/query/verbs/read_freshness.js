@@ -127,6 +127,39 @@ export function uncommittedSourceClause(freshness) {
 // would put the cost exactly where that field report said not to.
 const RELEVANCE_SCAN_CAP = 25;
 
+const IDENTIFIER_CHAR = /[A-Za-z0-9_$]/;
+
+/**
+ * Does `text` contain `name` as a WHOLE IDENTIFIER, not merely as a substring?
+ *
+ * ⛔ MEASURED DEFECT, fixed hours after shipping. The first version of the relevance gate used
+ * `text.includes(name)`, so a symbol called `get` matched a file containing `budget`, `target` or
+ * `widget` and the clause told an agent the file mentioned a symbol it does not contain. On this
+ * repository's own labels: 1870 of 3942 relevance decisions — 47.4% — were substring-only, and the
+ * graph holds several SINGLE-CHARACTER labels that match essentially every file.
+ * See docs/evidence/m2-contract/FINDING-relevance-gate-fires-on-substrings.md
+ *
+ * ⛔ AND THE TRUST LINE PRINTED BESIDE THIS CLAUSE ALREADY WARNED ABOUT IT: "a common name (has,
+ * get, writeFile) OVERCOUNTS with unrelated same-named calls" (lsp-evidence.js). Adjacent knowledge
+ * does not stop the defect it describes.
+ *
+ * ⚠ AN INDEX SCAN, DELIBERATELY, NOT A REGEX. `\b` would need the name escaped, and it is wrong or
+ * unbuildable for identifiers carrying `::`, `~` or `operator<<` — all of which appear in the C++
+ * graphs this product indexes. Scanning for non-identifier neighbours needs no escaping and is
+ * correct for any name.
+ */
+export function mentionsIdentifier(text, name) {
+  if (typeof text !== 'string' || typeof name !== 'string' || name.length === 0) return false;
+  let i = text.indexOf(name);
+  while (i !== -1) {
+    const before = i === 0 ? '' : text[i - 1];
+    const after = text[i + name.length] ?? '';
+    if (!IDENTIFIER_CHAR.test(before) && !IDENTIFIER_CHAR.test(after)) return true;
+    i = text.indexOf(name, i + 1);
+  }
+  return false;
+}
+
 /**
  * The same disclosure for a NON-EMPTY result — gated on RELEVANCE rather than on existence.
  *
@@ -179,7 +212,7 @@ export function uncommittedMentionClause(freshness, symbol, repoRoot, readFile =
     let text;
     try { text = read(join(repoRoot, entry.path)); } catch { return ''; }
     if (typeof text !== 'string') continue;
-    const hit = names.find((n) => text.includes(n));
+    const hit = names.find((n) => mentionsIdentifier(text, n));
     if (hit) {
       hits.push(entry);
       // Name ONE symbol in the message rather than the whole set: the reader needs a checkable
