@@ -1,0 +1,43 @@
+# Probe run — what does ONE edit actually cost?
+
+Command:  node scripts/probe-incremental-scope.mjs
+Date:     2026-09-03T06:12:44Z
+Commit:   a2a10ace4086a6ee8d53639438176b9a1159e3a1
+Platform: win32, node v22.20.0
+
+```
+cloning C:\Docker\aify-project-graph ...
+full rebuild (the baseline the incremental runs are compared against) ...
+  full rebuild: 67965 ms over 880 File nodes
+  1 appended function        58036 ms   processedFiles=4   (0.5% of 880)
+  229 appended functions     56998 ms   processedFiles=4   (0.5% of 880)
+
+=== CONTROL ===
+edit reached the graph: 229 probeMany* nodes  PASS
+
+=== VERDICT (preregistered discriminator: processedFiles vs File nodes) ===
+INCREMENTAL IS SCOPED: at most 4 of 880 files (0.5%). The full-rebuild hypothesis for the 53 s is REFUTED.
+```
+
+## CPU profile of one isolated incremental run (55.0 s, processedFiles=4)
+
+Captured with `node --cpu-prof` in a separate process against an already-built clone, so the
+full rebuild could not dominate the profile. Self time, top rows:
+
+```
+total profiled: 55.3 s
+
+SELF TIME    %     function @ file:line
+  38.29 s   69.3%  findByQnameSuffix  @  stdio/ingest/resolver.js:400
+   7.27 s   13.2%  globToRegExp  @  stdio/ingest/ignored-dirs.js:65
+   2.00 s    3.6%  existsSync  @  :0
+   1.17 s    2.1%  run  @  stdio/storage/db.js:11
+   0.61 s    1.1%  pathMatchesPattern  @  stdio/ingest/ignored-dirs.js:89
+   0.55 s    1.0%  (idle)  @  :0
+   0.42 s    0.8%  prepare  @  lib/methods/wrappers.js:4
+   0.38 s    0.7%  normalizeRepoRelativePath  @  stdio/ingest/ignored-dirs.js:203
+   0.37 s    0.7%  (garbage collector)  @  :0
+   0.34 s    0.6%  spawnSync  @  node:internal/child_process:1105
+   0.32 s    0.6%  findByFilePathSuffix  @  stdio/ingest/resolver.js:416
+   0.23 s    0.4%  findExternalCandidate  @  stdio/ingest/resolver.js:333
+```
