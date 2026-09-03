@@ -31,8 +31,16 @@ afterEach(async () => {
   repo = undefined;
 });
 
-/** A repo with a graph, one lsp-verified edge, and a collection row we control. */
-async function repoWithCollection(coverage) {
+/**
+ * A repo with a graph, lsp-verified edges, and a collection row we control.
+ *
+ * ⚠ `verifiedEdges` IS A POPULATION, NOT A COUNT. The default keeps the single edge every existing
+ * test here relies on. A caller that passes its own list is separating two things the fixture used
+ * to fuse: how many files carry compiler-verified edges, and how many files a collection recorded.
+ */
+async function repoWithCollection(coverage, {
+  verifiedEdges = [{ file: 'src/a.ts', relation: 'CALLS' }],
+} = {}) {
   repo = await mkdtemp(join(tmpdir(), 'apg-cov-'));
   await mkdir(join(repo, '.aify-graph'), { recursive: true });
   execFileSync('git', ['-C', repo, 'init', '-q'], { stdio: 'ignore' });
@@ -74,9 +82,13 @@ async function repoWithCollection(coverage) {
   }
   // ⚠ An lsp-verified edge, so the "no [lsp✓] edges" branch cannot be what fires. Without this
   // the test would pass against a completely different condition.
-  db.run(
-    `INSERT INTO edges (from_id,to_id,relation,source_file,source_line,confidence,provenance,extractor)
-     VALUES ('a','b','CALLS','src/a.ts',1,1,'LSP_VERIFIED','ts-langserver')`);
+  for (const e of verifiedEdges) {
+    db.run(
+      `INSERT INTO edges (from_id,to_id,relation,source_file,source_line,confidence,provenance,extractor)
+       VALUES ('a','b',$r,$f,1,1,'LSP_VERIFIED','ts-langserver')`,
+      { r: e.relation, f: e.file },
+    );
+  }
   db.run(
     `INSERT INTO code_intel_collections
        (collection_id, provider, provider_version, project_root, language, status,
@@ -90,8 +102,12 @@ async function repoWithCollection(coverage) {
   return repo;
 }
 
+// ⚠ THE LOCATOR NAMES BOTH NOUNS THE BRANCH CAN USE. It matched only "code-intel collection", so
+// rewording the coverage sentence to say what it actually counts — records — would have made every
+// test in this file green by finding nothing, which is the failure mode where a search that returns
+// nothing is indistinguishable from a broken instrument.
 const codeIntelAction = (h) => (h.nextActions ?? [])
-  .find((a) => /code-intel collection/.test(a.why ?? ''));
+  .find((a) => /code-intel (collection|records)/.test(a.why ?? ''));
 
 describe('health reports what a collection COVERS, not that one exists', () => {
   it('★★★ a SCOPED collection warns, naming both real numbers', async () => {
@@ -169,5 +185,98 @@ describe('health reports what a collection COVERS, not that one exists', () => {
     // ⚠ POSITIVE CONTROL: the rule is only meaningful if it inspects a non-empty set, and an
     // empty `populationFields` would satisfy the assertion above for the wrong reason.
     expect(populationFields.length, 'the check actually looked at fields').toBeGreaterThan(2);
+  }, 30_000);
+});
+
+// ⛔ THE COUNT CAME FROM RECORDS AND THE CLAIM WAS ABOUT EDGES.
+//
+// The warning above reads: "the code-intel collection covers 624 of 854 eligible file(s), so
+// [lsp✓] evidence exists for part of the repo only". Two different populations, joined by "so":
+//
+//   624  DISTINCT `file` in code_intel_records, across EVERY live collection ever imported
+//        (coveredFilePaths in collect_code_intel.js, filesProcessedSource "all_live_collections")
+//    31  DISTINCT `source_file` among edges with provenance LSP_VERIFIED
+//
+// `[lsp✓]` renders from an EDGE and from nothing else — renderer.js:39-42 and trace.js:255 both
+// switch on `provenance === 'LSP_VERIFIED'`, and no path in query/ renders the marker from a
+// record. So the sentence attached a records figure to an edge claim, and a reader computing the
+// obvious ratio concluded 73% compiler-verified coverage on a graph whose verified edges touch 31
+// files of 854 (3.6%).
+//
+// MECHANISM, read in importer.js:755-773 rather than inferred: a complete unscoped `ok` collection
+// DELETES the prior LSP_VERIFIED edges for its language before importing its own. It does not
+// delete their records. So records outlive the edges they were imported alongside, and the union
+// numerator counts files whose verified evidence was thrown away by a later run.
+//
+// MEASURED on this repository's own graph, 2026-09-04, controls in the same pass:
+//   distinct source_file among LSP_VERIFIED edges                          31
+//   of those, files OUTSIDE the latest collection's record set              0   <- the falsifier
+//   [POSITIVE CONTROL] of those, files INSIDE it                           31   <- membership works
+//   distinct record files across all live collections                     640 (624 in corpus)
+//
+// The falsifier was preregistered: if ANY file outside the latest collection still carried a live
+// verified edge, the union numerator would be tracking the verified surface and this finding would
+// be dead. Zero did.
+//
+// ⚠ WHAT THIS DOES NOT CLAIM. It does not say the union numerator is the wrong field — it was
+// introduced to fix the opposite failure (a 3-file targeted collect reporting "3 of 557" as though
+// the repo were 0.5% covered) and that reasoning still holds for a RECORDS question. The defect is
+// the sentence that borrows it to answer an EDGES question.
+//
+// ⚠ AND THE SIBLING SURFACE IS FINE. `spineScopeClause` in lsp-evidence.js names the latest
+// collection and its own numbers ("processed 73 of 627"), which after a complete run IS the live
+// verified spine, and after a partial one understates it — failing closed. Only this surface fails
+// open, so only this one changes.
+describe('the coverage warning names the surface [lsp✓] actually covers', () => {
+  it('★★★ the record count is not offered as the compiler-verified surface', async () => {
+    // Records for 3 files; verified edges touch exactly 1 of them.
+    await repoWithCollection({ processed: 3, inScope: 3, eligible: 484 },
+      { verifiedEdges: [{ file: 'src/a.ts', relation: 'CALLS' }] });
+    const h = await graphHealth({ repoRoot: repo });
+
+    // Bucket by the shape OBSERVED: if this is not the coverage branch, the assertions below
+    // describe some other sentence.
+    const action = codeIntelAction(h);
+    expect(action, 'fixture precondition: the coverage branch must be the one that fired').toBeTruthy();
+
+    expect(action.why, 'the records figure survives — it answers a real question')
+      .toContain('3 of 484');
+    expect(action.why, 'and the verified surface is stated in the same sentence, in its own noun')
+      .toMatch(/\[lsp✓\] edges reach only 1 file/);
+  }, 30_000);
+
+  it('★★★ the verified number counts FILES, not edges', async () => {
+    // ⛔ THE MUTANT THIS EXISTS TO KILL. `lspVerifiedEdges` is already computed one line away and
+    // reads as the obvious source; using it would report 3 here and would be wrong by exactly the
+    // ratio of edges to files — a number that grows with how well the collection worked.
+    await repoWithCollection({ processed: 3, inScope: 3, eligible: 484 }, {
+      verifiedEdges: [
+        { file: 'src/a.ts', relation: 'CALLS' },
+        { file: 'src/a.ts', relation: 'REFERENCES' },
+        { file: 'src/a.ts', relation: 'USES' },
+      ],
+    });
+    const h = await graphHealth({ repoRoot: repo });
+
+    expect(h.codeIntel.lspVerifiedEdges, 'fixture precondition: three edges, one file').toBe(3);
+    const action = codeIntelAction(h);
+    expect(action, 'fixture precondition: the coverage branch fired').toBeTruthy();
+    expect(action.why, 'one file carries all three edges').toMatch(/reach only 1 file/);
+    expect(action.why, 'the edge count must not stand in for the file count')
+      .not.toMatch(/reach only 3 file/);
+  }, 30_000);
+
+  it('★★ POSITIVE CONTROL — the count moves with the population', async () => {
+    // Without this, a hardcoded "1" satisfies both tests above. Same fixture, two files verified.
+    await repoWithCollection({ processed: 3, inScope: 3, eligible: 484 }, {
+      verifiedEdges: [
+        { file: 'src/a.ts', relation: 'CALLS' },
+        { file: 'src/b.ts', relation: 'CALLS' },
+      ],
+    });
+    const h = await graphHealth({ repoRoot: repo });
+    const action = codeIntelAction(h);
+    expect(action, 'fixture precondition: the coverage branch fired').toBeTruthy();
+    expect(action.why, 'two distinct source files carry verified edges').toMatch(/reach only 2 files/);
   }, 30_000);
 });
