@@ -19,7 +19,8 @@ import { join } from 'node:path';
 import { openExistingDb } from '../../storage/db.js';
 import { resolveSymbol } from './symbol_lookup.js';
 import { selectBestRoot } from './path.js';
-import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
+import { allTypesMissNote } from '../miss-scope.js';
+import { inspectReadFreshness, prefixReadWarnings, staleNotFoundCaveat } from './read_freshness.js';
 import {
   countGraphNodes,
   getSourceBundleBudget,
@@ -76,8 +77,24 @@ export async function graphExplore({ repoRoot, symbols = [], max_files }) {
     }
 
     if (resolved.length === 0) {
+      // ⛔ BARE ABSENCE, found 2026-09-03 by a whole-surface census. This verb and graph_path were
+      // the last two answering "NO MATCH" with nothing about what was searched — an absence claim
+      // that reads as a fact about the REPOSITORY.
+      //
+      // ⚠ Keeps its own message because it takes MANY symbols, so noMatchMessage (single-symbol,
+      // with did-you-mean) does not fit. The caveat is what carries the scope: resolveOne uses
+      // resolveSymbol with no type filter, so declaration-type notes would be false here — what
+      // bounds the answer is the index itself, staleness and never-indexed uncommitted files.
+      //
+      // ⚠ prefixReadWarnings is KEPT as well, and it is not redundant: warnings and the caveat carry
+      // different facts, and this verb (unlike callers/callees/impact) already routed warnings to
+      // its absence path.
       return prefixReadWarnings(
-        `NO MATCH for any of: ${requested.join(', ')}. Try graph_search(query="…") to find similar names.`,
+        [
+          `NO MATCH for any of: ${requested.join(', ')}. Try graph_search(query="…") to find similar names.`,
+          allTypesMissNote(),
+          staleNotFoundCaveat(freshness),
+        ].filter(Boolean).join('\n'),
         freshness.warnings,
       );
     }

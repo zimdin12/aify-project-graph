@@ -2,7 +2,9 @@ import { join } from 'node:path';
 import { openExistingDb } from '../../storage/db.js';
 import { renderPath } from '../renderer.js';
 import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
-import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
+import { inspectReadFreshness, prefixReadWarnings, staleNotFoundCaveat } from './read_freshness.js';
+import { allTypesMissNote } from '../miss-scope.js';
+import { noMatchMessage } from '../did-you-mean.js';
 import { PATH_MODE_FAMILIES } from '../../storage/taxonomy.js';
 
 const ROOT_TYPE_PRIORITY = new Map([
@@ -41,7 +43,23 @@ export async function graphPath({ repoRoot, symbol, direction = 'out', depth = 5
   const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
     const sources = resolveSymbol(db, symbol);
-    if (sources.length === 0) return `NO MATCH for "${symbol}". Try graph_search(query="${symbol}") to find similar names.`;
+    // ⛔ THIS WAS A BARE ABSENCE — a hand-rolled string with nothing about what was searched.
+    //
+    // Found 2026-09-03 by a whole-surface census: 18 verb files can emit an absence-shaped string,
+    // the two standing guards covered seven verbs between them, and the 16-verb sweep that caught
+    // `consequences` and `trace` hand-rolling their own NO MATCH left no standing census behind.
+    // `graph_path` and `graph_explore` were the two still answering bare.
+    //
+    // ⚠ THE SCOPE STATEMENT HERE IS NOT THE DECLARATION-TYPES ONE. change_plan/lookup/preflight
+    // restrict to SEARCH_TYPES, so "Searched declaration types: ..." is their honest scope. This
+    // verb calls resolveSymbol with NO type filter, so it searched every type and that note would
+    // be false. What bounds this answer is the INDEX: staleness, and uncommitted files that were
+    // never indexed. That is exactly what staleNotFoundCaveat carries, and it is what
+    // callers/callees/impact already use on the same shape.
+    if (sources.length === 0) {
+      return [noMatchMessage(db, symbol), allTypesMissNote(), staleNotFoundCaveat(freshness)]
+        .filter(Boolean).join('\n');
+    }
     const ambiguity = buildAmbiguousMatchMessage(symbol, sources);
     if (ambiguity) return ambiguity;
 

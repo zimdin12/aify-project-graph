@@ -69,6 +69,30 @@ export function presentButUnsearched(db, types) {
 // The note appended to a miss. `what` names the table in the reader's language ("declaration
 // types"), and is deliberately a caller argument: verbs search different populations, and one
 // shared sentence that fits none of them is how a generic warning gets ignored.
+/**
+ * The scope note for a verb that searched EVERY node type.
+ *
+ * ⛔ `missScopeNote` cannot serve this case: it names WHICH declaration types were searched, and a
+ * verb with no type filter has no such list — it returns '' for an empty `types`, which is how
+ * graph_path and graph_explore ended up answering a BARE "NO MATCH". Found 2026-09-03 by a
+ * whole-surface census; they were the last two of 18 absence-emitting verb files with no scope
+ * statement at all.
+ *
+ * ⚠ AND THE REMEDY THEY OFFERED WAS ALREADY KNOWN-INERT. Their only next step was
+ * `Try graph_search(...)`, and the comment in missScopeNote above records why that fails for
+ * exactly this case: graph_search queries the SAME node table, so a symbol that was never indexed
+ * cannot be found by a second verb that reads the same rows. It was confirmed live in the field on
+ * `kEquatorLatBandsPerShell`. A remedy that cannot change the answer is the defect this repo
+ * already removed from did-you-mean.
+ *
+ * Kept to one line on purpose: a 359-byte clause shipped earlier today measured 79% of a bare
+ * NO MATCH answer and had to be cut. This fires only on an absence.
+ */
+export function allTypesMissNote() {
+  return '⚠ A STATEMENT ABOUT THIS GRAPH, NOT THE REPOSITORY: every node type was searched, so a '
+    + 'symbol that was never indexed is invisible to every verb here — read the source file.';
+}
+
 export function missScopeNote(db, { types, what = 'declaration types' } = {}) {
   if (!Array.isArray(types) || types.length === 0) return '';
   const empty = emptyTypesAmong(db, types);
