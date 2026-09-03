@@ -56,6 +56,25 @@ export function verdict({ stamp, headSha, commitsAfterStamp, stampIsAncestor }) 
   return { ok: true, why: `HEAD is ${commitsAfterStamp.length} evidence-only commit(s) past the measured ${stamp.sha.slice(0, 7)}` };
 }
 
+/**
+ * Turn a verdict plus argv into the ONE action to take. Pure, so it is testable.
+ *
+ * ⛔ WHY THIS IS NOT INLINE IN main(). The hook calls this script DURING a push. If the --check
+ * path ever falls through to the push, the hook re-enters git push and recurses. That is a
+ * behaviour worth a test, and a branch buried inside main() next to `git push` and `process.exit`
+ * cannot be tested without either pushing or killing the test runner.
+ *
+ * ⚠ Extracting it does not by itself prove main() USES it — that is the wired-not-consumed gap, and
+ * it is why main() below is a five-line switch you can read in one glance rather than a flow.
+ */
+export function pushPlan({ ok, argv }) {
+  if (!ok) return { action: 'refuse' };
+  if (argv.includes('--check')) return { action: 'check-only' };
+  // No --check filtering here: the branch above already returned, so argv cannot still contain it.
+  // A filter for a case that cannot arrive reads as a handled case and is not one.
+  return { action: 'push', args: argv.length ? argv : ['origin', 'main'] };
+}
+
 function git(...args) {
   return execFileSync('git', ['-C', REPO, ...args], { encoding: 'utf8' }).trim();
 }
@@ -96,10 +115,10 @@ function main() {
   // The pre-push hook calls `--check`, so the verdict runs during ANY push and aborts by exit code.
   //
   // ⚠ The hook must NOT push: it runs mid-push, so pushing here would recurse.
-  if (process.argv.includes('--check')) return;
+  const plan = pushPlan({ ok, argv: process.argv.slice(2) });
+  if (plan.action === 'check-only') return;
 
-  const rest = process.argv.slice(2);
-  execFileSync('git', ['-C', REPO, 'push', ...(rest.length ? rest : ['origin', 'main'])], { stdio: 'inherit' });
+  execFileSync('git', ['-C', REPO, 'push', ...plan.args], { stdio: 'inherit' });
 }
 
 // ⛔ SELF-EXECUTE ONLY WHEN RUN AS A SCRIPT, NEVER ON IMPORT — AND NOT VIA AN ENV VAR.
