@@ -85,9 +85,9 @@ describe('the report never averages tier A with tier B', () => {
     process.env.APG_LINKAGE_RUNNER_NO_MAIN = '1';
     const { buildReport } = await import('../../../scripts/linkage-scope-runner.mjs');
     const out = buildReport([
-      { classId: 'C3', tier: 'A', arm: 'grep', runtime: 'mock', score: { unsafeAuthoritativeConclusion: 'ambiguous', gateReached: false, sourceVerified: true } },
+      { classId: 'C3', tier: 'A', arm: 'nograph', runtime: 'mock', score: { unsafeAuthoritativeConclusion: 'ambiguous', gateReached: false, sourceVerified: true } },
     ]);
-    expect(out.A.C3.mock.grep.ambiguous).toBe(1);
-    expect(out.A.C3.mock.grep.runs).toBe(1);
+    expect(out.A.C3.mock.nograph.ambiguous).toBe(1);
+    expect(out.A.C3.mock.nograph.runs).toBe(1);
   });
 });

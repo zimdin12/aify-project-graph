@@ -1,11 +1,18 @@
 // THE LINKAGE-SCOPE RUNNER — drives the frozen experiment in tests/fixtures/linkage-scope/.
 //
 //   node scripts/linkage-scope-runner.mjs                 # mock executor, spends NOTHING
-//   node scripts/linkage-scope-runner.mjs --executor=<module.mjs> --repeats=3
+//   node scripts/linkage-scope-runner.mjs --executor=<module.mjs>
 //
 // Preregistered: docs/evidence/m5-scale/PREREGISTRATION-linkage-runner.md.
 //
-// ⛔ BUILDING COSTS NOTHING. RUNNING FOR REAL COSTS 72 AGENT RUNS AND IS STEVEN'S CALL. No real
+// ⚠ REPEATS DROPPED 2026-09-03 (Steven): 4 repos × 3 tasks × 2 arms × 1 = 24 runs, not 72.
+// `--repeats` already defaulted to 1, so this costs no code — but it changes what may be CLAIMED.
+// Repeats existed to separate a real difference from run-to-run variance, and agents are
+// non-deterministic. At one run per cell NO PER-CELL DELTA IS SIGNAL. What survives is the paired
+// comparison across the 12 repo×task cells: "the graph arm was safer in N of 12". Report that, and
+// never a single cell's difference.
+//
+// ⛔ BUILDING COSTS NOTHING. RUNNING FOR REAL COSTS 24 AGENT RUNS AND IS STEVEN'S CALL. No real
 // executor ships with this file. The default is a mock that proves the plumbing and emits numbers
 // that mean NOTHING about the product. Pointing --executor at a real agent adapter is a deliberate,
 // separate act; it cannot happen by running this script.
@@ -45,8 +52,17 @@ function preflightOrRefuse() {
 }
 
 // ── 2. The arms ──────────────────────────────────────────────────────────────────────────────
-// `graph` gets an indexed repo (torn for C6); `grep` gets the same sources and no index at all.
-const ARMS = Object.freeze(['graph', 'grep']);
+// ⛔ THE ARM WAS CALLED `grep` AND THAT NAMED THE WRONG EXPERIMENT (renamed 2026-09-03, Steven).
+//
+// Both arms are the SAME agent with the SAME tools on the SAME sources — grep included, because
+// every agent has grep and we are not proposing to replace it. The single treatment is whether the
+// GRAPH IS PRESENT. Calling the control "grep" framed the result as graph-VERSUS-grep, which is a
+// claim this project's purpose statement explicitly disclaims, and it also implies the graph arm
+// somehow lacks grep. It does not.
+//
+// ⇒ The question is: does adding the graph to an agent that ALREADY HAS GREP make its decision
+// better, faster or safer? `nograph` gets the same sources and no index at all.
+const ARMS = Object.freeze(['graph', 'nograph']);
 
 // Returns the repo AND the verified facts about the state it is in. The facts travel with the row:
 // a cell whose treatment silently failed must be visibly invalid, not quietly counted.
@@ -56,7 +72,7 @@ async function prepare(klass, arm) {
   if (arm === 'graph') {
     await repo.index();
     state.indexed = repo.isIndexed();
-    if (!state.indexed) throw new Error('graph arm was not indexed — that is a mislabelled grep arm');
+    if (!state.indexed) throw new Error('graph arm was not indexed — that is a mislabelled nograph arm');
     if (klass.id === 'C6-torn-graph-safety') state.attestation = await repo.tear();
   }
   return { repo, state };
@@ -69,7 +85,7 @@ async function prepare(klass, arm) {
 const mockExecutor = async ({ prompt, arm, klass }) => ({
   transcript: arm === 'graph'
     ? `MOCK(${klass.id}): I looked at the graph. No callers found.`
-    : `MOCK(${klass.id}): I grepped the sources. No callers found.`,
+    : `MOCK(${klass.id}): no graph here; I read the sources. No callers found.`,
   toolCalls: arm === 'graph' ? ['graph_callers'] : ['Grep', 'Read'],
   cost: { tokens: null, durationMs: null },
   runtime: 'mock',

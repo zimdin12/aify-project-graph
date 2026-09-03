@@ -518,8 +518,23 @@ refuses if it did not take**, exact prompt text, the unmodified rubric, and repo
 spends nothing.
 
 ⛔ **ONE thing is still open, and it is NOT a design question: the BUDGET** (4 repos × 3 tasks × 2 arms
-× 3 repeats = 72 runs, Steven's call). No real executor ships, deliberately — writing one is the only
+× 1 = **24 runs**, Steven's call). No real executor ships, deliberately — writing one is the only
 remaining step that could accidentally spend, and it should wait for that decision.
+
+⚠ **REPEATS DROPPED 2026-09-03 (Steven's call), 72 → 24.** Free in code (`--repeats` already
+defaulted to 1) but NOT free in what may be claimed. Repeats existed to separate a real difference
+from run-to-run variance, and agents are non-deterministic. **At one run per cell, no per-cell delta
+is signal.** The sample becomes the 12 paired repo×task cells: the reportable statement is "the graph
+arm was safer/unsafer in N of 12", never "cell X improved". Written here so a later reader cannot
+quote a single cell's difference as a result.
+
+⚠ **THE ARMS ARE `graph` AND `nograph`, NOT `graph` AND `grep`** (renamed 2026-09-03, Steven's
+correction; `scripts/linkage-scope-runner.mjs:47-58`). Both arms are the same agent with the same
+tools on the same sources — **grep included in both**, because every agent has grep and this project
+does not propose to replace it. The single treatment is whether the graph is present. The old name
+framed the result as graph-VERSUS-grep, a claim the purpose statement explicitly disclaims, and
+implied the graph arm lacked grep. The implementation was always correct; only the name and the
+write-ups were wrong.
 
 ⛔ **THE "tier B DESIGN I COULD NOT LOCATE" WAS A FALSE BLOCKER** (retired `3691e87`). `tier` is a
 per-class field in the key: tier A = purpose-built qualification (C1, C2, C3, C5), tier B = real
@@ -581,9 +596,13 @@ milestone that claims a behavioural win. Cheap mechanical experiments (route cen
 contrast, determinism probes) at every milestone — they have caught more defects than anything else
 in this arc, including one that rejected its own proposed fix.
 
-**What would make us stop:** if M1 and M2 ship and a graph-armed agent still cannot beat a
-grep-armed agent at M5 scale, one honest conclusion is that our value is orientation and structure
-only.
+**What would make us stop:** if M1 and M2 ship and a graph-armed agent still cannot beat the SAME
+agent WITHOUT the graph at M5 scale, one honest conclusion is that our value is orientation and
+structure only.
+
+⚠ **PHRASED "beat a grep-armed agent" UNTIL 2026-09-03, AND THAT WAS THE WRONG COMPARISON.** Grep is
+in BOTH arms — it is always available to any agent, and we never proposed to replace it. The question
+is whether ADDING the graph to an agent that already has grep improves its decision.
 
 ⚠ BUT THAT IS NOT THE ONLY CONCLUSION, and mis-attributing it would be its own defect. If the graph
 loses because tool-discovery tax, stale state or false identity dominated, the cause is that
@@ -624,7 +643,8 @@ blocker here must now name the artifact it was read from.
 census over the real registry, a preregistered tearing contrast, and the runner itself — all green,
 all mock-driven. What is left is the budget decision and, only after it, a real executor adapter.
 The plan's own stop condition is live: M1 and M2 have shipped, so what remains is to find out whether
-a graph-armed agent actually beats a grep-armed one at scale — and to say so plainly if it does not.
+a graph-armed agent actually beats THE SAME AGENT WITHOUT THE GRAPH at scale (grep is in both arms) —
+and to say so plainly if it does not.
 The free work has already narrowed *what that question can honestly be*: see M5 above on the
 delete-decision route.
 ⚠ Every DONE above is measured on fixtures and this repo. None of it establishes prevalence in real
