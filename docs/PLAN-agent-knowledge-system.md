@@ -232,6 +232,27 @@ absence-shaped answers. The stop condition is authoritative: structured contract
 or absence-authorising result, with PROSE conditional on result shape. Recreating the warning wall
 the pilot agents skimmed would undo M2's own purpose.
 
+⭐ **AN ACTION-AUTHORISING RESULT IS NOT ONLY AN ABSENCE — closed 2026-09-03.**
+`docs/evidence/m2-contract/FINDING-nonempty-results-are-silently-incomplete.md`. A NON-EMPTY caller
+set authorises action just as firmly as an empty one, and more confidently: an agent asking "who
+calls target" before changing it got ONE caller, updated it, and broke a second living in a file it
+had written minutes earlier and not committed. Grep would have found that caller. Proven with three
+controls (committed caller listed; uncommitted caller genuinely missing; clean tree silent).
+⚠ **The obvious fix was already rejected here and stays rejected.** `uncommittedSourceClause` says
+ONLY ON AN ABSENCE because the 592-untracked field report established that a warning on every read is
+noise — and on an active repo uncommitted files always exist, so an existence-gated clause fires
+forever and reads as decoration. ⇒ The gate is the SYMBOL, not the tree: it fires only when an
+uncommitted file textually MENTIONS the queried name. A standing test pins the silent half; delete it
+and the feature quietly becomes the thing that was rejected.
+⚠ It is a TEXTUAL claim, worded as one ("mentions", never "calls") — a name in an unindexed file
+could be a comment or a string. Bounded, and degrades to SILENCE past the cap rather than to a
+partial claim.
+⛔ **Wired on 5 of 8 `buildTrustLine` consumers, and the gaps are named rather than left to be
+found:** `graph_change_plan` builds its trust line in a helper with two callers and no `freshness`
+parameter (I wired it, the suite went RED, I reverted — half-threading a shared helper is worse than
+a stated gap); `graph_explain_diff` and `graph_trace` have no single queried symbol for the gate to
+use.
+
 Such a result states what it did NOT model: indirection, macros, conditional compilation,
 extern-without-header, included `.cpp`, cross-language. Separate "no callers in indexed scope" from
 "no callers", and name the scope: which TUs, which flags, was there a compile DB.
