@@ -62,3 +62,55 @@ them, and a clause asserting a blind spot without one would be invented.
 
 Each clause licenses ONE sentence about ONE construct in ONE language on this extractor version. It
 says nothing about the clangd / pyright / tsserver verified tiers, which resolve some of these.
+
+---
+
+## ⛔ TWO INSTRUMENT DEFECTS FOUND WHILE CLOSING THE LAST TWO LANGUAGES
+
+Adding `glsl` and `css` exposed both. Neither reached a shipped claim, and the corrected instrument
+**validated** the five clauses already written — but that was the DIRECTION of the error, not care on
+my part, and the distinction is the point.
+
+### 1. `[].every()` certified a clause for a language with nothing tested
+
+`glsl` and `css` were given `blind: []` — no dynamic-dispatch construct to test. The verdict logic
+read `blindResults.every((b) => !b.seen)`, which is **vacuously true on an empty list**, so both
+reported **"BLIND (clause justified)"**: a justification for writing a caveat when NOTHING had been
+measured. An empty list now yields its own verdict, `NO CONSTRUCT TESTED (no clause)`.
+
+⚠ This repo already has `[].every()` certifying a wired gate's own failure on record. It reappeared
+inside the instrument built specifically to stop claims being invented.
+
+### 2. The identity rule matched on LABEL alone, across every fixture in one repo
+
+All fixtures share the names `controlCaller` and `sink` by design. `edgeExists(db, from, to)` matched
+anywhere in the graph, so **one language's edge satisfied another language's check**.
+
+The tell was CSS: its direct-call control **PASSED** — and CSS has no function calls at all. It was
+finding the JavaScript fixture's edge.
+
+⭐ **The direction of that error is what saved the shipped clauses.** Extra cross-language edges can
+manufacture a false CONTROL PASS or a false SEEN; they **cannot** manufacture a false BLIND. So:
+
+| verdict class | could contamination have faked it? |
+|---|---|
+| BLIND (what every clause rests on) | **no** |
+| control PASS (evidence the language is parsed at all) | **yes** |
+| SEEN (go/rust `f := sink`) | **yes** |
+
+⛔ A false control pass is the dangerous one: it would have let a language that is **not parsed at
+all** report BLIND everywhere, and BLIND-because-unparsed is the ABANDON condition, not a blind spot.
+
+Re-run with both endpoints scoped to the language's own file: every clause-bearing language's control
+still passes, so the five shipped clauses are sound on the corrected instrument.
+
+## Final disposition of all twelve
+
+| languages | disposition |
+|---|---|
+| javascript, typescript, python, php, ruby, java, go, rust | clause, each fixtured |
+| c, cpp | the richer tier-dependent clause |
+| **glsl** | parsed, but core GLSL has **no dynamic-dispatch construct** to declare — silence is a correctness argument, not an unfilled gap |
+| **css** | **UNMEASURED**: the extractor produces no call edges for CSS, as expected for a language with no calls. The *caller* concept does not apply, so there is nothing to caveat |
+
+⇒ Both remaining silences are now exclusions with an argument about the **hazard**, not about effort.

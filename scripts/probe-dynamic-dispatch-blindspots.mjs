@@ -140,15 +140,45 @@ end
     control: ['controlCaller', 'sink'],
     blind: [['reflectCaller', 'sink']],
   },
+  // ⚠ THE LAST TWO OF THE TWELVE, measured rather than left as "uninvestigated" forever. The
+  // expected outcome differs from the others and that is the point: if a language has no call
+  // construct at all, its silence is a CORRECTNESS ARGUMENT, not an unfilled gap.
+  glsl: {
+    file: 'src/dyn.frag',
+    text: `float sink() { return 1.0; }
+float controlCaller() { return sink(); }
+`,
+    control: ['controlCaller', 'sink'],
+    // Core GLSL has no function pointers, no reflection, no dynamic dispatch to test.
+    blind: [],
+  },
+  css: {
+    file: 'src/dyn.css',
+    text: `.sink { color: red; }
+.controlCaller { color: blue; }
+`,
+    control: ['controlCaller', 'sink'],
+    blind: [],
+  },
 };
 
-function edgeExists(db, fromLabel, toLabel) {
+// ⛔ SCOPED TO THE LANGUAGE'S OWN FILE. Every fixture lives in ONE repo and they deliberately share
+// the names `controlCaller` and `sink`, so matching on LABEL ALONE let one language's edge satisfy
+// another language's check. Measured: the CSS control "passed" — and CSS has no function calls at
+// all, so it was finding the JavaScript fixture's edge.
+//
+// ⚠ THE DIRECTION OF THAT ERROR MATTERS. Extra cross-language edges can only manufacture a FALSE
+// CONTROL PASS or a FALSE SEEN; they cannot manufacture a false BLIND. So the BLIND findings survive,
+// but a control pass was no longer evidence the language is parsed at all — which is precisely the
+// ABANDON condition this probe declares and would then have skipped.
+function edgeExists(db, fromLabel, toLabel, file) {
   const row = db.get(`
     SELECT COUNT(*) AS c FROM edges e
     JOIN nodes f ON f.id = e.from_id
     JOIN nodes t ON t.id = e.to_id
     WHERE f.label = $f AND t.label = $t
-  `, { f: fromLabel, t: toLabel });
+      AND f.file_path = $file AND t.file_path = $file
+  `, { f: fromLabel, t: toLabel, file });
   return (row?.c ?? 0) > 0;
 }
 
@@ -167,7 +197,7 @@ try {
   const verdicts = {};
   try {
     for (const [lang, c] of Object.entries(CASES)) {
-      const controlOk = edgeExists(db, c.control[0], c.control[1]);
+      const controlOk = edgeExists(db, c.control[0], c.control[1], c.file);
       say(`--- ${lang}`);
       say(`  [${controlOk ? 'PASS' : 'FAIL'}] CONTROL: direct call ${c.control[0]} -> ${c.control[1]} produces an edge`);
       if (!controlOk) {
@@ -176,9 +206,18 @@ try {
         verdicts[lang] = 'UNMEASURED';
         continue;
       }
-      const blindResults = c.blind.map(([f, t]) => ({ f, t, seen: edgeExists(db, f, t) }));
+      const blindResults = c.blind.map(([f, t]) => ({ f, t, seen: edgeExists(db, f, t, c.file) }));
       for (const b of blindResults) {
         say(`  ${b.seen ? '[SEEN ]' : '[BLIND]'} ${b.f} -> ${b.t}`);
+      }
+      // ⛔ AN EMPTY LIST IS NOT A FINDING. `[].every(...)` is vacuously TRUE, so a language with no
+      // construct to test reported "BLIND (clause justified)" — a justification for a clause when
+      // NOTHING was measured. That is the `[].every()` trap this repo has already been bitten by,
+      // reproduced here in the instrument built to avoid inventing claims.
+      if (blindResults.length === 0) {
+        say('  [none ] no dynamic-dispatch construct was tested for this language');
+        verdicts[lang] = 'NO CONSTRUCT TESTED (no clause)';
+        continue;
       }
       verdicts[lang] = blindResults.every((b) => !b.seen) ? 'BLIND (clause justified)'
         : blindResults.some((b) => !b.seen) ? 'PARTIAL' : 'SEEN (no clause)';
