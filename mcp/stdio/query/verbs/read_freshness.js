@@ -122,10 +122,19 @@ export function uncommittedSourceClause(freshness) {
     + 'Commit or graph_index({force:true}) before treating this as absent.';
 }
 
-// How many uncommitted source files this will open before giving up. The population that motivated
-// the "no warning on every read" rule was 592 untracked files; reading all of them on every query
-// would put the cost exactly where that field report said not to.
-const RELEVANCE_SCAN_CAP = 25;
+// How many uncommitted source files this will open before it stops looking.
+//
+// ⛔ IT WAS 25, CHOSEN BY INTUITION, AND IT COST ABOUT 20x MORE IN COVERAGE THAN IT SAVED IN TIME.
+// Measured on 891 real source files, LARGEST FIRST so the estimate is pessimistic, with timer and
+// zero controls in the same pass: 25 files 5.6 ms, 100 files 13.2 ms, 200 files 21.4 ms, 400 files
+// 37.2 ms. A preregistered rule fixed before the run said under 50 ms at 200 files means the cap is
+// not justified by cost. See docs/evidence/m2-contract/FINDING-silence-hid-three-different-states.md
+//
+// ⚠ THE NUMBER DECIDES A CORRECTNESS QUESTION, NOT A PERFORMANCE ONE. Exceeding the cap means the
+// check did not happen, and that has to be SAID — but saying it on every result of a busy repo is
+// the warning wall again. Raising the cap to where exceeding it is exceptional is what makes the
+// note rare enough to carry meaning.
+const RELEVANCE_SCAN_CAP = 200;
 
 const IDENTIFIER_CHAR = /[A-Za-z0-9_$]/;
 
@@ -201,17 +210,32 @@ export function uncommittedMentionClause(freshness, symbol, repoRoot, readFile =
   // null (tree unobserved) is silent here on purpose: the absence path already tells a reader that
   // the check did not happen, and repeating it on every successful result is the noise this whole
   // design avoids.
+  // ⛔ SILENCE MUST MEAN EXACTLY ONE THING: "I looked and found nothing." These two returns are the
+  // only honest silences — nothing uncommitted, or no name to be relevant to. Every OTHER way of not
+  // producing a clause is a check that did not happen, and it says so below.
   if (!Array.isArray(files) || files.length === 0) return '';
-  if (files.length > RELEVANCE_SCAN_CAP) return '';
   if (names.length === 0) return '';
+
+  // ⛔ NOT SILENCE. Past the budget the scan does not run, and an unspoken non-check is
+  // indistinguishable from a clean one — the exact defect `uncommittedSourceClause` documents three
+  // functions above ("null IS A MEASUREMENT THAT FAILED, AND IT USED TO READ AS SILENCE"). The cap
+  // is now high enough (see RELEVANCE_SCAN_CAP) that reaching it is exceptional, so this line is a
+  // signal rather than a permanent banner.
+  if (files.length > RELEVANCE_SCAN_CAP) {
+    return `NOT CHECKED: ${files.length} uncommitted source files exceed the ${RELEVANCE_SCAN_CAP}-file `
+      + 'relevance budget, so this result was not compared against them.';
+  }
 
   const read = readFile ?? ((p) => readFileSync(p, 'utf8'));
   const hits = [];
   let matched = null;
+  let unreadable = 0;
   for (const entry of files) {
     let text;
-    try { text = read(join(repoRoot, entry.path)); } catch { return ''; }
-    if (typeof text !== 'string') continue;
+    // ⚠ SKIP THE FILE, DO NOT ABANDON THE SCAN. This used to `return ''` on the first read error,
+    // throwing away every other file's result because one was unreadable — and doing it silently.
+    try { text = read(join(repoRoot, entry.path)); } catch { unreadable += 1; continue; }
+    if (typeof text !== 'string') { unreadable += 1; continue; }
     const hit = names.find((n) => mentionsIdentifier(text, n));
     if (hit) {
       hits.push(entry);
@@ -220,7 +244,13 @@ export function uncommittedMentionClause(freshness, symbol, repoRoot, readFile =
       if (matched === null) matched = hit;
     }
   }
-  if (hits.length === 0) return '';
+  // A hit is a fact regardless of what else could not be read, so it outranks the partial-scan note.
+  if (hits.length === 0) {
+    return unreadable > 0
+      ? `NOT CHECKED: ${unreadable} of ${files.length} uncommitted source file(s) could not be read, `
+        + 'so this result was not fully compared against them.'
+      : '';
+  }
 
   const SHOWN = 3;
   const shown = hits.slice(0, SHOWN).map((f) => `${f.path} (${f.why})`).join(', ');
