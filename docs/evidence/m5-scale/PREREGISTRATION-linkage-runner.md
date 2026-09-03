@@ -120,3 +120,55 @@ must be as a DIRECTION COUNT across pairs, like the other axes, and never as a p
 nothing, and concluded the data was being discarded — one step from "fixing" a data-loss defect that
 was not occurring. That was the third time in one session that checking at the wrong name or nesting
 level produced a confident wrong answer against correct code.
+
+---
+
+## AMENDMENT 2 — 2026-09-03, Steven's call: 24 runs → 12, and M5 runs LAST
+
+**Appended, never editing what is above.** The budget is a scope/cost decision and it is his; the
+consequence is mine to state, and it is stated here BEFORE any run rather than discovered in the
+write-up.
+
+> "lets not do 24x tests. lets do mb max 12 tests. and only if all is done and stuff, because this
+> test is expensive"
+
+### What changes
+
+| | Amendment 1 | Amendment 2 |
+|---|---|---|
+| runs | 24 | **12 max** |
+| arms | graph / nograph | unchanged |
+| runs per cell | 1 | unchanged |
+| **paired cells (the sample)** | **12** | **6** |
+| precondition | none | **runs LAST, after other work is done** |
+
+### ⛔ What 6 paired cells cannot show, written down now
+
+Amendment 1 already established that at one run per cell **no per-cell delta is signal**, so the only
+reportable statement is a DIRECTION COUNT across pairs. Halving the sample halves the resolution of
+that count:
+
+- The claim becomes **"the graph arm was safer/unsafer in N of 6"**, never "N of 12".
+- ⛔ **4-of-6 and 5-of-6 are not distinguishable from chance** on 6 paired observations. A result in
+  that band is a NULL for our purposes and must be reported as one, not as a lean.
+- Only a **clean sweep or near-sweep (6-of-6, or 0-of-6)** carries a direction worth acting on, and
+  even then it is one observation per cell on one corpus.
+- ⛔ The STOP CONDITION still applies and is now easier to reach honestly: if the count lands in the
+  indistinguishable band, the correct report is *"this did not separate the arms"* — not a softened
+  positive.
+
+⚠ **The design does not shrink to fit.** The corpus classes, the frozen rubric, the blind scoring and
+the harm/decisiveness axes are unchanged; only the number of paired observations drops. So the
+experiment still measures the right thing — it just measures it with less power, and a null is now
+the most likely outcome even if a real effect exists.
+
+### Which 6 cells
+
+To be chosen and recorded HERE before the run, not after seeing any result. The selection rule must
+cover the tier split (tier A purpose-built, tier B real pinned snapshots) rather than taking the
+first six, or the sample silently becomes single-tier.
+
+### Precondition
+
+M5 does not run until the other open work is done. Recorded so a later reader does not find an
+unspent budget and assume it was forgotten.
