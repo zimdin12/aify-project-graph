@@ -54,6 +54,92 @@ def dynamic_caller(obj, name):
     control: ['control_caller', 'sink'],
     blind: [['dynamic_caller', 'sink']],
   },
+  php: {
+    file: 'src/dyn.php',
+    text: `<?php
+function sink() { return 1; }
+function controlCaller() { return sink(); }
+function dynamicCaller($name) { return $name(); }
+function userFuncCaller() { return call_user_func('sink'); }
+`,
+    control: ['controlCaller', 'sink'],
+    blind: [['dynamicCaller', 'sink'], ['userFuncCaller', 'sink']],
+  },
+  go: {
+    file: 'src/dyn.go',
+    text: `package main
+
+func sink() int { return 1 }
+
+func controlCaller() int { return sink() }
+
+func valueCaller() int {
+	f := sink
+	return f()
+}
+
+func indirectCaller(f func() int) int { return f() }
+
+func wire() int { return indirectCaller(sink) }
+`,
+    control: ['controlCaller', 'sink'],
+    // ⛔ TWO SHAPES, AND THE SECOND IS THE HONEST ONE. `valueCaller` MENTIONS `sink` textually, so a
+    // mention-based extractor can produce that edge without understanding the indirection at all —
+    // an edge that exists for the wrong reason is not coverage. `indirectCaller` never names `sink`
+    // in its body, so only real indirection tracking could connect them.
+    blind: [['valueCaller', 'sink'], ['indirectCaller', 'sink']],
+  },
+  rust: {
+    file: 'src/dyn.rs',
+    text: `pub fn sink() -> i32 { 1 }
+
+pub fn control_caller() -> i32 { sink() }
+
+pub fn pointer_caller() -> i32 {
+    let f: fn() -> i32 = sink;
+    f()
+}
+
+pub fn indirect_caller(f: fn() -> i32) -> i32 { f() }
+
+pub fn wire() -> i32 { indirect_caller(sink) }
+`,
+    control: ['control_caller', 'sink'],
+    // Same split as go: pointer_caller NAMES sink; indirect_caller does not.
+    blind: [['pointer_caller', 'sink'], ['indirect_caller', 'sink']],
+  },
+  ruby: {
+    file: 'src/dyn.rb',
+    text: `def sink
+  1
+end
+
+def control_caller
+  sink
+end
+
+def send_caller(name)
+  send(name)
+end
+`,
+    control: ['control_caller', 'sink'],
+    blind: [['send_caller', 'sink']],
+  },
+  java: {
+    file: 'src/Dyn.java',
+    text: `public class Dyn {
+    static int sink() { return 1; }
+
+    static int controlCaller() { return sink(); }
+
+    static int reflectCaller() throws Exception {
+        return (int) Dyn.class.getMethod("sink").invoke(null);
+    }
+}
+`,
+    control: ['controlCaller', 'sink'],
+    blind: [['reflectCaller', 'sink']],
+  },
 };
 
 function edgeExists(db, fromLabel, toLabel) {
