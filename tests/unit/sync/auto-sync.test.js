@@ -157,3 +157,70 @@ describe('startAutoSync sync dispatch', () => {
     expect(calls).toBe(before);
   });
 });
+
+// ⛔ M3a BLOCKER 2 — DOES A WRITE ARRIVING MID-SYNC GET LOST?
+//
+// Coalescing is only safe if the FINAL run sees the FINAL state. The test above counts syncs and
+// pins `maxConcurrent === 1`; neither says anything about whether the last edit was ever read. A
+// coalescer that dropped the trailing burst would satisfy both perfectly — "fewer syncs than
+// events" is exactly what losing an update looks like through a call counter.
+//
+// ⚠ WHY THE WRITE HAPPENS INSIDE ensureFresh. The field probe of 2026-09-02 tried to answer this
+// against the real indexer by writing files on a timer, and NEVER ACHIEVED OVERLAP: every index
+// finished inside the gap, its deciding control reported false, and it correctly concluded nothing.
+// Its first run showed "4 lost updates", and publishing that would have been wrong. Writing from
+// within the in-flight sync makes the overlap a CONSTRUCTION rather than a race the scheduler has
+// to win — which also stops this test flaking under full-suite CPU contention, as the sibling
+// timing-derived assertion above once did.
+//
+// ⛔ WHAT THIS DOES NOT COVER, plainly: the injected sync is not the real `ensureFresh`, so this is
+// a property of the COALESCER, not of the indexer beneath it. Blocker 2 also names sustained
+// editing on a large C++ repo, which no unit test reaches.
+describe('coalescing must not lose a write that lands mid-sync', () => {
+  it('★★★ a file written DURING a sync is seen by a later sync', async () => {
+    const dir = tmpRepo();
+    const snapshots = [];
+    const written = ['first.txt'];
+    let injected = false;
+
+    const loop = start({
+      repoRoot: dir,
+      debounceMs: 10,
+      env: { [AUTO_SYNC_ENV_VAR]: '1' },
+      ensureFresh: async () => {
+        // What the indexer WOULD see, captured as this sync begins.
+        snapshots.push(new Set(fs.readdirSync(dir)));
+        if (!injected) {
+          injected = true;
+          // The whole point: this write happens while a sync is in flight.
+          fs.writeFileSync(path.join(dir, 'late.txt'), 'late');
+          written.push('late.txt');
+        }
+        await sleep(200);
+      },
+    });
+
+    // ⛔ ASSERT, DO NOT SILENTLY SKIP. The sibling tests `return` when the watcher is unsupported,
+    // which turns an unsupported platform into a green pass — vacuous, and indistinguishable from a
+    // real one. If fs.watch cannot run here, this must say so out loud.
+    expect(loop.status, 'the watcher must be running or this test proves nothing').toBe('running');
+
+    fs.writeFileSync(path.join(dir, 'first.txt'), 'first');
+    await sleep(900);
+
+    // CONTROL 1: a second sync happened at all. Without it the assertion below is vacuous.
+    expect(snapshots.length, 'only one sync ran, so nothing could have observed the late write')
+      .toBeGreaterThanOrEqual(2);
+
+    // CONTROL 2: the first sync really did run BEFORE the late write — otherwise there was no
+    // mid-sync arrival to lose, and this measures nothing.
+    expect(snapshots[0].has('late.txt'),
+      'the first sync already saw the late write, so no overlap was constructed').toBe(false);
+
+    // THE PROPERTY: whatever was coalesced away, a later sync still observed the final state.
+    const last = snapshots[snapshots.length - 1];
+    const missed = written.filter((name) => !last.has(name));
+    expect(missed, 'a write landed during a sync and no later sync ever observed it — a lost update')
+      .toEqual([]);
+  });
+});
