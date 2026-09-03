@@ -313,11 +313,37 @@ export function buildNextActions(s) {
     // that same collapse seven times tonight in other places.
     const cov = s.codeIntel.coverage ?? {};
     const known = cov.filesProcessed != null && cov.filesEligible != null;
+    // ⛔ THIS SENTENCE COUNTED RECORDS AND CLAIMED EDGES, AND THE JOIN WAS THE WORD "so".
+    //
+    // It read "covers N of M eligible file(s), SO [lsp✓] evidence exists for part of the repo
+    // only". N is `filesProcessed` — DISTINCT file in code_intel_records across every live
+    // collection (`coveredFilePaths`, source "all_live_collections"). `[lsp✓]` renders from
+    // `edges.provenance = 'LSP_VERIFIED'` and from nothing else. Two populations, and on this
+    // repository they were 624 files and 31.
+    //
+    // The two diverge by construction, not by accident: a complete unscoped `ok` collection
+    // DELETES the prior verified edges for its language (importer.js) and leaves their records
+    // standing. So the union numerator keeps counting files whose verified evidence a later run
+    // threw away, and the reader's obvious ratio — 624/854, 73% — described a compiler-verified
+    // surface of 3.6%.
+    //
+    // ⚠ THE UNION NUMERATOR IS NOT THE DEFECT AND IS NOT CHANGED. It was introduced to stop a
+    // 3-file targeted collect reporting "3 of 557", and that argument still holds for the question
+    // it answers, which is a records question. What changes is that the [lsp✓] claim now carries
+    // the edge-derived count instead of borrowing this one.
+    //
+    // ⚠ UNKNOWN RATHER THAN OPTIMISTIC when the file count is unreadable. An absent verified count
+    // must not silently restore the old reading in which the records figure stands for coverage.
+    const verifiedFiles = s.codeIntel.lspVerifiedFiles;
+    const verifiedClause = typeof verifiedFiles === 'number'
+      ? `live [lsp✓] edges reach only ${verifiedFiles} file${verifiedFiles === 1 ? '' : 's'}`
+      : 'how many files live [lsp✓] edges reach is UNKNOWN';
     out.push({
       why: known
-        ? `the code-intel collection covers ${cov.filesProcessed} of ${cov.filesEligible} eligible `
-          + 'file(s), so [lsp✓] evidence exists for part of the repo only — a symbol outside that '
-          + 'set gets heuristic answers with no signal saying so'
+        ? `code-intel records cover ${cov.filesProcessed} of ${cov.filesEligible} eligible `
+          + `file(s), but ${verifiedClause} — a later complete collection deletes earlier verified `
+          + 'edges and keeps their records, so the record count OVERSTATES the compiler-verified '
+          + 'surface; a symbol outside it gets heuristic answers with no signal saying so'
         : 'the code-intel collection does not record how much of the repo it covered, so its '
           + 'coverage is UNKNOWN rather than complete — treat [lsp✓] absence as uninformative '
           + 'until a scoped collection records its own scope',
@@ -1378,6 +1404,18 @@ export async function graphHealth({ repoRoot }) {
         const verified = db2.get("SELECT COUNT(*) AS c FROM edges WHERE provenance = 'LSP_VERIFIED'").c ?? 0;
         const calls = db2.get("SELECT COUNT(*) AS c FROM edges WHERE relation = 'CALLS'").c ?? 0;
         codeIntel.lspVerifiedEdges = verified;
+        // ⛔ THE FILE COUNT IS A DIFFERENT POPULATION FROM THE EDGE COUNT, and the coverage warning
+        // was answering an EDGES question with a RECORDS number for want of it. `[lsp✓]` renders
+        // from `edges.provenance` alone (renderer.js, trace.js), so the files carrying a verified
+        // edge are the only files the marker can ever appear on. Read from the SAME handle at the
+        // SAME instant as `verified` above — a second open is a second graph.
+        //
+        // ⚠ NULL WOULD BE A LIE HERE AND ZERO WOULD NOT: this block runs only when a collection is
+        // available, and the COUNT cannot fail without the query beside it failing too, in which
+        // case the catch below leaves the field undefined and the sentence says UNKNOWN.
+        codeIntel.lspVerifiedFiles = db2.get(
+          "SELECT COUNT(DISTINCT source_file) AS c FROM edges WHERE provenance = 'LSP_VERIFIED'",
+        ).c ?? 0;
 
         // ★ ATTACK EIGHT — THE DENOMINATOR WAS CONTAMINATED WITH EDGES THAT ARE
         //   UNVERIFIABLE IN PRINCIPLE.

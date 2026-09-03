@@ -82,13 +82,16 @@ async function repoWithCollection(coverage, {
   }
   // ⚠ An lsp-verified edge, so the "no [lsp✓] edges" branch cannot be what fires. Without this
   // the test would pass against a completely different condition.
-  for (const e of verifiedEdges) {
+  // ⚠ THE ENDPOINTS VARY, BECAUSE THE SCHEMA SAYS THEY MUST. `idx_edges_unique` is
+  // (from_id, to_id, relation), so a second edge a→b CALLS is not a second edge — it is a
+  // constraint violation, and the fixture would be asserting against a graph it failed to build.
+  verifiedEdges.forEach((e, i) => {
     db.run(
       `INSERT INTO edges (from_id,to_id,relation,source_file,source_line,confidence,provenance,extractor)
-       VALUES ('a','b',$r,$f,1,1,'LSP_VERIFIED','ts-langserver')`,
-      { r: e.relation, f: e.file },
+       VALUES ('a',$to,$r,$f,1,1,'LSP_VERIFIED','ts-langserver')`,
+      { to: i === 0 ? 'b' : `e${i - 1}`, r: e.relation, f: e.file },
     );
-  }
+  });
   db.run(
     `INSERT INTO code_intel_collections
        (collection_id, provider, provider_version, project_root, language, status,
