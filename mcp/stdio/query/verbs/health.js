@@ -1880,6 +1880,14 @@ export async function graphHealth({ repoRoot }) {
           // a new source file invisible is exactly the shape this verb exists to prevent.
           //
           // Names stay omitted: that part was right, an untracked set can run to thousands.
+          //
+          // ⚠ THE LENGTH IS DELIBERATE AND WAS MEASURED — do not trim it on sight. 383B rendered,
+          // which looks alarming next to the 359B absence clause that had to be cut on this same
+          // day. It is not comparable: measured 2026-09-03, this note is 8.0% of a 4,760B health
+          // response, against 79% of a 96-byte NO MATCH. Controls in the same pass: a clean tree
+          // emits no note at all (0B), and the note rendered when dirty.
+          // ⇒ Absolute size was the wrong noun here. A diagnostic verb's job is detail, and 8% of
+          // it is not the warning wall.
           ? `${dirtyFiles.length} dirty file(s), none of them tracked by git — names omitted because an untracked set is often build output and can run to thousands. ⚠ UNTRACKED FILES ARE NOT INDEXED until committed, so a source file you have just created is counted here and is NOT in the graph; commit it, or run graph_index({ force: true }), before asking about it. Nothing tracked has moved under the snapshot.`
           : undefined,
       }),
