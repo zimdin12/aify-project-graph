@@ -41,6 +41,9 @@ export function startAutoSync({
   repoRoot,
   ensureFresh,
   debounceMs = 750,
+  // Off by default, mirroring startWatcher. See PREREGISTRATION-watcher-max-wait.md for why the
+  // default is deliberately not decided here.
+  maxWaitMs = null,
   env = process.env,
   log = null,
 } = {}) {
@@ -90,6 +93,11 @@ export function startAutoSync({
   const watcher = startWatcher({
     repoRoot,
     debounceMs,
+    // ⛔ PASSED THROUGH, AND THAT IS NOT FREE OF CONSEQUENCE. Without this line `maxWaitMs` would be
+    // accepted here and silently dropped, so every arm of the max-wait experiment would have behaved
+    // like `off` and produced a confident table of identical rows. Caught before the run, which is
+    // the only reason it is not in the results.
+    maxWaitMs,
     env,
     onChange: (events) => {
       // The watcher already debounces and filters ignored dirs; we just

@@ -224,3 +224,54 @@ describe('coalescing must not lose a write that lands mid-sync', () => {
       .toEqual([]);
   });
 });
+
+// ⛔ maxWaitMs MUST REACH THE WATCHER, NOT JUST BE ACCEPTED HERE.
+//
+// startAutoSync used to call startWatcher without it. An option accepted at the front door and
+// dropped on the way is the failure mode this repo keeps meeting: the max-wait experiment would have
+// run four arms that all behaved like `off` and produced a confident table of identical rows.
+//
+// ⚠ ASSERTED BEHAVIOURALLY, NOT BY SPYING ON THE ARGUMENT. Checking that the property was passed
+// proves the wiring and not the effect; a test that watches a burst flush mid-stream fails if the
+// value is dropped ANYWHERE between here and the timer.
+describe('startAutoSync forwards maxWaitMs to the watcher', () => {
+  it('⛔ CONTROL: without maxWaitMs a continuous burst never syncs mid-burst', async () => {
+    const dir = tmpRepo();
+    let syncs = 0;
+    const loop = start({
+      repoRoot: dir,
+      debounceMs: 300,
+      env: { [AUTO_SYNC_ENV_VAR]: '1' },
+      ensureFresh: async () => { syncs += 1; },
+    });
+    expect(loop.status, 'the watcher must be running or this proves nothing').toBe('running');
+    const t0 = Date.now();
+    let n = 0;
+    while (Date.now() - t0 < 1200) {
+      fs.writeFileSync(path.join(dir, `n${n += 1}.txt`), String(n));
+      await sleep(60);
+    }
+    expect(n, 'the burst must have been continuous').toBeGreaterThan(5);
+    expect(syncs, 'no maxWait: the timer keeps resetting, so nothing may fire mid-burst').toBe(0);
+  }, 30_000);
+
+  it('★★★ with maxWaitMs the same burst DOES sync while it is still running', async () => {
+    const dir = tmpRepo();
+    let syncs = 0;
+    const loop = start({
+      repoRoot: dir,
+      debounceMs: 300,
+      maxWaitMs: 250,
+      env: { [AUTO_SYNC_ENV_VAR]: '1' },
+      ensureFresh: async () => { syncs += 1; },
+    });
+    expect(loop.status).toBe('running');
+    const t0 = Date.now();
+    let n = 0;
+    while (Date.now() - t0 < 1200) {
+      fs.writeFileSync(path.join(dir, `m${n += 1}.txt`), String(n));
+      await sleep(60);
+    }
+    expect(syncs, 'maxWaitMs never reached the watcher').toBeGreaterThanOrEqual(1);
+  }, 30_000);
+});
