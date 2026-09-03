@@ -206,6 +206,10 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
       trustLine = '\n' + await buildTrustLine({
         edges: mapped, db, repoRoot, truncated: edgesTruncated,
         file: targets?.[0]?.file_path ?? null,
+        // A NON-EMPTY caller set is the answer an agent acts on, and it was the one result shape
+        // carrying no word about the agent's own uncommitted work. Relevance-gated inside, so a
+        // dirty tree alone says nothing — only a file that MENTIONS this symbol does.
+        freshness, symbol,
       });
     // ⛔ Still never BLOCKS the result — but no longer silent; see lsp-evidence.js
     // RESULTS_TRUST_UNAVAILABLE.

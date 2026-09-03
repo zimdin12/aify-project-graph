@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { ensureFresh } from '../../freshness/orchestrator.js';
@@ -120,6 +120,63 @@ export function uncommittedSourceClause(freshness) {
   // not indexed, only that it is not. Compressed to four words.
   return `NOT COVERED: ${shown}${more} — uncommitted, so not indexed. `
     + 'Commit or graph_index({force:true}) before treating this as absent.';
+}
+
+// How many uncommitted source files this will open before giving up. The population that motivated
+// the "no warning on every read" rule was 592 untracked files; reading all of them on every query
+// would put the cost exactly where that field report said not to.
+const RELEVANCE_SCAN_CAP = 25;
+
+/**
+ * The same disclosure for a NON-EMPTY result — gated on RELEVANCE rather than on existence.
+ *
+ * ⛔ WHY THIS IS NOT `uncommittedSourceClause` WITH A DIFFERENT VERB. That function's docstring says
+ * ONLY ON AN ABSENCE, and it is right: on an actively-edited repository uncommitted source files
+ * always exist, so an existence-gated clause would fire on every non-empty result forever. A binary
+ * flag that is always on is read as decoration — the route by which a guard stops guarding, and the
+ * lesson of the 592-untracked field report.
+ *
+ * ⭐ SO THE GATE IS THE SYMBOL, NOT THE TREE. Fire only when an uncommitted file textually contains
+ * the queried name. The 592 case stays silent because none of those files mention it; the case that
+ * actually hurts — the caller the agent wrote minutes ago and has not committed — is named. The
+ * signal means something because its absence is informative.
+ *
+ * ⛔ IT IS A TEXTUAL CLAIM AND IS WORDED AS ONE. A name occurring in an unindexed file does not
+ * establish a call: it could be a comment, a string, or an unrelated identifier. This says the file
+ * MENTIONS the symbol and is not indexed. It must never say the file calls it.
+ *
+ * ⛔ DEGRADES TO SILENCE, NEVER TO A PARTIAL CLAIM. Past the cap, or on any read error, it says
+ * nothing rather than reporting the subset it managed to scan — a count over an unknown denominator
+ * is the defect this repo keeps finding, not a conservative fallback.
+ *
+ * @param {object} freshness  carries `uncommittedSources` (tri-state; null = tree unobserved)
+ * @param {string} symbol     the queried name
+ * @param {string} repoRoot   for resolving the relative paths
+ * @param {Function} [readFile] injected for testing
+ */
+export function uncommittedMentionClause(freshness, symbol, repoRoot, readFile = null) {
+  const files = freshness?.uncommittedSources;
+  // null (tree unobserved) is silent here on purpose: the absence path already tells a reader that
+  // the check did not happen, and repeating it on every successful result is the noise this whole
+  // design avoids.
+  if (!Array.isArray(files) || files.length === 0) return '';
+  if (files.length > RELEVANCE_SCAN_CAP) return '';
+  if (!symbol || typeof symbol !== 'string') return '';
+
+  const read = readFile ?? ((p) => readFileSync(p, 'utf8'));
+  const hits = [];
+  for (const entry of files) {
+    let text;
+    try { text = read(join(repoRoot, entry.path)); } catch { return ''; }
+    if (typeof text === 'string' && text.includes(symbol)) hits.push(entry);
+  }
+  if (hits.length === 0) return '';
+
+  const SHOWN = 3;
+  const shown = hits.slice(0, SHOWN).map((f) => `${f.path} (${f.why})`).join(', ');
+  const more = hits.length > SHOWN ? `, +${hits.length - SHOWN} more` : '';
+  return `MAY BE INCOMPLETE: ${shown}${more} — uncommitted, so not indexed, and `
+    + `mentions "${symbol}". Commit or graph_index({force:true}) to include it.`;
 }
 
 // ⛔ A BLOCKER RETURNED AS A STRING IS INDISTINGUISHABLE FROM DATA, AND A CONSUMER WILL LAUNDER IT.

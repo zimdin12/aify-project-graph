@@ -23,7 +23,7 @@
 // already loaded by the verb plus the latest code_intel_collections row, so no
 // extra graph traversal is needed.
 
-import { uncommittedSourceClause } from './verbs/read_freshness.js';
+import { uncommittedSourceClause, uncommittedMentionClause } from './verbs/read_freshness.js';
 import { getLatestCollection } from '../code-intel/query.js';
 import { getHeadCommit } from '../freshness/git.js';
 import { computeCoverage } from '../code-intel/coverage.js';
@@ -460,7 +460,22 @@ export async function buildAbsenceTrustLine({ noun = 'edges', db, language = nul
 //   db       — open graph db (for getLatestCollection).
 //   repoRoot — repo root (for HEAD comparison).
 // Returns a string (no leading newline) the verb can append on its own line.
-export async function buildTrustLine({ edges = [], db, repoRoot, truncated = false, file = null }) {
+export async function buildTrustLine(opts = {}) {
+  const line = await buildTrustLineBody(opts);
+  // ⛔ ONE APPEND POINT, ON PURPOSE. buildTrustLineBody has several returns (heuristic, lsp-partial
+  // twice, verified), and appending at each would let the next branch added miss it silently — the
+  // shape that leaves a disclosure reaching some results and not others. Wrapping makes the bad
+  // state unconstructible instead of merely unlikely.
+  //
+  // ⚠ Relevance-gated, not existence-gated: see uncommittedMentionClause for why appending the
+  // ABSENCE clause here would fire on every result of an actively-edited repo and become decoration.
+  const mention = opts.freshness && opts.symbol
+    ? uncommittedMentionClause(opts.freshness, opts.symbol, opts.repoRoot)
+    : '';
+  return mention ? `${line}\n${mention}` : line;
+}
+
+async function buildTrustLineBody({ edges = [], db, repoRoot, truncated = false, file = null }) {
   if (!hasLspVerifiedEdge(edges)) {
     return HEURISTIC_TRUST_LINE;
   }
