@@ -1,0 +1,48 @@
+# Probe run — substring vs whole-identifier relevance
+
+Command:  node scripts/probe-mention-substring.mjs
+Date:     2026-09-03T10:24:37Z
+Commit:   5cc7f5368e08f5e85cebd056eb3c6a0b01b4f86b
+
+```
+[PASS] POSITIVE CONTROL: a real whole-identifier mention matches both tests
+[PASS] NEGATIVE CONTROL: an absent name matches neither
+
+population: 200 symbol labels (<=12 chars), 60 real source files
+
+(name,file) pairs where includes() says RELEVANT : 3942
+  ...of those, a real identifier mention          : 2072
+  ...of those, SUBSTRING ONLY (false relevance)   : 1870  = 47.4%
+
+SHIPPED-CODE CROSS-CHECK: 0 disagreement(s) with this probe's independent implementation  AGREE
+
+sample false relevances (name — context it actually appeared in):
+  "c"              mcp/stdio/analysis/communities.js
+      ...import createGraph from 'n...
+  "f"              mcp/stdio/analysis/communities.js
+      ...mport createGraph from 'ngraph.graph'...
+  "h"              mcp/stdio/analysis/communities.js
+      ...import createGraph from 'ngraph.grap...
+  "q"              mcp/stdio/analysis/communities.js
+      ... better partition quality than Louvai...
+  "u"              mcp/stdio/analysis/communities.js
+      ..., 'File', 'Module', 'Directory'...
+  "v"              mcp/stdio/analysis/communities.js
+      ...Leiden and not Louvain: graphify (the...
+  "at"             mcp/stdio/analysis/communities.js
+      ...import createGraph from 'ngrap...
+  "ev"             mcp/stdio/analysis/communities.js
+      ...ame persisted IDs even if the library ...
+  "mb"             mcp/stdio/analysis/communities.js
+      ... { communities: number, assignments: M...
+  "sh"             mcp/stdio/analysis/communities.js
+      ...{ members.push({ label: r.label,...
+  "dir"            mcp/stdio/analysis/communities.js
+      ...l }); } // Undirected, deduped edg...
+  "ins"            mcp/stdio/analysis/communities.js
+      ...phify (the design inspiration) uses * ...
+
+⛔ VERDICT: the gate fires on substrings. 1870 of 3942 relevance decisions on this
+   repo are names appearing only INSIDE longer identifiers — the clause would tell an agent a
+   file mentions a symbol it does not contain.
+```

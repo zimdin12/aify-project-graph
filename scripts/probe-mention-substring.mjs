@@ -90,6 +90,8 @@ if (names.length === 0 || files.length === 0) {
 }
 
 // ---- MEASURE --------------------------------------------------------------------------------
+const { mentionsIdentifier: productionMentions } = await import('../mcp/stdio/query/verbs/read_freshness.js');
+let disagreements = 0;
 const findings = [];
 let loosePairs = 0;
 let strictPairs = 0;
@@ -101,6 +103,11 @@ for (const file of files) {
     if (!loose) continue;
     loosePairs += 1;
     const strict = mentionsIdentifier(text, name);
+    // ⭐ CROSS-CHECK THE SHIPPED CODE AGAINST THIS PROBE'S OWN IMPLEMENTATION. They were written
+    // separately, so agreement is real evidence rather than one reader consulting itself. If
+    // production ever regresses to a substring test, `strict` stays correct here and the
+    // disagreement count below goes non-zero instead of the finding silently reading as "fixed".
+    if (productionMentions(text, name) !== strict) disagreements += 1;
     if (strict) { strictPairs += 1; continue; }
     const at = text.indexOf(name);
     const ctx = text.slice(Math.max(0, at - 18), at + name.length + 18).replace(/\s+/g, ' ');
@@ -114,6 +121,8 @@ say('');
 say(`(name,file) pairs where includes() says RELEVANT : ${loosePairs}`);
 say(`  ...of those, a real identifier mention          : ${strictPairs}`);
 say(`  ...of those, SUBSTRING ONLY (false relevance)   : ${falsePairs}  = ${pct.toFixed(1)}%`);
+say('');
+say(`SHIPPED-CODE CROSS-CHECK: ${disagreements} disagreement(s) with this probe's independent implementation  ${disagreements === 0 ? 'AGREE' : 'DIVERGED'}`);
 say('');
 say('sample false relevances (name — context it actually appeared in):');
 for (const f of findings.slice(0, 12)) {

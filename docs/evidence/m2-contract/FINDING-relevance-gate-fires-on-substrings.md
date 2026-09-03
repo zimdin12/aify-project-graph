@@ -55,3 +55,20 @@ carrying `::`, `~` or `operator<<` — all of which exist in C++ graphs this pro
 
 A TEXTUAL measurement about substring versus identifier-boundary matching on one repository's symbol
 names. It says nothing about which symbols agents actually query, and nothing about other repos.
+
+## Fixed, and cross-checked against an independent implementation
+
+`mentionsIdentifier` (index scan for non-identifier neighbours) replaced `includes()`. The probe now
+runs THREE tests over the same 3942 pairs: the old `includes()`, its own independently written
+reference, and the SHIPPED production function imported from `read_freshness.js`.
+
+    SHIPPED-CODE CROSS-CHECK: 0 disagreement(s) with this probe's independent implementation  AGREE
+
+⭐ That is worth more than the unit tests alone: the two implementations were written separately, so
+agreement is evidence rather than one reader consulting itself. And the check is load-bearing going
+forward — if production ever regresses to a substring test, the probe's reference stays correct and
+the disagreement count goes non-zero, instead of the whole finding quietly reading as "fixed".
+
+Run: `RUN-mention-substring.txt`. Three mutants killed on the production function: reverting to
+`includes()`, stopping at the first occurrence (which fails SILENT — the hard direction to notice),
+and checking only the left-hand boundary.
