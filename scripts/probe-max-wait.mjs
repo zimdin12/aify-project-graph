@@ -53,16 +53,24 @@ try {
 
     const syncs = [];
     let inFlight = 0;
-    let lastEditAt = null;      // when the most recent unobserved edit landed
+    // ⛔ THE OLDEST UNOBSERVED EDIT, NOT THE MOST RECENT ONE.
+    //
+    // The first version of this probe measured `syncStart - mostRecentEdit`, which is small by
+    // construction — it reported 0.8 s for the W=off arm, the arm that provably never flushed during
+    // a 45 s burst. That is the wrong noun: what `maxWaitMs` bounds, and what an agent actually
+    // suffers, is how long the EARLIEST unflushed edit went unseen. The watcher's own comment says
+    // exactly that, and the instrument contradicted it.
+    let oldestUnobservedEditAt = null;
     let maxStalenessMs = 0;
 
     const instrumented = async (args) => {
       inFlight += 1;
       const startedAt = Date.now();
-      // Any edit that landed before this sync began is observed by it.
-      if (lastEditAt !== null) {
-        maxStalenessMs = Math.max(maxStalenessMs, startedAt - lastEditAt);
-        lastEditAt = null;
+      // A sync starting now observes every edit that landed before it, so the oldest one's wait ends
+      // here and the window resets.
+      if (oldestUnobservedEditAt !== null) {
+        maxStalenessMs = Math.max(maxStalenessMs, startedAt - oldestUnobservedEditAt);
+        oldestUnobservedEditAt = null;
       }
       try { return await ensureFresh(args); }
       finally { syncs.push({ startedAt, ms: Date.now() - startedAt }); inFlight -= 1; }
@@ -84,7 +92,7 @@ try {
     while (Date.now() - t0 < EDIT_FOR_MS) {
       edits += 1;
       writeFileSync(target, `${original}\nexport function probeFn${edits}() { return ${edits}; }\n`);
-      lastEditAt = Date.now();
+      if (oldestUnobservedEditAt === null) oldestUnobservedEditAt = Date.now();
       await sleep(EDIT_EVERY_MS);
       const nowTick = Date.now();
       if (inFlight > 0) busyMs += nowTick - lastTick;
@@ -97,7 +105,7 @@ try {
       await sleep(200);
       if (inFlight === 0 && syncs.length && Date.now() - syncs[syncs.length - 1].startedAt - syncs[syncs.length - 1].ms > 2000) break;
     }
-    if (lastEditAt !== null) maxStalenessMs = Math.max(maxStalenessMs, Date.now() - lastEditAt);
+    if (oldestUnobservedEditAt !== null) maxStalenessMs = Math.max(maxStalenessMs, Date.now() - oldestUnobservedEditAt);
     const cpu = process.cpuUsage(cpu0);
     loop.stop();
 
