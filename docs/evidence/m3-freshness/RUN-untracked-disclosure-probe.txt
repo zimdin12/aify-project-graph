@@ -1,0 +1,32 @@
+# Probe run — is the untracked-file gap disclosed or silent?
+
+Command:  node scripts/probe-untracked-disclosure.mjs
+Date:     2026-09-03T04:49:08Z
+Commit:   70b583c7fee4cfe59f6a871408c4835b5f3bc1cb
+Platform: win32, node v22.20.0
+
+```
+[PASS] C1  instrument finds a real caller
+        EDGE callsBase→baseFn CALLS src/base.js:2 conf=0.90
+[PASS] C2  clean tree: absence carries NO uncommitted clause
+        NO MATCH for "zzqAbsentSymbol". Try graph_search(query="zzqAbsentSymbol") to find similar names.
+[PASS] T:graph_callers  absence NAMES the untracked file as the reason
+        NO MATCH for "brandNewFn". Try graph_search(query="brandNewFn") to find similar names. | NOT COVERED: src/newthing.js (untracked) — uncommitted, so not indexed. Commit or graph_index({force:true}) before treating this as absent.
+[PASS] T:graph_callees  absence NAMES the untracked file as the reason
+        NO MATCH for "brandNewFn". Try graph_search(query="brandNewFn") to find similar names. | NOT COVERED: src/newthing.js (untracked) — uncommitted, so not indexed. Commit or graph_index({force:true}) before treating this as absent.
+[PASS] T:graph_impact  absence NAMES the untracked file as the reason
+        NO MATCH for "brandNewFn". Try graph_search(query="brandNewFn") to find similar names. | NOT COVERED: src/newthing.js (untracked) — uncommitted, so not indexed. Commit or graph_index({force:true}) before treating this as absent.
+[PASS] C3  the recommended remedy (force:true) actually indexes it
+        NO CALLERS for "brandNewFn". Try graph_whereis(symbol="brandNewFn", expand=true) for an overview.
+[PASS] C4  case C: a COMMITTED new file arrives via a plain incremental index
+        NO CALLERS for "brandNewFn". Try graph_whereis(symbol="brandNewFn", expand=true) for an overview.
+
+FULL TEXT OF THE CASE UNDER TEST (T):
+-----------------------------------------------
+NO MATCH for "brandNewFn". Try graph_search(query="brandNewFn") to find similar names.
+NOT COVERED: src/newthing.js (untracked) — uncommitted, so not indexed. Commit or graph_index({force:true}) before treating this as absent.
+-----------------------------------------------
+
+CONTROLS HELD — the T verdict above is readable.
+```
+PROBE_EXIT=0

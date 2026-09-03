@@ -81,6 +81,23 @@ So `graph_index` adds new files correctly. Something about the watcher's invocat
 - **Whether commit C's failure has the same cause as B's.** It is consistent with one cause; that is
   not evidence of one.
 
+## ⛔ CORRECTION 2026-09-03 — "silently" IS FALSE, AND THIS IS NOT AN AUTO-SYNC BLOCKER
+
+See `FINDING-untracked-gap-is-disclosed-not-silent.md`, measured with controls in the same pass.
+
+- The absence now NAMES the file and the remedy: `NOT COVERED: src/newthing.js (untracked) —
+  uncommitted, so not indexed.` Verified through three independently-written verbs; a clean tree
+  emits no such clause, so it is a discriminator and not decoration; and `force:true` really does
+  index the file, so the remedy it recommends is true.
+- The gap is not caused by the watcher OR by `APG_AUTO_SYNC`. The four installed git hooks run
+  `scripts/reindex.mjs` -> `ensureFresh({ repoRoot })` incrementally on every commit with the flag
+  OFF, so the gap is identical either way.
+
+⇒ The "Consequence for M3a" section below is SUPERSEDED. It is kept because the reasoning it records
+is the reason the blocker sounded decisive, and because this file was written one day before the
+disclosure landed — it expired rather than being wrong when written. ⚠ Case C (a new file missing
+even after `git add` + commit) is NOT covered by that correction and is still live.
+
 ## Consequence for M3a
 
 This is decision-relevant and it points the opposite way to the cost work:

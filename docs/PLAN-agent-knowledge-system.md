@@ -293,7 +293,22 @@ The machinery exists but is opt-in and partial.
   ⇒ The 35.2 s / 91%-≥-15 s figures below describe **full rebuilds** (reproduced here at 75 s) and
   do not describe a burst. They no longer argue against default-on; they argue against confusing
   the two.
-  ⛔⛔ **A NEW AND STRONGER REASON NOT TO FLIP, found 2026-09-02**
+  ⛔ **THE "STRONGER REASON" BELOW EXPIRED THE NEXT DAY — 2026-09-03.**
+  `docs/evidence/m3-freshness/FINDING-untracked-gap-is-disclosed-not-silent.md`, six arms with
+  controls in the same pass. Two words in it were load-bearing and both are false now:
+  **"silently"** — a NO MATCH names the file, the reason and a remedy, verified through three
+  independently-written verbs, absent on a clean tree, and the remedy (`force:true`) really works;
+  and **"default-on would"** — the four installed git hooks already run `scripts/reindex.mjs` ->
+  `ensureFresh` incrementally on every commit with `APG_AUTO_SYNC` OFF, so the gap is identical
+  either way. A blocker for a flag must name a defect the flag introduces; this named one that is
+  fully present without it.
+  ⚠ NOT a reason to flip anything — retiring a bad reason to hold is not a reason to release. And
+  **case C is narrowed, not closed**: a committed new file DOES arrive through a plain incremental
+  index (control C4, run in its own repo so it could fail), so the indexer is exonerated and only the
+  WATCHER route is still unexplained. ⇒ M3a stays HELD on THREE blockers (overlapping bursts, WSL `/mnt`, large C++ repo),
+  none of which is correctness of the untracked path.
+
+  ⛔⛔ **THE SUPERSEDED REASON, kept because it was the strongest-sounding one — found 2026-09-02**
   (`docs/evidence/m3-freshness/FINDING-watcher-misses-new-files.md`): with the watcher running, a
   MODIFIED tracked file reaches the graph but a **NEWLY CREATED file never does — not even after
   `git add` + commit** — while `lastRunAt` advances on every edit and `lastError` stays `none`. A
