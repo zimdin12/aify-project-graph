@@ -17,6 +17,7 @@
 // LARGER than what is asserted here — this is a floor on the problem, not the whole of it.
 import { describe, it, expect } from 'vitest';
 import { buildAbsenceTrustLine } from '../../../mcp/stdio/query/lsp-evidence.js';
+import { noMatchMessage } from '../../../mcp/stdio/query/did-you-mean.js';
 
 // Stub db: a File count for INDEXED SCOPE, no collection rows, no suggestions.
 const db = {
@@ -32,6 +33,7 @@ const db = {
 // stop-growth lines and not targets: the correct direction for either is DOWN.
 const CAVEAT_CEILING_BYTES = 641;        // javascript, clean tree
 const WORST_CASE_CEILING_BYTES = 1042;   // cpp + an uncommitted source — what an agent actually meets
+const NO_MATCH_CEILING_BYTES = 157;      // the OTHER surface, shared by nine verbs
 
 describe('the absence caveat surface has an aggregate budget', () => {
   it('⛔ POSITIVE CONTROL: the line is actually assembled — else the budget guards nothing', async () => {
@@ -49,6 +51,22 @@ describe('the absence caveat surface has an aggregate budget', () => {
       + 'This surface is ALREADY over the 445 B wall this project removed once. To add a clause, '
       + 'take bytes out of an existing one — do not raise this number without saying why in the diff.')
       .toBeLessThanOrEqual(CAVEAT_CEILING_BYTES);
+  });
+
+  it('★★★ the NO MATCH surface has its own ceiling — a mutant proved the gate had a hole', async () => {
+    // ⛔ ADDED BECAUSE A MUTANT SURVIVED. Growing the BRIEF clause by a few words changed nothing
+    // here: this budget guarded `buildAbsenceTrustLine`, and the brief form renders only on the
+    // NO MATCH surface, which is produced by a different function shared by nine verbs. A budget
+    // that covers one of two surfaces is not a budget — the same "one fix is not a sweep" shape the
+    // clauses themselves kept hitting.
+    const out = noMatchMessage(db, 'zzqAbsentSymbolName');
+    expect(out, 'precondition: this is the NO MATCH shape').toMatch(/NO MATCH/);
+    expect(out, 'and it carries the clause under budget').toMatch(/INDEXED SCOPE:/);
+    expect(out.length,
+      `NO MATCH is ${out.length} B against a ${NO_MATCH_CEILING_BYTES} B ceiling. It is the smallest `
+      + 'absence answer, so a clause costs proportionally most here — the 445 B wall this project '
+      + 'removed was 79% of a NO MATCH.')
+      .toBeLessThanOrEqual(NO_MATCH_CEILING_BYTES);
   });
 
   it('⛔ the worst case — every clause firing at once — is the one that must fit', async () => {
