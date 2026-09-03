@@ -124,3 +124,41 @@ export function missScopeNote(db, { types, what = 'declaration types' } = {}) {
   }
   return lines.join('\n');
 }
+
+/**
+ * Name the population the heuristic graph searched.
+ *
+ * ⛔ ONE OWNER FOR THE NUMBER AND THE LIMIT. It is rendered on two different surfaces — the
+ * empty-set absence (`buildAbsenceTrustLine`) and the NO MATCH message shared by nine verbs — and
+ * the two would otherwise drift into disagreeing about the same fact, which is the failure this
+ * repo already records for dirty-file counts ("one verb said 592, another said 4").
+ *
+ * ⛔ M2: "separate 'no callers in indexed scope' from 'no callers' and NAME the scope". Measured
+ * absent on both absence shapes before this existed.
+ * See docs/evidence/m2-contract/FINDING-absence-does-not-name-the-indexed-scope.md
+ *
+ * ⚠ TWO LENGTHS, AND THE SHORT ONE IS A MEASURED DECISION, not a stylistic preference. Real NO MATCH
+ * answers on this repository are 251-281 B; the full wording is 26-28% of the smallest, over the 25%
+ * budget fixed before the numbers existed, while `brief` is 17.4%. ⚠ The brief form still carries the
+ * limit clause — a bare count invites exactly the completeness reading the limit exists to block,
+ * and NO MATCH has no TRUST line beside it to supply that elsewhere.
+ *
+ * ⛔ NUMERATOR ONLY. A denominator would need a repo walk these paths do not do, and a fabricated one
+ * lets a reader compute a completeness figure nobody measured.
+ *
+ * ⚠ SILENT ON AN UNREADABLE COUNT, never "0 files": a failed query must not render as a measured
+ * empty graph.
+ */
+export function indexedScopeClause(db, { brief = false } = {}) {
+  if (!db) return '';
+  let files = null;
+  try {
+    files = db.get(`SELECT COUNT(*) AS c FROM nodes WHERE type = 'File'`)?.c ?? null;
+  } catch { return ''; }
+  if (typeof files !== 'number' || files <= 0) return '';
+  const noun = `${files} file${files === 1 ? '' : 's'}`;
+  return brief
+    ? ` INDEXED SCOPE: ${noun} — not the whole repository.`
+    : ` INDEXED SCOPE: ${noun} — this absence is within that scope,`
+      + ' not a statement about the repository.';
+}

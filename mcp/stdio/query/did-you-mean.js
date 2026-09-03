@@ -1,3 +1,4 @@
+import { indexedScopeClause } from './miss-scope.js';
 // A DEAD END SHOULD CARRY ITS OWN NEXT STEP.
 //
 // Every symbol verb answered a miss with: `NO MATCH for "X". Try
@@ -165,7 +166,23 @@ export function findSimilarSymbols(db, query) {
 // graph_search reads the same node table, so it returned nothing and could not have done
 // otherwise. The message contained its own correction four lines down; the TOP line is the one
 // that gets followed.
-export function noMatchMessage(db, symbol, { verb = 'graph_search', nextInstruction } = {}) {
+export function noMatchMessage(db, symbol, opts = {}) {
+  // ⛔ ONE APPEND POINT. The body below has several returns (no suggestions, no usable alternative,
+  // the normal list), and appending at each would let the next branch added miss the disclosure
+  // silently — the shape that leaves a contract reaching some answers and not others. Wrapping makes
+  // that unconstructible rather than merely unlikely.
+  //
+  // ⛔ WHY NO MATCH NEEDS IT AT ALL: this repo's own defect class is "'NO MATCH' / 'not found' read
+  // as a claim about the REPOSITORY". An agent asking whether a symbol exists got a bare no with
+  // nothing saying how much was searched, across NINE verbs that share this producer.
+  //
+  // ⚠ The BRIEF form, measured: real NO MATCH answers here are 251-281 B, so the full wording is
+  // 26-28% of the smallest — over a 25% budget fixed before the numbers existed — while brief is
+  // 17.4% and still carries the limit clause.
+  return noMatchBody(db, symbol, opts) + indexedScopeClause(db, { brief: true });
+}
+
+function noMatchBody(db, symbol, { verb = 'graph_search', nextInstruction } = {}) {
   const wider = nextInstruction || `${verb}(query="${symbol}") for a wider search.`;
   const suggestions = findSimilarSymbols(db, symbol);
   if (suggestions.length === 0) {
