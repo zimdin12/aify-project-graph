@@ -120,11 +120,13 @@ describe('a non-empty result names uncommitted files that MENTION the queried sy
 // argument proves the wiring and not that the value survived to the output.
 //
 // ⚠ WHAT IS DELIBERATELY NOT COVERED, said plainly rather than left to be discovered:
-//   graph_change_plan — its trust line is built in `buildChangePlanWithContext`, a helper with two
-//     callers and no `freshness` parameter. Threading it is a larger change than this one, and
-//     half-threading a shared helper is worse than a stated gap.
 //   graph_explain_diff, graph_trace — neither has ONE queried symbol (a range, and a from/to pair),
 //     so the relevance gate has nothing to gate on.
+//
+// ⚠ graph_change_plan WAS on that list and no longer is. The stated reason — "a helper with two
+// callers" — was half true: the second caller (`buildChangePlan`) is used only by tests, so the
+// production path is single and threading `freshness` through was small. I had judged the size
+// without opening it.
 describe('the disclosure reaches other verbs on the shared trust line', () => {
   it('★★★ graph_callees names a relevant uncommitted file too', async () => {
     // ⚠ THE FIXTURE HAD TO BE FIXED, AND THE FIRST FAILURE WAS MINE. Querying callees of `target`
@@ -147,6 +149,20 @@ describe('the disclosure reaches other verbs on the shared trust line', () => {
     const { graphNeighbors } = await import('../../../mcp/stdio/query/verbs/neighbors.js');
     const out = String(await graphNeighbors({ repoRoot: repo, symbol: 'target' }));
     expect(out, 'neighbors shares buildTrustLine').toMatch(/MAY BE INCOMPLETE/);
+    expect(out).toMatch(/newcaller\.js/);
+  }, 120_000);
+});
+
+// graph_change_plan is the verb an agent reads BEFORE editing, so an incomplete caller picture there
+// is the most consequential of all. Its trust line is built inside a helper, which is why the
+// freshness had to be threaded rather than read from an enclosing scope.
+describe('graph_change_plan carries the disclosure too', () => {
+  it('★★★ a relevant uncommitted file is named on the change plan', async () => {
+    const { graphChangePlan } = await import('../../../mcp/stdio/query/verbs/change_plan.js');
+    const out = String(await graphChangePlan({ repoRoot: repo, symbol: 'target' }));
+    expect(out, 'precondition: this is a real change plan, not an error').toMatch(/CHANGE_PLAN|READ ORDER/);
+    expect(out, 'change_plan builds its trust line in a helper — the value must survive the thread')
+      .toMatch(/MAY BE INCOMPLETE/);
     expect(out).toMatch(/newcaller\.js/);
   }, 120_000);
 });

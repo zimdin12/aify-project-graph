@@ -173,6 +173,11 @@ export async function buildChangePlanWithContext(db, {
   overlayQuality = null,
   sourceOccurrenceFiles = [],
   repoRoot = null,
+  // ⚠ THREADED IN, NOT READ FROM AN OUTER SCOPE. The trust line below is built HERE, in a helper,
+  // while `freshness` lives in `graphChangePlan`. A previous attempt referenced it directly and the
+  // suite went red with TRUST: UNAVAILABLE — a ReferenceError inside the try, swallowed into the
+  // unavailable banner. Defaults to null so `buildChangePlan`, the test-only wrapper, keeps working.
+  freshness = null,
 }) {
   const typesClause = SEARCH_TYPES.map((type) => `'${type}'`).join(',');
   const candidates = resolveSymbol(db, symbol, typesClause);
@@ -322,7 +327,7 @@ export async function buildChangePlanWithContext(db, {
   const incomingTrustEdges = incomingRows.map((row) => ({ provenance: row.provenance ?? 'EXTRACTED' }));
   let headlineTrust = '';
   try {
-    headlineTrust = await buildTrustLine({ edges: incomingTrustEdges, db, repoRoot });
+    headlineTrust = await buildTrustLine({ edges: incomingTrustEdges, db, repoRoot, freshness, symbol });
   } catch { headlineTrust = RESULTS_TRUST_UNAVAILABLE; }
 
   const lines = [];
@@ -504,6 +509,7 @@ export async function graphChangePlan({ repoRoot, symbol, top_k = 6 }) {
         overlayQuality,
         sourceOccurrenceFiles,
         repoRoot,
+        freshness,
       }),
       freshness.warnings,
     );
