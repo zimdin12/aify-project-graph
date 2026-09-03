@@ -15,7 +15,7 @@
 //     explicit opt-in flag in a follow-up.
 //
 // Public API:
-//   startWatcher({ repoRoot, onChange, debounceMs?, ignoredDirs?, env? })
+//   startWatcher({ repoRoot, onChange, debounceMs?, maxWaitMs?, ignoredDirs?, env? })
 //   -> { stop(): void, status: 'running' | 'disabled' | 'unsupported',
 //        reason?: string }
 
@@ -65,6 +65,10 @@ export function startWatcher({
   repoRoot,
   onChange,
   debounceMs = DEFAULT_DEBOUNCE_MS,
+  // ⚠ OFF BY DEFAULT, DELIBERATELY. Turning it on changes when work happens under sustained editing,
+  // and that cost is not yet measured — see PREREGISTRATION-watcher-max-wait.md. Defaulting it here
+  // would decide that question by omission.
+  maxWaitMs = null,
   ignoredDirs = IGNORED_DIRS,
   env = process.env,
 } = {}) {
@@ -85,12 +89,17 @@ export function startWatcher({
   let pending = null;
   let pendingTimer = null;
   let stopped = false;
+  // When the OLDEST event in the current burst arrived. `maxWaitMs` is measured from here, not from
+  // the most recent event, because the point is to bound how long the EARLIEST unflushed edit can go
+  // unseen.
+  let burstStartedAt = null;
 
   function flushBurst() {
     if (stopped) return;
     const burst = pending;
     pending = null;
     pendingTimer = null;
+    burstStartedAt = null;
     if (!burst || burst.length === 0) return;
     try { onChange(burst); } catch { /* swallow; one bad consumer mustn't kill the watcher */ }
   }
@@ -121,10 +130,29 @@ export function startWatcher({
     const segments = rel.split('/').filter(Boolean);
     if (segments.some((seg) => isIgnoredDirName(seg, ignoredDirs))) return;
     if (pathContainsIgnoredDir(rel, ignoredDirs)) return;
+    const now = Date.now();
     if (!pending) pending = [];
-    pending.push({ event, filename: String(filename).replace(/\\/g, '/'), at: Date.now() });
+    if (burstStartedAt === null) burstStartedAt = now;
+    pending.push({ event, filename: String(filename).replace(/\\/g, '/'), at: now });
     if (pendingTimer) clearTimeout(pendingTimer);
-    pendingTimer = setTimeout(flushBurst, debounceMs);
+
+    // ⛔ A DEBOUNCE WITH NO CEILING STARVES. Every event above cancels the pending flush, so while
+    // events keep arriving closer together than `debounceMs` the burst never flushes AT ALL —
+    // measured 2026-09-03 at 229 edits over 60 s producing ONE sync, and that one ran only after the
+    // editing stopped. Sustained editing is the normal agent workload, so the watcher sat idle
+    // exactly when it was most needed.
+    // See docs/evidence/m3-freshness/FINDING-debounce-starves-under-continuous-editing.md
+    //
+    // `maxWaitMs` bounds it: the flush is never pushed out past `maxWaitMs` after the burst's FIRST
+    // event, however many arrive after it. Measured from the burst start rather than the latest
+    // event, because what needs bounding is how long the EARLIEST unflushed edit stays unseen.
+    //
+    // ⚠ null/undefined reproduces the old behaviour EXACTLY — that is what the W=off control arm of
+    // the preregistration depends on, so it must stay a true no-op and not a large default.
+    const wait = maxWaitMs === null || maxWaitMs === undefined
+      ? debounceMs
+      : Math.max(0, Math.min(debounceMs, burstStartedAt + maxWaitMs - now));
+    pendingTimer = setTimeout(flushBurst, wait);
   }
 
   let handle;
