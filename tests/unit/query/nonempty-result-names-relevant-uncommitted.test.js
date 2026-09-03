@@ -20,6 +20,7 @@ import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
 let repo = null;
 let graphCallers = null;
@@ -56,8 +57,15 @@ describe('a non-empty result names uncommitted files that MENTION the queried sy
 
     const out = String(await graphCallers({ repoRoot: repo, symbol: 'target' }));
     expect(out, 'the result must still be the real one').toMatch(/committedCaller/);
-    expect(out, 'a dirty tree ALONE must not trigger the clause — only relevance may')
-      .not.toMatch(/MAY BE INCOMPLETE/);
+    expectAbsentWithLiveMatcher(
+      /MAY BE INCOMPLETE/,
+      {
+        forbidden: 'MAY BE INCOMPLETE: src/x.js (untracked) — uncommitted, so not indexed',
+        allowed: 'EDGE committedCaller→target CALLS src/base.js:2 conf=0.90',
+      },
+      out,
+      'a dirty tree ALONE must not trigger the clause — only relevance may',
+    );
   }, 120_000);
 
   it('★★★ an uncommitted file that DOES mention the symbol is named, with a remedy', async () => {
@@ -66,8 +74,17 @@ describe('a non-empty result names uncommitted files that MENTION the queried sy
     await graphIndex({ repoRoot: repo, force: false });
 
     const out = String(await graphCallers({ repoRoot: repo, symbol: 'target' }));
-    expect(out, 'the uncommitted caller is genuinely absent from the set — that is the gap')
-      .not.toMatch(/uncommittedCaller/);
+    expectAbsentWithLiveMatcher(
+      /uncommittedCaller/,
+      {
+        forbidden: 'EDGE uncommittedCaller→target CALLS src/newcaller.js:2',
+        // ⚠ The allowed canary is the caller that IS listed. It shares a suffix with the forbidden
+        // name, so a matcher loose enough to confuse them fails here rather than passing quietly.
+        allowed: 'EDGE committedCaller→target CALLS src/base.js:2',
+      },
+      out,
+      'the uncommitted caller is genuinely absent from the set — that is the gap',
+    );
     expect(out, 'so the agent must be told the set may be short').toMatch(/MAY BE INCOMPLETE/);
     expect(out, 'and WHICH file, or the doubt is not checkable').toMatch(/newcaller\.js/);
     expect(out, 'and a remedy that can change the answer').toMatch(/graph_index\(\{force:true\}\)/);
@@ -81,7 +98,17 @@ describe('a non-empty result names uncommitted files that MENTION the queried sy
     const clause = out.split('\n').find((l) => l.includes('MAY BE INCOMPLETE')) ?? '';
     expect(clause, 'precondition: the clause is present in this arm').toMatch(/MAY BE INCOMPLETE/);
     expect(clause, 'it must report a MENTION').toMatch(/mentions/);
-    expect(clause, 'and must not claim the file calls the symbol').not.toMatch(/\bcalls\b/);
+    expectAbsentWithLiveMatcher(
+      /\bcalls\b/,
+      {
+        forbidden: 'MAY BE INCOMPLETE: src/newcaller.js (untracked) — uncommitted, and calls "target".',
+        // The real wording, which must NOT trip the matcher — and note "CALLS" appears uppercase in
+        // edge lines elsewhere, so a case-insensitive version of this matcher would be overbroad.
+        allowed: 'MAY BE INCOMPLETE: src/newcaller.js (untracked) — uncommitted, and mentions "target".',
+      },
+      clause,
+      'the clause must not claim the file calls the symbol',
+    );
   }, 60_000);
 });
 
