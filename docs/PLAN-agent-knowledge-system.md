@@ -305,7 +305,8 @@ The machinery exists but is opt-in and partial.
   ⚠ NOT a reason to flip anything — retiring a bad reason to hold is not a reason to release. And
   **case C is narrowed, not closed**: a committed new file DOES arrive through a plain incremental
   index (control C4, run in its own repo so it could fail), so the indexer is exonerated and only the
-  WATCHER route is still unexplained. ⇒ M3a stays HELD on THREE blockers (overlapping bursts, WSL `/mnt`, large C++ repo),
+  WATCHER route is still unexplained. ⇒ M3a stays HELD on THREE blockers (overlapping-burst COST, WSL `/mnt`, large C++ repo — the
+  overlapping-burst CORRECTNESS half was answered 2026-09-03),
   none of which is correctness of the untracked path.
 
   ⛔⛔ **THE SUPERSEDED REASON, kept because it was the strongest-sounding one — found 2026-09-02**
@@ -320,9 +321,21 @@ The machinery exists but is opt-in and partial.
   (`docs/evidence/m3-freshness/FINDING-watcher-idle-cost.md`):
   ✅ the watcher's own IDLE cost — **measured 0.0 ms CPU and +4 KB RSS over 30 s with the watcher
   confirmed `running`**, against a control arm in the same process and a busy-loop proving the meter
-  could see cost. ⛔ Still open: OVERLAPPING bursts (sustained editing where one arrives mid-sync —
-  the normal agent workload, and the one thing single-burst timing cannot reach), WSL/`/mnt` where
-  the watcher is default-off for unrelated reasons, and a large C++ repo.
+  could see cost.
+  ⚠ **OVERLAPPING bursts — HALVED 2026-09-03, not closed.** The blocker bundled two questions and
+  only one is now answered.
+  ✅ **Lost updates: answered at the logic tier.** A write landing DURING a sync is observed by a
+  later sync (`tests/unit/sync/auto-sync.test.js`, two mutants killed — dropping the coalesced rerun,
+  and forgetting the pending burst). ⭐ The existing coalescing test could not see this: it pins
+  `maxConcurrent === 1` and "fewer syncs than events", and **"fewer syncs than events" is exactly
+  what a lost update looks like through a call counter.** The new test makes the overlap a
+  CONSTRUCTION — the write happens from inside the in-flight `ensureFresh` — because the 2026-09-02
+  field probe tried to produce it by timing and never achieved overlap at all.
+  ⛔ **Tier: PASSES IN TESTS, never exercised for real.** The injected sync is not `ensureFresh`, so
+  this is a property of the COALESCER and says nothing about the indexer beneath it.
+  ⛔ **Still open: the COST half** — sustained editing on a large repo, where the question is not
+  correctness but whether overlapping bursts do pathological repeated work. Plus WSL/`/mnt` where the
+  watcher is default-off for unrelated reasons, and a large C++ repo.
   ⚠ **And the blocker's own wording was wrong:** "starts a background process for every install"
   names the wrong thing. `startWatcher` registers ONE recursive `fs.watch` handle **inside the
   existing server process**, with no polling fallback and deliberately not one watch per directory.
