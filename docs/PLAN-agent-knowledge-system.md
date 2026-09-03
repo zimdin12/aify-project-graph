@@ -583,7 +583,7 @@ already have working.
 names, now with a concrete artifact attached to it.
 
 ⛔ **NOT STARTED.** The plan's own ordering says prove the substrate before adding a layer, and M5 is
-blocked on the 72-run budget with the stop condition live. Starting this before M5 answers is the
+blocked on the 24-run budget with the stop condition live. Starting this before M5 answers is the
 failure the stop condition exists to prevent. If M5 concludes our value is "orientation and structure
 only", this becomes MORE interesting, not less — an orientation carrier is exactly what it would be.
 
@@ -630,7 +630,8 @@ M3  freshness/reconfirmation                  | ANSWERED, NOT BUILT
                                               |   M3b DECIDED 2026-09-03: DROP, on measurement
 M4  wider-task surface experiment             | HYPOTHESIS REFUTED — do NOT narrow
 M5  expensive scale A/B                       | WIRED, green, spends nothing
-                                              |   BLOCKED on ONE thing: the 72-run budget
+                                              |   BLOCKED on ONE thing: the 24-run budget
+                                              |   (was 72; repeats dropped 2026-09-03, Steven)
 ```
 
 ⚠ **THIS ROW CARRIED AN EXPIRED BLOCKER UNTIL 2026-09-02.** It read `budget (72 runs) + a "tier B"
