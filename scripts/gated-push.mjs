@@ -88,6 +88,16 @@ function main() {
   }
 
   console.log(`suite coverage OK — ${why}`);
+
+  // ⛔ --check EXISTS SO THIS CAN BE A FORCED DOOR, NOT A TOOL I MUST REMEMBER.
+  //
+  // A gate you have to invoke is still a rule with a failure rate: a plain `git push` walks straight
+  // past it, which is the same "relies on memory" defect one level up from the one this file fixes.
+  // The pre-push hook calls `--check`, so the verdict runs during ANY push and aborts by exit code.
+  //
+  // ⚠ The hook must NOT push: it runs mid-push, so pushing here would recurse.
+  if (process.argv.includes('--check')) return;
+
   const rest = process.argv.slice(2);
   execFileSync('git', ['-C', REPO, 'push', ...(rest.length ? rest : ['origin', 'main'])], { stdio: 'inherit' });
 }
