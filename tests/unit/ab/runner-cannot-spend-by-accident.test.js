@@ -18,7 +18,24 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { loadExecutor } from '../../../scripts/linkage-scope-runner.mjs';
+
+// ⛔ DYNAMIC IMPORT, AND THE ENV VAR FIRST — A STATIC IMPORT HERE RUNS THE WHOLE HARNESS.
+//
+// `linkage-scope-runner.mjs` ends with `if (!process.env.APG_LINKAGE_RUNNER_NO_MAIN) await main();`,
+// so merely IMPORTING it executes the experiment: preflight, 12 scratch repos materialised, 6 of
+// them indexed, and a mock JSON written into docs/evidence/m5-scale/runs/.
+//
+// ⚠ MY FAULT, MEASURED: I wrote this file (and two others) with a static top-level import and no
+// env guard, so every suite run executed the harness three extra times and left three junk files in
+// the tracked tree — which is why run-suite kept refusing on a dirty tree. A static import is
+// hoisted, so the assignment CANNOT precede it; the import must be dynamic.
+//
+// The pre-existing `linkage-runner-wiring.test.js` already did exactly this. I did not ask why it
+// was shaped that way before writing mine differently.
+async function runnerModule() {
+  process.env.APG_LINKAGE_RUNNER_NO_MAIN = '1';
+  return import('../../../scripts/linkage-scope-runner.mjs');
+}
 
 let dir = null;
 afterEach(() => { if (dir) { rmSync(dir, { recursive: true, force: true }); dir = null; } });
@@ -35,7 +52,7 @@ describe('the linkage runner cannot spend by accident', () => {
     ['a caller passing null', null],
   ]) {
     it(`★★★ ${label} → the MOCK, which spends nothing`, async () => {
-      const { fn, isMock } = await loadExecutor(spec);
+      const { fn, isMock } = await (await runnerModule()).loadExecutor(spec);
       expect(isMock, 'a non-mock here means an accidental run could spend').toBe(true);
       expect(typeof fn).toBe('function');
 
@@ -58,7 +75,7 @@ describe('the linkage runner cannot spend by accident', () => {
     const mod = join(dir, 'fake-executor.mjs');
     writeFileSync(mod, 'export default async function run() { return { transcript: "real", toolCalls: [] }; }\n');
 
-    const { fn, isMock } = await loadExecutor(pathToFileURL(mod).href);
+    const { fn, isMock } = await (await runnerModule()).loadExecutor(pathToFileURL(mod).href);
     expect(isMock, 'an explicit path must be honoured, or the harness can never run').toBe(false);
     expect((await fn({})).transcript).toBe('real');
   });
@@ -70,7 +87,7 @@ describe('the linkage runner cannot spend by accident', () => {
     const mod = join(dir, 'not-an-executor.mjs');
     writeFileSync(mod, 'export const notDefault = 1;\n');
 
-    await expect(loadExecutor(pathToFileURL(mod).href))
+    await expect((await runnerModule()).loadExecutor(pathToFileURL(mod).href))
       .rejects.toThrow(/no default export function/);
   });
 });

@@ -11,8 +11,24 @@
 //
 // The runner's catch records a throw in `skipped`, which is reported and never dropped. So throwing
 // is the correct failure mode: loud, attributable, and outside the denominator.
-import { describe, it, expect } from 'vitest';
-import { validateExecutorResult } from '../../../scripts/linkage-scope-runner.mjs';
+import { describe, it, expect, beforeAll } from 'vitest';
+
+// ⛔ DYNAMIC IMPORT, ENV VAR FIRST — A STATIC IMPORT HERE RUNS THE WHOLE HARNESS.
+//
+// `linkage-scope-runner.mjs` ends with `if (!process.env.APG_LINKAGE_RUNNER_NO_MAIN) await main();`,
+// so merely importing it executes the experiment: preflight, 12 scratch repos materialised, 6 of
+// them indexed, and a mock JSON written into docs/evidence/m5-scale/runs/. A static import is
+// hoisted, so the env assignment CANNOT precede it — the import must be dynamic.
+//
+// ⚠ MY OWN DEFECT, fixed 2026-09-03. Three test files I added used a static import and no guard, so
+// every suite run executed the harness three extra times and left three junk files in the tracked
+// tree — which is why run-suite kept refusing on a dirty tree. `linkage-runner-wiring.test.js`
+// already did this correctly; I did not ask why it was shaped that way before writing mine.
+let validateExecutorResult;
+beforeAll(async () => {
+  process.env.APG_LINKAGE_RUNNER_NO_MAIN = '1';
+  ({ validateExecutorResult } = await import('../../../scripts/linkage-scope-runner.mjs'));
+});
 
 const ok = { transcript: 'I checked the callers and refused.', toolCalls: ['graph_callers'], runtime: 'claude-code' };
 

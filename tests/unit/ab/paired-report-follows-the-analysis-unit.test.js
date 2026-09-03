@@ -9,8 +9,17 @@
 // single "N of 12" headline is exactly what a reader wants to quote, and it would average synthetic
 // (tier A) with real (tier B) AND pool Hermes with Claude Code — both explicitly forbidden by the
 // fixture's analysisRule. So the split is asserted here, not left to discipline.
-import { describe, it, expect } from 'vitest';
-import { buildPairedReport } from '../../../scripts/linkage-scope-runner.mjs';
+import { describe, it, expect, beforeAll } from 'vitest';
+// ⛔ DYNAMIC IMPORT, ENV VAR FIRST — A STATIC IMPORT HERE RUNS THE WHOLE HARNESS.
+// `linkage-scope-runner.mjs` ends with `if (!process.env.APG_LINKAGE_RUNNER_NO_MAIN) await main();`,
+// so importing it executes the experiment: preflight, 12 scratch repos, 6 indexed, and a mock JSON
+// written into the tracked tree. A static import is hoisted, so the assignment cannot precede it.
+// ⚠ My own defect, fixed 2026-09-03: three test files did exactly that, polluting every suite run.
+let buildPairedReport;
+beforeAll(async () => {
+  process.env.APG_LINKAGE_RUNNER_NO_MAIN = '1';
+  ({ buildPairedReport } = await import('../../../scripts/linkage-scope-runner.mjs'));
+});
 
 const row = (tier, classId, arm, unsafe, runtime = 'mock') => ({
   tier, classId, arm, runtime, score: { unsafeAuthoritativeConclusion: unsafe, gateReached: true, sourceVerified: true },
