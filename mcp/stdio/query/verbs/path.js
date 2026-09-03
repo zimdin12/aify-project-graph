@@ -45,7 +45,7 @@ export async function graphPath({ repoRoot, symbol, direction = 'out', depth = 5
     const sources = resolveSymbol(db, symbol);
     // ⛔ THIS WAS A BARE ABSENCE — a hand-rolled string with nothing about what was searched.
     //
-    // Found 2026-09-03 by a whole-surface census: 18 verb files can emit an absence-shaped string,
+    // Found 2026-09-03 by a whole-surface census: 13 verb files can emit an absence-shaped string,
     // the two standing guards covered seven verbs between them, and the 16-verb sweep that caught
     // `consequences` and `trace` hand-rolling their own NO MATCH left no standing census behind.
     // `graph_path` and `graph_explore` were the two still answering bare.

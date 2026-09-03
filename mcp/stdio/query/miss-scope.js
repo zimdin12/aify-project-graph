@@ -75,7 +75,7 @@ export function presentButUnsearched(db, types) {
  * ⛔ `missScopeNote` cannot serve this case: it names WHICH declaration types were searched, and a
  * verb with no type filter has no such list — it returns '' for an empty `types`, which is how
  * graph_path and graph_explore ended up answering a BARE "NO MATCH". Found 2026-09-03 by a
- * whole-surface census; they were the last two of 18 absence-emitting verb files with no scope
+ * whole-surface census; they were the last two of 13 absence-emitting verb files with no scope
  * statement at all.
  *
  * ⚠ AND THE REMEDY THEY OFFERED WAS ALREADY KNOWN-INERT. Their only next step was
