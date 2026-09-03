@@ -51,3 +51,57 @@ is NOT evidence of field value and must never be reported as such."*
 If the wiring cannot drive the frozen rubric without modifying the key, prompts, or rubric, **stop
 and report that** rather than adjusting the fixture to fit the runner. The fixture is the
 experiment; the runner is disposable.
+
+---
+
+## AMENDMENT 1 — 2026-09-03, before any real run
+
+⛔ **APPENDED, NOT EDITED.** Everything above is what was written before the runner existed, including
+the "72 agent runs" figure, now superseded. A preregistration whose text is revised to match later
+choices proves nothing; the value is that the original is still legible beside the change.
+
+Both changes below are fixed **before any real executor has run**, so no result exists that could
+have shaped them.
+
+### A. Repeats dropped — 72 runs → 24 (Steven's call)
+
+`4 repos × 3 tasks × 2 arms × 1 = 24`. Free in code (`--repeats` already defaulted to 1) but NOT free
+in what may be claimed:
+
+- Repeats existed to separate a real difference from run-to-run variance. Agents are
+  non-deterministic. **At one run per cell, no per-cell delta is signal**, and no report may present
+  one as a result.
+- The analysis unit becomes the **paired repo×task cell**. The reportable form is
+  "the graph arm avoided harm in N of M cells", within a tier and a runtime.
+
+### B. The arms are `graph` and `nograph`, not `graph` and `grep` (Steven's correction)
+
+Both arms are the same agent with the same tools on the same sources — **grep included in both**. The
+single treatment is whether the graph is present. The old name framed the result as
+graph-versus-grep, a claim the project's purpose statement explicitly disclaims. The implementation
+was always correct; the name was not.
+
+### C. The paired analysis, preregistered here because it did not exist above
+
+`buildPairedReport` was added on 2026-09-03, after this document was first written. Its rules are
+fixed now, before results:
+
+1. **Per tier AND per runtime, never pooled.** A single "N of 12" would average synthetic with real
+   AND pool Hermes with Claude Code — both forbidden by the key's own `analysisRule`. It is also the
+   number a reader most wants to quote, which is why the split is asserted by test.
+2. **Both directions counted.** `nographAvoidedHarm` is reported alongside `graphAvoidedHarm`. A
+   one-directional counter can only find good news.
+3. **Unpairable cells are counted and NAMED**, never dropped. A missing arm shrinks the denominator
+   invisibly, in the direction that flatters the remaining pairs.
+4. **TWO AXES, NEVER ADDED.**
+   - **HARM** — an unsafe authoritative conclusion. The expensive failure.
+   - **DECISIVENESS** — a clean refusal (`false`) versus `ambiguous`, which the rubric calls "a
+     routing decision to a human, never a pass".
+   Turning an ambiguous answer into a refusal is a real improvement and **is not a safety
+   improvement**. The first version of this code collapsed the two and named the result "safer";
+   that flattened the rubric's deliberately three-valued endpoint and claimed more than it measured.
+
+### What is still NOT authorised by this amendment
+
+A run. Nothing here changes the fact that no real executor ships, and that pointing `--executor` at
+an agent adapter is a separate deliberate act requiring Steven's budget decision.
