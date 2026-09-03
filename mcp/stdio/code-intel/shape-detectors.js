@@ -133,8 +133,30 @@ export function detectIncludedImplementationFile({ files, readFile = (f) => fs.r
  * partial scan would make "no candidate shapes found" mean "none in the first N files", which is
  * the silent-scope-narrowing failure an agent named as the more expensive one.
  */
-export function listRepoSourceFiles(repoRoot, { cap = 2000, exec } = {}) {
-  if (!repoRoot) return [];
+export function listRepoSourceFiles(repoRoot, opts = {}) {
+  return listRepoSourceScope(repoRoot, opts).files;
+}
+
+/**
+ * The same enumeration, plus WHY it came back empty.
+ *
+ * ⛔ AN OVER-CAP SKIP AND A CLEAN SCAN WERE BYTE-IDENTICAL, ON THE REPOS THAT MATTER MOST.
+ * `listRepoSourceFiles` returns `[]` when the repo exceeds the cap, `shapeWarningsForEmptyResult`
+ * returns `[]` for an empty file list, and the agent sees an empty caller set with no candidate
+ * shapes — indistinguishable from a scan that ran and found none.
+ *
+ * ⚠ THE OVER-CAP TEST'S OWN REASONING ARGUES AGAINST THE SILENCE IT JUSTIFIES: it rejects a
+ * truncated sample because that "would make 'no candidate shapes found' mean 'none in the first N
+ * files' — the silent scope-narrowing an agent named as the more expensive failure". Returning []
+ * produces the SAME ambiguity, narrowed to zero instead of to N. Refusing to truncate was right;
+ * refusing to SAY SO was the half that was missing.
+ *
+ * ⚠ And the skip fires on LARGE C/C++ repos — the population this product exists for. Whether real
+ * target repos exceed 2,000 C/C++ sources is NOT measured here; what is established is that when
+ * they do, the feature is silently inert.
+ */
+export function listRepoSourceScope(repoRoot, { cap = 2000, exec } = {}) {
+  if (!repoRoot) return { files: [], skipped: 'no_repo_root', total: 0, cap };
   try {
     const run = exec ?? ((args) => execFileSync('git', args,
       { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }));
@@ -142,10 +164,28 @@ export function listRepoSourceFiles(repoRoot, { cap = 2000, exec } = {}) {
     const all = String(out).split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
       .filter((f) => isImpl(f) || isHeader(f))
       .map((f) => path.join(repoRoot, f));
-    return all.length > cap ? [] : all;
+    if (all.length > cap) return { files: [], skipped: 'over_cap', total: all.length, cap };
+    return { files: all, skipped: null, total: all.length, cap };
   } catch {
-    return [];
+    return { files: [], skipped: 'enumeration_failed', total: 0, cap };
   }
+}
+
+/**
+ * The line an agent gets INSTEAD of silence when the scan did not run.
+ *
+ * ⚠ Deliberately NOT emitted for `skipped: null` with zero files: a repo with no C/C++ sources is a
+ * measured empty, not a skip, and saying anything there would be the wallpaper this module's own
+ * header warns about.
+ */
+export function scanScopeNote(scope) {
+  if (!scope || !scope.skipped) return '';
+  if (scope.skipped === 'over_cap') {
+    return `CANDIDATE SHAPES NOT SCANNED: ${scope.total} C/C++ source files exceeds the ${scope.cap}-file `
+      + 'cap, so no shape scan ran. Absence of candidate shapes below is NOT evidence there are none.';
+  }
+  return 'CANDIDATE SHAPES NOT SCANNED: the source enumeration failed, so no shape scan ran. '
+    + 'Absence of candidate shapes below is NOT evidence there are none.';
 }
 
 /**

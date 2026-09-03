@@ -914,9 +914,15 @@ export async function codeIntelReferences({ repoRoot, language, file, line, col,
   let shapeWarnings = [];
   if (callsiteLocations.length === 0) {
     try {
-      const { shapeWarningsForEmptyResult } = await import('../../code-intel/shape-detectors.js');
-      const { listRepoSourceFiles } = await import('../../code-intel/shape-detectors.js');
-      shapeWarnings = shapeWarningsForEmptyResult({ files: listRepoSourceFiles(repoRoot) });
+      const { shapeWarningsForEmptyResult, listRepoSourceScope, scanScopeNote } =
+        await import('../../code-intel/shape-detectors.js');
+      // ⛔ A SKIPPED SCAN USED TO LOOK EXACTLY LIKE A CLEAN ONE. Over the file cap the enumeration
+      // returns [], the renderer returns [], and the agent sees an empty caller set with no
+      // candidate shapes — which reads as "none found" rather than "never looked". The skip fires
+      // on LARGE C/C++ repos, which is the population this verb exists for.
+      const scope = listRepoSourceScope(repoRoot);
+      const note = scanScopeNote(scope);
+      shapeWarnings = [note, ...shapeWarningsForEmptyResult({ files: scope.files })].filter(Boolean);
     } catch { shapeWarnings = []; }
   }
 
