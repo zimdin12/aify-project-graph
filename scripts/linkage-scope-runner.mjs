@@ -92,7 +92,7 @@ const mockExecutor = async ({ prompt, arm, klass }) => ({
   mock: true,
 });
 
-async function loadExecutor(spec) {
+export async function loadExecutor(spec) {
   if (!spec || spec === 'mock') return { fn: mockExecutor, isMock: true };
   const mod = await import(spec.startsWith('.') ? join(REPO, spec) : spec);
   if (typeof mod.default !== 'function') throw new Error(`executor ${spec} has no default export function`);
