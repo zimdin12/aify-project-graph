@@ -67,6 +67,33 @@ describe('maxWaitMs bounds how long a continuous burst can suppress the flush', 
     expect(r.total, 'and the trailing flush must still arrive once the burst ends').toBeGreaterThanOrEqual(1);
   }, 30_000);
 
+  it('⛔ CONTROL: the DEFAULT is off — omitting maxWaitMs starves, same as passing null', async () => {
+    // ⚠ ADDED BECAUSE A MUTANT SURVIVED. Changing the parameter default to `maxWaitMs = 250` broke
+    // nothing: the control above passes `null` EXPLICITLY, so it pins the null BEHAVIOUR and never
+    // the DEFAULT. The default is the load-bearing part — it is what keeps this option from
+    // silently deciding the question the preregistration exists to measure — so it needs an
+    // assertion of its own that omits the key entirely.
+    const dir = tmpRepo();
+    const flushes = [];
+    const w = start({
+      repoRoot: dir,
+      debounceMs: 300,
+      onChange: () => { flushes.push(Date.now()); },
+      // maxWaitMs deliberately ABSENT
+    });
+    expect(w.status, 'the watcher must be running or this test proves nothing').toBe('running');
+
+    const t0 = Date.now();
+    let n = 0;
+    while (Date.now() - t0 < 1200) {
+      fs.writeFileSync(path.join(dir, `d${n += 1}.txt`), String(n));
+      await sleep(60);
+    }
+    expect(n, 'the burst must actually have been continuous').toBeGreaterThan(5);
+    expect(flushes.length, 'with no maxWaitMs the default must be OFF, so nothing flushes mid-burst')
+      .toBe(0);
+  }, 30_000);
+
   it('★★★ with maxWaitMs set, the burst flushes WHILE it is still going', async () => {
     const r = await drive({ maxWaitMs: 250 });
     expect(r.writes).toBeGreaterThan(5);
