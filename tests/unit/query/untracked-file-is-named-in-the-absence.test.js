@@ -20,6 +20,7 @@ import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
 let repo = null;
 let graphCallers = null;
@@ -51,7 +52,19 @@ describe('an absence caused by an untracked file says so, and names the file', (
     // the agent nothing. The clause has to be able to stay silent.
     const out = String(await graphCallers({ repoRoot: repo, symbol: 'zzqAbsentSymbol' }));
     expect(out).toMatch(/NO MATCH/);
-    expect(out, 'nothing is uncommitted here, so nothing may be blamed on it').not.toMatch(/uncommitted/i);
+    // ⛔ NOT a bare not.toMatch. A silent matcher and a clean output look identical in a green run,
+    // and this repo has watched a regex corrupted into matching a control byte stay green through
+    // two "repairs". The canaries prove /uncommitted/i can fire and that it does not fire on the
+    // ordinary miss text, so its silence here is evidence.
+    expectAbsentWithLiveMatcher(
+      /uncommitted/i,
+      {
+        forbidden: 'NOT COVERED: src/newthing.js (untracked) — uncommitted, so not indexed.',
+        allowed: 'NO MATCH for "zzqAbsentSymbol". Try graph_search(query="zzqAbsentSymbol").',
+      },
+      out,
+      'nothing is uncommitted here, so nothing may be blamed on it',
+    );
   }, 60_000);
 
   it('★★★ a symbol in a NEW untracked file: the absence names that file and a working remedy', async () => {
