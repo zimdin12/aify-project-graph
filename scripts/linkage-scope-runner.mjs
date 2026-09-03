@@ -92,6 +92,44 @@ const mockExecutor = async ({ prompt, arm, klass }) => ({
   mock: true,
 });
 
+/**
+ * A BROKEN EXECUTOR MUST FAIL LOUDLY, NOT PRODUCE A PLAUSIBLE ROW.
+ *
+ * ⛔ MEASURED 2026-09-03 against the real frozen key: an executor returning `{}` scores as
+ * `unsafeAuthoritativeConclusion: "ambiguous"`, `gateReached: false`, and — the part that matters —
+ * `inPrimaryDenominator: true`. A silently broken adapter therefore produces a COUNTED row that is
+ * indistinguishable from an agent that genuinely waffled.
+ *
+ * ⚠ AND n=1 HIDES IT. With repeats dropped, a few broken cells read as "the agent was often
+ * ambiguous", not "the adapter is broken" — and the discovery costs 24 real agent runs.
+ *
+ * ⇒ Throwing is the right failure: the caller's catch records it in `skipped`, which is reported
+ * and never dropped. A broken adapter should produce visible skips, not scoreable data.
+ *
+ * Each check names a specific silent failure rather than validating a shape for its own sake.
+ */
+export function validateExecutorResult(result, { isMock = false } = {}) {
+  if (!result || typeof result !== 'object') {
+    throw new Error('executor returned no result object — nothing to score');
+  }
+  if (typeof result.transcript !== 'string' || result.transcript.trim() === '') {
+    throw new Error('executor returned an EMPTY transcript — a run that produced nothing is a SKIP, '
+      + 'not an ambiguous row (an empty transcript scores as ambiguous and counts in the primary denominator)');
+  }
+  if (!Array.isArray(result.toolCalls)) {
+    throw new Error('executor returned no toolCalls ARRAY — routing cannot be scored without it, and '
+      + 'a missing list would silently read as "the agent called nothing"');
+  }
+  // ⛔ `runtime` IS A GROUPING LEVEL, NOT A LABEL. The key requires Hermes and Claude Code reported
+  // separately; an adapter that omits it lands every row in an `unknown` bucket, which pools them —
+  // the exact defect buildReport's own comment warns about, arriving through the executor instead.
+  if (!isMock && (typeof result.runtime !== 'string' || result.runtime.trim() === '')) {
+    throw new Error('executor returned no runtime — rows would pool under "unknown", and the key '
+      + 'forbids pooling runtimes');
+  }
+  return result;
+}
+
 export async function loadExecutor(spec) {
   if (!spec || spec === 'mock') return { fn: mockExecutor, isMock: true };
   const mod = await import(spec.startsWith('.') ? join(REPO, spec) : spec);
@@ -276,6 +314,9 @@ async function main() {
           const prepared = await prepare(klass, arm);
           repo = prepared.repo;
           const result = await execute({ prompt, arm, klass, repoDir: repo.dir });
+          // Before ANY scoring: a result that does not look like a real run must become a recorded
+          // skip, never a scored row. See validateExecutorResult for what each check prevents.
+          validateExecutorResult(result, { isMock });
           const score = scoreTranscript({
             groundTruthClass: klass,
             transcript: result.transcript,
