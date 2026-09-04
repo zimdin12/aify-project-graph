@@ -331,6 +331,82 @@ describe('candidates are partitioned by what their fallback could reach', () => 
   });
 });
 
+// ⭐ WHERE THE THROWS ACTUALLY ARE — a ranking derived from adjudications, not assumed.
+//
+// After adjudicating fifteen trust-bearing candidates, the split was clean: every one that came back
+// REACHABLE had a try crossing a PROCESS BOUNDARY (`git rev-parse` via getHeadCommit, an LSP request
+// via session.client), and every LATENT one was calling one of our own helpers, which already fail
+// closed internally — `loadManifest` returns a manifest for a malformed file AND for a directory,
+// `readSymbolBody` returns `''`, `parseDb` swallows to `null`, `computeCompileDbCoverage` returned on
+// all twelve hostile inputs.
+//
+// ⚠ AND ITS AGREEMENT WITH THOSE FIFTEEN IS NOT EVIDENCE — it was derived from them. The claim it
+// makes is about the ones NOT yet adjudicated, and that claim is falsifiable: if a candidate this
+// ranks in-process turns out reachable, the heuristic is wrong and should be said so.
+//
+// ⛔ IT ORDERS, IT DOES NOT GRADE. A boundary-crossing candidate can still be harmless
+// (`code_intel_live.js:842` is reachable and errs toward overcounting, which is safe), and the grant
+// axis stays separate.
+describe('candidates are ranked by whether the try leaves the process', () => {
+  it('★★★ a try that shells out is marked, and the boundary is NAMED', () => {
+    const hits = emptyCatchKeepsDefault(
+      "function f(r){ let head = null; try { head = execFileSync('git', ['rev-parse','HEAD']); } catch { } return 'TRUST: ' + head; }");
+    expect(hits.length).toBe(1);
+    expect(hits[0].crossesProcessBoundary).toBe(true);
+    expect(hits[0].boundaries, 'naming it lets a reader reason about THAT boundary')
+      .toContain('child process');
+  });
+
+  it('★★★ NEGATIVE CONTROL: a try calling our own helpers is not marked', () => {
+    // ⛔ Without this the flag is decoration. The whole value is the SPLIT; a rule that marks
+    // everything orders nothing.
+    const hits = emptyCatchKeepsDefault(
+      "function f(db){ let c = null; try { c = summarise(db); } catch { } return 'TRUST: ' + c; }");
+    expect(hits.length).toBe(1);
+    expect(hits[0].crossesProcessBoundary).toBe(false);
+    expect(hits[0].boundaries).toEqual([]);
+  });
+
+  it('★★★⛔ a boundary call inside its OWN try/catch does NOT count', () => {
+    // Found by checking the instrument against a case rather than trusting its output:
+    // orchestrator.js:815 was flagged "child process" for an `execFileSync` sitting inside
+    // `try { ... } catch { changed = null; }` three lines deep. That call can never reach the OUTER
+    // catch, so attributing it there over-ranks the candidate — and over-ranking is how a triage
+    // order stops being worth following.
+    const hits = emptyCatchKeepsDefault(`
+      function f(r){
+        let out = null;
+        try {
+          let changed = null;
+          try { changed = execFileSync('git', ['diff']); } catch { changed = null; }
+          out = summarise(changed);
+        } catch { }
+        return 'TRUST: ' + out;
+      }`);
+    expect(hits.length).toBe(1);
+    expect(hits[0].crossesProcessBoundary,
+      'the guarded call belongs to the inner catch, not this one').toBe(false);
+  });
+
+  it('★★ POSITIVE CONTROL: the stripping does not blind the rule to an UNGUARDED sibling', () => {
+    // The other half of the pair. If nested-stripping removed too much, a real boundary call sitting
+    // beside a guarded one would vanish and the rule would under-rank instead of over-rank.
+    const hits = emptyCatchKeepsDefault(`
+      function f(r){
+        let out = null;
+        try {
+          let changed = null;
+          try { changed = execFileSync('git', ['diff']); } catch { changed = null; }
+          out = readFileSync(r, 'utf8');
+        } catch { }
+        return 'TRUST: ' + out;
+      }`);
+    expect(hits.length).toBe(1);
+    expect(hits[0].crossesProcessBoundary, 'the unguarded readFileSync still counts').toBe(true);
+    expect(hits[0].boundaries).toContain('filesystem read');
+  });
+});
+
 describe('the inventory is honest about what it does not do', () => {
   it('★★★ the unimplemented categories are NAMED, with reasons', () => {
     // ⚠ A tool silent about its blind spots reads as coverage. Two of the six requested categories
