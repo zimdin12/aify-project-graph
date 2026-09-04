@@ -54,8 +54,9 @@ beforeEach(async () => {
   git(repo, 'config', 'user.email', 't@t');
   git(repo, 'config', 'user.name', 't');
   await mkdir(join(repo, 'src'), { recursive: true });
-  // `orphan` has no callers, no callees and no neighbours, so one symbol drives four of the five
-  // absence shapes. `hub` is called, which gives every case a present counterpart in the same graph.
+  // `orphan` has no callers and no callees, so one symbol drives four of the five absence shapes
+  // (neighbours needs an edge-type filter — see the row for why). `hub` is called, which gives
+  // every case a present counterpart in the same graph.
   await writeFile(join(repo, 'src', 'orphan.js'), 'export function orphan() { return 1; }\n');
   await writeFile(join(repo, 'src', 'hub.js'), 'export function hub() { return 2; }\n');
   await writeFile(join(repo, 'src', 'use.js'),
@@ -103,9 +104,15 @@ const VERBS = [
   {
     name: 'graph_neighbors',
     marker: /NO NEIGHBORS/,
-    absent: () => graphNeighbors({ repoRoot: repo, symbol: 'orphan' }),
-    present: () => graphNeighbors({ repoRoot: repo, symbol: 'hub' }),
-    presentProof: /hubCaller/,
+    // ⛔ SPECIMEN CORRECTED, PREMISE UNCHANGED. `graph_neighbors('orphan')` is NOT an absence: a
+    // DEFINES edge from the file to the symbol always exists, so the verb returned a real edge and
+    // all three rows failed — including the positive control, which is how the fixture defect
+    // announced itself rather than passing quietly. Filtering to CALLS gives a symbol with a
+    // genuinely empty neighbour set. The property under test never changed.
+    absent: () => graphNeighbors({ repoRoot: repo, symbol: 'orphan', edge_types: ['CALLS'] }),
+    present: () => graphNeighbors({ repoRoot: repo, symbol: 'hub', edge_types: ['CALLS'] }),
+    // Neighbors renders raw EDGE lines with node ids, not labels, so the proof is the relation.
+    presentProof: /CALLS/,
   },
   {
     name: 'graph_trace',
