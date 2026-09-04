@@ -218,8 +218,19 @@ describe('empty catches that silently keep an optimistic default', () => {
     // and READ afterwards, whose pre-try value is a plausible success.
     expect(emptyCatchKeepsDefault('function f(){ try { doCleanup(); } catch {} }'),
       'a best-effort side effect keeps no value').toEqual([]);
-    expect(emptyCatchKeepsDefault('function f(){ try { const x = g(); use(x); } catch {} }'),
-      'a variable DECLARED inside the try does not survive it').toEqual([]);
+    // ⛔ THIS CONTROL WAS VACUOUS AND A MUTANT PROVED IT. It used to read
+    // `try { const x = g(); use(x); }`, which has no ASSIGNMENT expression at all — `const x = g()`
+    // is a declaration — so `assigned` was empty and the outer-name filter never ran. Deleting the
+    // filter (`assigned.filter(a => !declaredInTry.has(a))` -> `assigned`) left all 21 tests green.
+    //
+    // ⇒ The discriminating case needs BOTH: declared inside the try AND assigned with `=` inside it.
+    // Without the filter this flags `x`; with it, nothing.
+    expect(emptyCatchKeepsDefault('function f(){ try { let x; x = g(); use(x); } catch {} }'),
+      'a variable DECLARED inside the try does not survive it, so it carries no default outward')
+      .toEqual([]);
+    expect(emptyCatchKeepsDefault('function f(){ let x = 0; try { x = g(); } catch {} return x; }').length,
+      'while the same shape over an OUTER declaration is still flagged — the other half of the pair')
+      .toBe(1);
     expect(emptyCatchKeepsDefault('function f(){ let x = 1; try { g(); } catch {} return x; }'),
       'no assignment in the try means the catch changed nothing').toEqual([]);
   });

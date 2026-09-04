@@ -244,6 +244,72 @@ export function failOpenCatches(source, fileName = 'x.mjs') {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// 2b. EMPTY CATCH THAT KEEPS AN OPTIMISTIC DEFAULT
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * A catch with NO statements, sitting over a try that assigned to a variable declared outside it.
+ *
+ * ⛔⛔ ADDED BECAUSE THE RULE ABOVE COULD NOT MATCH THE DEFECT THE CLASS IS NAMED AFTER.
+ * `failOpenCatches` requires a body of exactly one return, and `FINDING-contract-failed-open` — the
+ * first instance the roadmap lists under PATTERN A — is an empty body:
+ *
+ *     let line = '';
+ *     try { line = '\n' + await buildAbsenceTrustLine({ ... }); }
+ *     catch { \/* defensive *\/ }
+ *
+ * On failure `line` keeps `''` and the answer ships as a bare `NO CALLERS` with no TRUST, no SCOPE
+ * and no NOT MODELLED — byte-identical to a build without the feature. Audited with
+ * `git show <fix>^:<file>`: the old rule scored 0 hits on both flagship pre-fix files.
+ *
+ * ⚠ THE DISCRIMINATOR IS THE OUTER ASSIGNMENT, NOT THE EMPTINESS, and the rate is why. Measured
+ * across mcp + scripts: 607 try/catch, 193 empty bodies (31.8%), 71 of those assigning to an outer
+ * name (11.7%). Flagging emptiness alone would nearly triple the candidate set to catch nothing
+ * extra — and a detector that flags everything gets muted, which is worse than absent because it
+ * looks like coverage.
+ *
+ * ⚠ A CANDIDATE, NOT A DEFECT, exactly like every other rule here. `catch {}` over a best-effort
+ * assignment is often right. The value is the question: can a caller tell the kept value apart from
+ * a genuine one?
+ */
+export function emptyCatchKeepsDefault(source, fileName = 'x.mjs') {
+  const sf = parse(source, fileName);
+  const hits = [];
+  const visit = (node) => {
+    if (ts.isTryStatement(node) && node.catchClause
+        && node.catchClause.block.statements.length === 0) {
+      // A name declared INSIDE the try does not survive it, so it cannot carry a default outward.
+      const declaredInTry = new Set();
+      const assigned = [];
+      const scan = (n) => {
+        if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name)) declaredInTry.add(n.name.text);
+        if (ts.isBinaryExpression(n)
+          && n.operatorToken.kind === ts.SyntaxKind.EqualsToken
+          && ts.isIdentifier(n.left)
+          && !assigned.includes(n.left.text)) assigned.push(n.left.text);
+        ts.forEachChild(n, scan);
+      };
+      scan(node.tryBlock);
+      const keeps = assigned.filter((a) => !declaredInTry.has(a));
+      if (keeps.length > 0) {
+        hits.push({
+          category: 'empty-catch-keeps-default',
+          keeps,
+          line: at(sf, node),
+          text: snippet(sf, node),
+          question: `on failure ${keeps.join(', ')} ${keeps.length === 1 ? 'is' : 'are'} left at the `
+            + 'value it held before the try, and the catch says nothing. Can a caller tell that '
+            + 'apart from a genuine result?',
+        });
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return hits;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // 6. SELF-REPORTING LITERAL FIELDS
 // ─────────────────────────────────────────────────────────────────────────────
 

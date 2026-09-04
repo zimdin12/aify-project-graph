@@ -39,7 +39,7 @@
 import { execFileSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { failOpenCatches } from './lib/hazard-detectors.mjs';
+import { failOpenCatches, emptyCatchKeepsDefault } from './lib/hazard-detectors.mjs';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
 const say = (...a) => console.log(...a);
@@ -53,9 +53,15 @@ function sourceAt(rev, file) {
   } catch { return null; }
 }
 
+// ⚠ BOTH RULES, SUMMED, because the class is what is being audited and not one function. Splitting
+// them would let a rule that catches nothing hide behind a sibling that does.
+// ⛔ AND THE CATCH RETURNS null, NOT 0 — an unparsable or missing revision is UNKNOWN, and a zero
+// here would read as "the detector found nothing", which is the exact fail-open shape this audit is
+// about. The caller renders null as UNREADABLE and never as a miss.
 function flagCount(src, file) {
   if (src === null) return null;
-  try { return failOpenCatches(src, file).length; } catch { return null; }
+  try { return failOpenCatches(src, file).length + emptyCatchKeepsDefault(src, file).length; }
+  catch { return null; }
 }
 
 // ⚠ Each row names the FIX COMMIT, not the finding document's commit. Two of PATTERN A's five

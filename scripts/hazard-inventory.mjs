@@ -15,7 +15,8 @@ import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
 import {
-  vacuousQuantifiers, failOpenCatches, selfReportingLiterals, readKeys, NOT_IMPLEMENTED,
+  vacuousQuantifiers, failOpenCatches, emptyCatchKeepsDefault, selfReportingLiterals, readKeys,
+  NOT_IMPLEMENTED,
 } from './lib/hazard-detectors.mjs';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -96,6 +97,10 @@ for (const [f, src] of sources) {
   const rel = relative(REPO, f).replace(/\\/g, '/');
   for (const h of vacuousQuantifiers(src, f)) findings.push({ file: rel, ...h });
   for (const h of failOpenCatches(src, f)) findings.push({ file: rel, ...h });
+  // ⛔ THE SIBLING RULE, ADDED AFTER AN AUDIT SHOWED THE ONE ABOVE SCORED 0 ON BOTH FLAGSHIP
+  // PRE-FIX FILES. It requires a body of exactly one return; the defect that named this class
+  // is an EMPTY catch leaving an optimistic default standing. See emptyCatchKeepsDefault.
+  for (const h of emptyCatchKeepsDefault(src, f)) findings.push({ file: rel, ...h });
   // ⛔ CATEGORY 6 IS MEASURED AND DISABLED — see MEASURED_AND_DISABLED. Kept computable so the
   // number below can be reproduced, but not reported as a candidate.
   for (const h of selfReportingLiterals(src, f)) {
