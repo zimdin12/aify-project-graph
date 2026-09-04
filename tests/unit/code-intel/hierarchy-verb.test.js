@@ -14,6 +14,7 @@ import {
   columnOfSymbolOnLine, renderTree } from '../../../mcp/stdio/query/verbs/code_intel_hierarchy.js';
 import { openDb } from '../../../mcp/stdio/storage/db.js';
 import { _resetSessions, shutdownAllSessions } from '../../../mcp/stdio/code-intel/live.js';
+import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
 const fakeServer = path.resolve('tests/fixtures/code-intel/lsp/fake-lsp-server.mjs');
 // Progress spawn → fake server emits $/progress begin+end so the session
@@ -370,6 +371,71 @@ describe('code_intel_hierarchy — evidence/banner unit cases', () => {
   it('buildHierarchyTrustLine: not-ready says NOT ready', () => {
     const line = buildHierarchyTrustLine({ mode: 'indexed', indexReady: false, kind: 'callers', nodeCount: 2 });
     expect(line).toMatch(/lsp-partial.*NOT ready/);
+  });
+
+  // ⛔⛔ THE REMEDY FOR AN UNKNOWN READINESS WAS A GUARANTEED MISS, AND THAT IS WORSE THAN NO
+  // REMEDY — it spends the agent's next action on a knob that cannot move the outcome.
+  //
+  // `indexReady` became three-state so that silence inside the settle window stops reading as
+  // readiness. That routed a NEW value — null — into the `cold_index` branch, whose fallback says
+  // *"raise APG_CLANGD_INDEX_WAIT_MS / waitForReadyMs and re-run"*. For a `no_progress_signalled`
+  // result the wait returned EARLY, on the settle window, nowhere near its timeout: raising the
+  // timeout changes nothing, forever. Same misattributed-cause class as `cold_index` itself
+  // inheriting a string written for a genuine expiry.
+  //
+  // ⇒ `false` and `null` are different facts and get different causes. `false` was ESTABLISHED —
+  // the wait genuinely expired, `cold_index` is true and its knob is the right one. `null` was
+  // never established, and the honest remedy names the settle window.
+  it('★★★ buildHierarchyEvidence: indexed + UNKNOWN readiness is NOT cold_index', () => {
+    const e = buildHierarchyEvidence({ mode: 'indexed', indexReady: null, nodeCount: 3 });
+    expect(e.exhaustive, 'an unestablished readiness can never certify a complete tree').toBe(false);
+    expect(e.cause).toBe('index_readiness_unknown');
+    // ⛔ Nothing HAPPENED to this request — we simply could not certify. Calling it an incident
+    // would pin the session degraded on every cold start, the standing-limit mistake this repo
+    // has already made twice (`index_population_unattested`, `bounded_mode`).
+    expect(e.operationallyDegraded, 'not certifying is not an incident').toBe(false);
+  });
+
+  it('★★★ the unknown-readiness remedy does NOT send the agent to the timeout knob', () => {
+    const unknown = buildHierarchyEvidence({ mode: 'indexed', indexReady: null, nodeCount: 3 });
+    const cold = buildHierarchyEvidence({ mode: 'indexed', indexReady: false, nodeCount: 3 });
+    // The whole point of the branch: the two remedies must differ, and the unknown one must not
+    // name the budget knob that cannot fix it.
+    expect(unknown.fallback).not.toBe(cold.fallback);
+    expectAbsentWithLiveMatcher(
+      /APG_CLANGD_INDEX_WAIT_MS/,
+      { forbidden: 'raise APG_CLANGD_INDEX_WAIT_MS and re-run',
+        allowed: 'raise the settle window and re-run' },
+      unknown.fallback,
+      'the unknown-readiness remedy must not name the timeout knob, which cannot move it',
+    );
+    expect(cold.fallback, 'POSITIVE CONTROL: the timeout knob is still named where it DOES work')
+      .toMatch(/APG_CLANGD_INDEX_WAIT_MS/);
+  });
+
+  it('★★★ buildHierarchyEvidence: an ESTABLISHED not-ready keeps cold_index', () => {
+    // ⛔ The other direction. Softening `false` into the unknown branch would discard a real
+    // negative and lose the one remedy that works for a genuine expiry.
+    const e = buildHierarchyEvidence({ mode: 'indexed', indexReady: false, nodeCount: 3 });
+    expect(e.cause).toBe('cold_index');
+    expect(e.operationallyDegraded).toBe(true);
+  });
+
+  it('★★★ buildHierarchyTrustLine: unknown readiness does not CLAIM the index was not ready', () => {
+    const line = buildHierarchyTrustLine({ mode: 'indexed', indexReady: null, kind: 'callers', nodeCount: 2 });
+    expect(line, 'still lsp-partial — an unknown never earns the verified banner').toMatch(/lsp-partial/);
+    expect(line).toMatch(/readiness (could not be|was not) established|readiness unknown/i);
+    // ⛔ "index NOT ready" is a CLAIM about clangd. We did not observe it.
+    expectAbsentWithLiveMatcher(
+      /NOT ready/,
+      { forbidden: 'clangd index NOT ready — may undercount',
+        allowed: 'clangd index readiness could not be established' },
+      line,
+      'an unknown readiness must not be reported as an observed not-ready',
+    );
+    // POSITIVE CONTROL: the established case still says it plainly.
+    expect(buildHierarchyTrustLine({ mode: 'indexed', indexReady: false, kind: 'callers', nodeCount: 2 }))
+      .toMatch(/NOT ready/);
   });
   it('buildHierarchyTrustLine: type kind labels "type hierarchy"', () => {
     const line = buildHierarchyTrustLine({ mode: 'indexed', indexReady: true, kind: 'subtypes', nodeCount: 4 });

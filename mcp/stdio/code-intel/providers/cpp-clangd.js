@@ -11,6 +11,7 @@ import { findIdentifierPosition, leafNameOf, isAnonymousSymbolName } from '../id
 import { readLedger, writeLedger, pendingFiles, graphEvidenceWitness, collectionComplete, budgetExhaustedMessage } from '../collect-ledger.js';
 import { admitLocations } from '../location-coherence.js';
 import { createDocumentSnapshot } from '../document-snapshot.js';
+import { indexReadyFromWaitResult } from '../index-readiness.js';
 
 // Cold-collect request timeout: a fresh background-index pass over a game repo
 // can take well over the default 10s before the first query resolves.
@@ -396,7 +397,10 @@ export function createCppClangdProvider({ spawn } = {}) {
           const indexWaitBudget = Math.min(ownWaitBudget, budgetCap);
           try {
             const r = await client.waitForIndexReady({ timeoutMs: indexWaitBudget });
-            indexReady = !!r.ready;
+            // NOT `!!r.ready`. `no_progress_signalled` means we heard nothing inside a
+            // 1500 ms window that a real clangd was measured to exceed on 2 of 5 cold
+            // starts, so it is UNKNOWN, and unknown must not earn the banner at :880.
+            indexReady = indexReadyFromWaitResult(r);
             indexWaitMs = r.waitMs;
             indexWaitReason = r.reason;
           } catch {

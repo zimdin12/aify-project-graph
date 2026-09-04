@@ -30,6 +30,7 @@ import { computeCoverage, coverageCause } from '../../code-intel/coverage.js';
 import { inferLanguage } from '../../code-intel/backends.js';
 import { identifierColumn, leafNameOf } from '../../code-intel/identifier-position.js';
 import { toRepoRelative } from '../../ingest/code-intel/paths.js';
+import { indexReadyFromWaitResult } from '../../code-intel/index-readiness.js';
 import { openExistingDb } from '../../storage/db.js';
 import { applyEvidenceContract, negotiateEvidenceContract, DEFAULT_EVIDENCE_CONTRACT_VERSION } from '../evidence-contract-negotiation.js';
 
@@ -452,7 +453,29 @@ function buildHierarchyEvidenceInner({ mode, indexReady, nodeCount, kind, covera
       warnings: [`index population unattested — the ${noun} tree is a FLOOR, not a complete set`],
     };
   }
-  // INDEXED mode but the index never reached idle within budget.
+  // ⛔ READINESS WAS NEVER ESTABLISHED, WHICH IS NOT THE SAME AS NOT READY — AND THE REMEDY
+  // DIFFERS. `indexReady` is three-state: `false` means the wait EXPIRED (a real incident whose
+  // knob is the timeout), `null` means `waitForIndexReady` returned early reporting that it heard
+  // nothing inside the settle window. Sending the second case to the first case's fallback tells
+  // the agent to raise a timeout the wait never approached — a remedy that cannot work, which is
+  // worse than none, because it spends the agent's next action on a guaranteed miss.
+  // Measured: a real clangd's first `$/progress begin` landed at 1525 and 2125 ms on 2 of 5 cold
+  // starts, against a 1500 ms settle window. See index-readiness.js.
+  if (indexReady !== false) {
+    return {
+      ready: false,
+      degraded: true,
+      // ⛔ NOT an incident. Nothing HAPPENED to this request — we could not CERTIFY. Marking it
+      // operationally degraded would pin the session on every cold start, the standing-limit
+      // mistake already made with `index_population_unattested` and `bounded_mode`.
+      operationallyDegraded: false,
+      cause: 'index_readiness_unknown', confidence: 'low',
+      exhaustive: false,
+      fallback: `clangd reported no indexing activity inside the settle window, which does not establish that the index is ready — raise APG_CLANGD_INDEX_SETTLE_MS and re-run, or verify with code_intel_references / rg before any "no ${noun}" / dead-code claim`,
+      warnings: [`index readiness could not be established — the ${noun} tree is a FLOOR, not a complete set`],
+    };
+  }
+  // INDEXED mode and the index was OBSERVED not to reach idle within budget.
   return {
     ready: false, degraded: true, operationallyDegraded: true, cause: 'cold_index', confidence: 'low',
     exhaustive: false,
@@ -493,6 +516,11 @@ export function buildHierarchyTrustLine({ mode, indexReady, kind, nodeCount, cov
   }
   if (indexReady === true) {
     return `TRUST: lsp-verified (clangd, index-ready, ${noun} hierarchy, ${nodeCount} node${nodeCount === 1 ? '' : 's'})`;
+  }
+  // Same three-state split as the evidence above: "index NOT ready" is a CLAIM about clangd, and
+  // on a `null` we did not observe it — we heard nothing and the window was too short to conclude.
+  if (indexReady !== false) {
+    return `TRUST: lsp-partial (clangd index readiness could not be established — no indexing activity inside the settle window, which does not prove the index is ready; tree is a FLOOR, verify with code_intel_references / rg) [${nodeCount} node${nodeCount === 1 ? '' : 's'}]`;
   }
   return `TRUST: lsp-partial (clangd index NOT ready — may undercount; re-collect) [${nodeCount} node${nodeCount === 1 ? '' : 's'}]`;
 }
@@ -717,7 +745,9 @@ export async function codeIntelHierarchy(args = {}) {
     const budget = Number.isFinite(waitForReadyMs) ? Math.max(0, waitForReadyMs) : resolveIndexWaitMs();
     try {
       const r = await session.client.waitForIndexReady({ timeoutMs: budget });
-      indexReady = !!r.ready;
+      // Same three-state mapping as the collector: silence inside the settle window is
+      // UNKNOWN, and every `indexReady === true` gate below reads it as not-proven.
+      indexReady = indexReadyFromWaitResult(r);
       indexWaitMs = r.waitMs;
       indexWaitReason = r.reason;
     } catch {

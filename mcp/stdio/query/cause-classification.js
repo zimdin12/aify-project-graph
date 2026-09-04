@@ -48,7 +48,14 @@ const SELECTED = new Set(['bounded_mode']);
  * missing" — `exhaustive` is withheld and the reason is named, but nothing went wrong. This class
  * is the one the measurement revealed; a two-way standing/transient split could not express it.
  */
-const NOT_A_DEGRADATION = new Set(['unknown']);
+// ⛔ `index_readiness_unknown` MUST BE CLASSIFIED, OR THE DEFAULT PINS THE SESSION ON EVERY COLD
+// START. It is the same shape as `unknown` — a readiness signal that never arrived, so
+// `exhaustive` is withheld and the reason is named — and nothing HAPPENED to the request. The
+// evidence it travels with says `operationallyDegraded: false`; letting it fall through to
+// `transient` here would contradict that and pin the session degraded on a fact we never
+// observed. Measured cause: clangd's first `$/progress begin` exceeded the 1500 ms settle
+// window on 2 of 5 real cold starts.
+const NOT_A_DEGRADATION = new Set(['unknown', 'index_readiness_unknown']);
 
 /**
  * @returns {'standing'|'selected'|'none'|'transient'}
