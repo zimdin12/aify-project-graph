@@ -693,7 +693,12 @@ rl.on('line', async (line) => {
               loadManifest(graphDir),
               getHeadCommit(repoRoot).catch(() => null),
             ]);
-            if (manifest?.commit && head && manifest.commit !== head) {
+            // ⚠ BEHAVIOUR UNCHANGED, SOURCE OF TRUTH MOVED. Only a proven `stale` triggers work:
+            // an unknown currency is not a reason to spend a reindex. That is the OPPOSITE call
+            // from the warning site below, and both are deliberate — which is exactly why the FACT
+            // now lives in one function and each site makes its own DECISION from it.
+            const { graphCurrency } = await import('./freshness/graph-currency.js');
+            if (graphCurrency({ indexedCommit: manifest?.commit ?? null, head }).state === 'stale') {
               const { ensureFresh } = await import('./freshness/orchestrator.js');
               await ensureFresh({ repoRoot });
             }
@@ -719,11 +724,24 @@ rl.on('line', async (line) => {
             loadManifest(graphDir),
             getHeadCommit(repoRoot).catch(() => null),
           ]);
-          if (manifest?.commit && head && manifest.commit !== head) {
+          // ⛔ SILENCE IS LICENSED BY `current` ALONE. This read `manifest?.commit && head && ...`,
+          // so an unreadable HEAD made the whole predicate false and the reader was told NOTHING —
+          // at the choke point that exists so an agent who never calls health still learns. An
+          // unknown currency is not a current one, and it now says so.
+          const { graphCurrency } = await import('./freshness/graph-currency.js');
+          const currency = graphCurrency({ indexedCommit: manifest?.commit ?? null, head });
+          if (currency.state === 'stale') {
             const { commitsBehindHead } = await import('./query/verbs/read_freshness.js');
             const n = commitsBehindHead(repoRoot, manifest.commit, head);
             const behind = n != null ? ` (${n} commit${n === 1 ? '' : 's'} behind)` : '';
             stalenessWarning = `graph stale: indexed at ${manifest.commit.slice(0, 7)}, current HEAD is ${head.slice(0, 7)}${behind}. Run graph_index() to refresh, or set APG_AUTO_REINDEX=1 for auto-refresh — line numbers may drift.`;
+          } else if (currency.state === 'unknown') {
+            // ⚠ Only when a graph EXISTS. On a repo with no manifest there is no claim to qualify,
+            // and a notice on every call in a directory nobody indexed is the warning wall this
+            // project has already had to tear out once.
+            if (manifest) {
+              stalenessWarning = `graph currency UNKNOWN: ${currency.reason}. The graph may or may not match your working tree — line numbers may drift, and an absence here is not evidence. Run graph_index() to refresh.`;
+            }
           }
         } catch {
           // best-effort — never block a verb on staleness detection
