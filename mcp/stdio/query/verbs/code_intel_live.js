@@ -12,6 +12,7 @@ import { pathToFileURL, fileURLToPath } from 'node:url';
 import { getLiveSession } from '../../code-intel/live.js';
 import { computeCoverage, coverageCause } from '../../code-intel/coverage.js';
 import { liveProvenanceFor } from '../../code-intel/provenance.js';
+import { shapeScanAppliesTo } from '../../code-intel/shape-detectors.js';
 import { inferLanguage } from '../../code-intel/backends.js';
 import { toRepoRelative, uriToRepoRelativeSafe } from '../../ingest/code-intel/paths.js';
 import { selectCppPrewarmFiles } from '../../code-intel/prewarm/cpp.js';
@@ -947,8 +948,14 @@ export async function codeIntelReferences({ repoRoot, language, file, line, col,
   catch { coverage = { complete: false, partial: true, kind: 'unknown', foreignToolchain: false, unityUnexpanded: false, reason: 'coverage detection failed — treating as partial (fail-closed)' }; }
   // ⚠ COMPUTED ONLY WHEN THE SET IS EMPTY, so the scan costs nothing on the common path. An empty
   // caller set is rare and high-stakes; a found caller needs no shape disclosure.
+  // ⛔ ASK WHETHER THE SCAN APPLIES BEFORE RUNNING IT. Every detector in shape-detectors.js is C/C++
+  // by construction (IMPL_EXTS, HEADER_EXTS, textual #include analysis), and this block used to run
+  // for EVERY language: a JavaScript reference query came back carrying three warnings about C++
+  // files in our own test fixtures. Warnings about files the caller never asked about are noise in
+  // the one place an empty result most needs signal.
   let shapeWarnings = [];
-  if (callsiteLocations.length === 0) {
+  const shapeScanApplies = shapeScanAppliesTo(lang);
+  if (callsiteLocations.length === 0 && shapeScanApplies) {
     try {
       const { shapeWarningsForEmptyResult, listRepoSourceScope, scanScopeNote } =
         await import('../../code-intel/shape-detectors.js');

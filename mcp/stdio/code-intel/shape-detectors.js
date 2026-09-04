@@ -155,6 +155,27 @@ export function listRepoSourceFiles(repoRoot, opts = {}) {
  * target repos exceed 2,000 C/C++ sources is NOT measured here; what is established is that when
  * they do, the feature is silently inert.
  */
+/**
+ * Do these detectors say anything about a query in `language`?
+ *
+ * ⛔ THEY DID NOT ASK, AND A JAVASCRIPT QUERY GOT THREE C++ WARNINGS. Found live by ef-manager,
+ * 2026-09-05: a reference query for a `.js` symbol under `mcp/` returned warnings about
+ * `tests/fixtures/linkage-scope/corpus/pipeline.cpp` and two `#include`d implementation files. The
+ * scan was fresh and repo-wide, and every detector here is C/C++ by construction — IMPL_EXTS,
+ * HEADER_EXTS and `#include` textual analysis. Nothing in them can describe a TypeScript or Python
+ * result, so running them for one produces statements about files the caller never asked about.
+ *
+ * ⚠ THE FIX IS THE LANGUAGE GATE, NOT A FIXTURE BLOCKLIST. Excluding `tests/fixtures/` would have
+ * silenced the symptom in THIS repo while leaving the defect for every other one, and it would hide
+ * real findings in a user repo whose fixtures are real code. The scan simply does not apply.
+ *
+ * @param {string} language a normalized language id
+ * @returns {boolean}
+ */
+export function shapeScanAppliesTo(language) {
+  return String(language || '').toLowerCase() === 'cpp';
+}
+
 export function listRepoSourceScope(repoRoot, { cap = 2000, exec } = {}) {
   if (!repoRoot) return { files: [], skipped: 'no_repo_root', total: 0, cap };
   try {
