@@ -205,11 +205,68 @@ carrier"* for binding a receipt — have **no production consumer**. Four refere
 `doc-sync-carrier.test.js`. That is tested, forward-looking infrastructure awaiting its consumer, and
 calling it a defect would be the inflation this ledger exists to avoid.
 
+## Final batch — and the stopping rule is MET
+
+**36 of 36 adjudicated.** The rule was *adjudicate every trust-bearing candidate; stop when that set
+is empty.* It is empty.
+
+| site | keeps | verdict |
+|---|---|---|
+| `preflight.js:104` / `:203` | `latestCollection`, `collectionCurrent`, … | ✅ `null`, and the comment says *"a currency that cannot be established is not currency"* |
+| `status.js:38` | `generationState`, `dbCounts` | ✅ `LEGACY_UNATTESTED` + `null` — both refuse |
+| `doctor.js:40` | `cov` | ✅ `null` is unknown |
+| `health.js:811` | `storage` | ✅ `{ measured: false, reason: 'open_failed' }` — **the model** |
+| `health.js:685` | `codeIntel` | ⚠ latent, but see below |
+| `impact.js:172`, `server.js:626`, `server.js:769` | footer, notices | latent — a lost disclosure |
+| `query.js:32`, `orchestrator.js:815`/`:965`, `code_intel_hierarchy.js:672`, `packet.js:569` | enrichment | no claim carried |
+
+### ⚠ `health.js:685` and `health.js:811` are the same shape, 130 lines apart, and disagree
+
+```js
+let codeIntel = { available: false, reason: 'no_collection' };   // :684
+let storage   = { measured: false,  reason: 'open_failed'   };   // :811
+```
+
+Both fail **closed** on the grant — `available: false`, `measured: false` — which is right. They
+differ on the **cause**. `storage` names the actual failure. `codeIntel` asserts *"no_collection"*,
+which is correct for the ordinary no-collection case the default was written for and **wrong when the
+catch fires**: a collection may exist and simply not have been readable. That reason is returned to
+the agent, and it points at `graph_collect_code_intel` — a remedy that cannot address a read failure.
+
+⇒ **Third appearance of the misattributed cause**, after *"HEAD has moved"* and *"missing or
+malformed"*. Same lesson each time: **a default written for the normal case is inherited by the catch,
+which is a different case.**
+
+⛔ **Recorded, not fixed, and the reason is about this ledger's credibility.** I have no demonstrated
+route into that catch. The fix is cheap — move `no_collection` to where it is *known*, leave the
+default honest — and it is not a new branch, so it is not the "adds a branch nothing exercises"
+objection. But every ⛔ entry here is demonstrated, and adding an undemonstrated one to a sweep's
+closing entry devalues the ones that are.
+
+## The ranking's test — it survived, and that is weaker than it sounds
+
+The heuristic predicted that reachable defects cluster where the try leaves the process. Fourteen
+in-process candidates were adjudicated **after** it was built:
+
+```
+demonstrated-reachable, 12 boundary-crossers  :  4   (2 defects, 2 reachable-but-harmless)
+demonstrated-reachable, 24 in-process         :  0
+```
+
+⚠ **Not falsified is not validated.** Every in-process "latent" verdict rests on *I could not
+construct a throw*, which is a statement about my attempts — and the asymmetry rule at the top of this
+file says a probe count never promotes anything. What the ranking earned is a place in the triage
+order, not a claim about the code.
+
 ## What this sweep did NOT close
 
-⛔ **13 of the 36 are not yet adjudicated.** The stopping rule is *adjudicate every trust-bearing
-candidate; stop when that set is empty*, and that set is not empty. This ledger is partial and says
-so rather than implying the class is closed.
+✅ **All 36 are adjudicated and the stopping rule is met** — but "met" is a statement about the
+QUEUE, not about the code. Four demonstrated defects were found and fixed; everything else is either
+correct as written or LATENT, and every latent verdict rests on *I could not construct a throw*.
+
+⛔ **And the 36 were selected by a FUNCTION-level filter that over-includes by design**, out of 69
+empty-catch candidates, out of 607 try/catch statements. A candidate this sweep never looked at is
+not a candidate it cleared.
 
 ⛔ **The recall audit still scores 4 of 5, and the miss is a shape.** The gitignore-negation defect
 is a wrong **filter**, not a swallowed error, so no catch-shaped detector can see it. **That hole is
