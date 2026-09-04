@@ -91,3 +91,26 @@ than "N files are covered" is what keeps that honest.
 ⚠ **Not investigated:** whether `absenceAuthority` should require verified-file coverage as well as
 `coverage.complete`. It currently takes `compilerVerifiedEdges` as a count, and the same
 edges-vs-records question may apply one layer down.
+
+## Who this fix helps, and the consumer it can never help
+
+Put to an outside reviewer briefed to argue the target was wrong. Their answer sharpened the
+existing "transitivity and virtual dispatch survive, safe-to-delete does not" from a list into a
+reason, and the reason is worth keeping because it says the limit is **permanent, not pending**:
+
+- **"Safe to delete" is a universally-quantified ABSENCE claim.** It needs completeness, and no
+  coverage number this instrument can ever produce reaches it — `LSP_VERIFIED` edges accumulate from
+  what was actively touched, never from a guaranteed sweep. Going from 624/854 to 31/854 does not
+  change that answer; it makes the true answer, *this cannot license deletion*, visible instead of
+  hidden behind an inflated denominator. Same fact as our own `index_population_unattested` being
+  true of **every** call.
+- **Transitivity and virtual dispatch are EXISTENCE claims.** "A calls B calls C", "these N types
+  override this method" can be true and useful from partial coverage, provided the specific edges
+  are inside the covered set. There an honest coverage number is a real improvement: it tells the
+  caller how much *more* might exist outside what was found, which calibrates confidence instead of
+  manufacturing it.
+
+⇒ **This fix helps exactly the consumers whose claims are bounded by what was FOUND, and does
+nothing for the one consumer whose claim needs what was NOT found — and no refinement of this metric
+will ever change that second half.** That belongs in the pitch as a stated limit rather than a
+roadmap item.
