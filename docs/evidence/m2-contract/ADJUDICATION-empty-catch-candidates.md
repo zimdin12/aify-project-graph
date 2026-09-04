@@ -103,7 +103,7 @@ than fixed — but it is the fourth appearance of the same tell, in a file none 
 this graph the NOTE cannot fire regardless. Expected — it is a C++ construct and this repo is JS —
 and noted so a later reader does not mistake its silence for evidence.
 
-### ⭐ The refinement the data gave, and it should drive the remaining 19
+### ⭐ The refinement the data gave, and it should drive the remaining 13
 
 Every candidate adjudicated as **reachable** so far had a try block crossing a **process boundary** —
 `git rev-parse` via `getHeadCommit`, an LSP request via `session.client`. Every candidate that came
@@ -152,9 +152,62 @@ validation: the ranking is still a heuristic derived from earlier adjudications,
 a coin does half the time. What would falsify it is an in-process candidate turning out reachable,
 and that has not happened yet either.
 
+## Fourth batch — the boundary-crossers, and the remedy was already here
+
+| site | keeps | reachability | grant | verdict |
+|---|---|---|---|---|
+| `brief/generator.js:76` | `unresolvedEdges`, `generationState` | — | see below | ✅ **correct** — and the model for the whole class |
+| `explain_diff.js:337` | `overlayWritten` | demonstrated | none — the write failed, so `null` is TRUE | ✅ correct |
+| `compile-db.js:804` | `existing` | demonstrated | `null` forces a rewrite — the SAFE direction | ✅ correct |
+| `code_intel_live.js:503` | `stat` | demonstrated | `null` is unknown and the consumer branches on it | ✅ correct |
+| `code_intel_live.js:515` / `:550` | `text` | **latent** | mechanism noted below | not a defect *yet* |
+
+### ⭐ `brief/generator.js:76` already had the repair, before this arc started
+
+Two facts share one catch and they fail in **opposite** directions on purpose:
+
+```js
+let unresolvedEdges = 0;                                // fails OPEN — 0 reads as healthy
+let generationState = ATTESTATION.LEGACY_UNATTESTED;    // fails CLOSED — the refusing value
+```
+
+and the catch says so in its own words: *"A failed read leaves unresolvedEdges at 0, which the trust
+threshold reads as HEALTHY — a fail-open default in the field that gates whether an agent believes
+anything else. The state below carries the doubt the number cannot."*
+
+⇒ **That is exactly the repair applied five times in this arc — separate the FACT from the DECISION,
+and let the qualifying fact carry the doubt — and it was already sitting in this file.** A reviewer
+had even caught the follow-through failure: `generationState` was computed and *discarded by every
+renderer*, so the comment claiming it "travels with the number" was false until it was wired into
+`issues` with `addFirst`.
+
+⚠ So the pattern was known here and had not reached `lsp-evidence.js`, `server.js` or `health.js`.
+That is the shape this project keeps recording at the level of a function — *the remedy exists and
+the site that needs it does not call it* — appearing at the level of a **design pattern**.
+
+### `code_intel_live.js:515` / `:550` — mechanism established, route not
+
+`let text = ''; try { text = fs.readFileSync(abs, 'utf8'); } catch { /* leave empty */ }` and then
+`didChange(uri, text, version)` / `didOpen(uri, lang, text)`. On a read failure the language server
+is told the document is **empty**, the send succeeds, and the state records it as synced with
+`sentBytes: 0`.
+
+⚠ **Recorded as LATENT and NOT written up as a false-absence defect**, because two things are
+missing and saying so is the point:
+1. **No demonstrated route.** `readFileSync` must fail *after* a successful `statSync` — EACCES, a
+   delete race, a Windows lock. Plausible, not shown.
+2. **The downstream consequence is probably the DISCLOSED state, not a confident lie.** References
+   against an empty document return nothing, which this code reports as `not_found_after_retry` —
+   honest, and the same state the load flake already produces.
+
+⚠ Observation, not a finding: `sentSha256` and `sentBytes` — which the comment calls *"the exact
+carrier"* for binding a receipt — have **no production consumer**. Four references, all in
+`doc-sync-carrier.test.js`. That is tested, forward-looking infrastructure awaiting its consumer, and
+calling it a defect would be the inflation this ledger exists to avoid.
+
 ## What this sweep did NOT close
 
-⛔ **19 of the 36 are not yet adjudicated.** The stopping rule is *adjudicate every trust-bearing
+⛔ **13 of the 36 are not yet adjudicated.** The stopping rule is *adjudicate every trust-bearing
 candidate; stop when that set is empty*, and that set is not empty. This ledger is partial and says
 so rather than implying the class is closed.
 
