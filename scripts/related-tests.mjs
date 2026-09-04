@@ -18,7 +18,19 @@ import { readFileSync, existsSync } from 'node:fs';
 import { basename } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const REPO = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+// ⚠ LAZY, because this module is IMPORTED BY A TEST and a guard that throws on import is a guard
+// that can take the whole hook down. Resolved at call time, and a non-repo cwd yields '' rather than
+// an exception — the hook then finds no tests and exits 0, which is the safe direction for a
+// pre-commit check that must never block a commit for its own reasons.
+let repoRoot = null;
+function repo() {
+  if (repoRoot === null) {
+    try {
+      repoRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+    } catch { repoRoot = ''; }
+  }
+  return repoRoot;
+}
 
 /** Source files in the commit that a test could plausibly import. Docs and evidence are excluded. */
 export function stagedSourceFiles(files) {
@@ -41,7 +53,7 @@ export function testsImporting(sources, testFiles) {
   if (wanted.size === 0) return [];
   const hits = new Set();
   for (const t of testFiles) {
-    const abs = `${REPO}/${t}`;
+    const abs = `${repo()}/${t}`;
     if (!existsSync(abs)) continue;
     let text;
     try { text = readFileSync(abs, 'utf8'); } catch { continue; }
@@ -54,13 +66,13 @@ export function testsImporting(sources, testFiles) {
 }
 
 function allTestFiles() {
-  return execFileSync('git', ['ls-files', 'tests'], { encoding: 'utf8', cwd: REPO })
+  return execFileSync('git', ['ls-files', 'tests'], { encoding: 'utf8', cwd: repo() })
     .split('\n').filter((f) => f.endsWith('.test.js'));
 }
 
 function stagedFiles() {
   return execFileSync('git', ['diff', '--cached', '--name-only', '--diff-filter=ACMR'],
-    { encoding: 'utf8', cwd: REPO }).split('\n').filter(Boolean);
+    { encoding: 'utf8', cwd: repo() }).split('\n').filter(Boolean);
 }
 
 // `node -e` and test importers have no argv[1]; guard rather than throw on the import path.
