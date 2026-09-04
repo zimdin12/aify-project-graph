@@ -68,9 +68,57 @@ exist and does *not* delete. So a reachable fail-open here is not a safety defec
 when no definition exists and when the request **failed**. Those are different facts wearing one
 label — the same conflation this ledger keeps finding, at low stakes.
 
+## Second batch — and a third kind of grant
+
+| site | keeps | reachability | grant | verdict |
+|---|---|---|---|---|
+| `read_freshness.js:424` | `alreadyIndexedFiles`, `attestation` | — | defaults to `LEGACY_UNATTESTED`, the **weakest** attestation | ✅ **correct** — fails closed |
+| `callers.js:155` | `confidenceFooter` | latent (`loadManifest` 0 of 3) | the confidence footer would go missing | not a defect |
+| `callees.js:225` | `boundaryBlock` | latent (`readSymbolBody` 0 of 4) | the dynamic-boundary disclosure would go missing | not a defect |
+| `callees.js:183` | `overloadCount` | latent (0 of 5000 nodes have unparseable `extra`) | would suppress the merged-overload NOTE | not a defect — but see the tell |
+| `consequences.js:398` | `tasksRaw` | — | task enrichment only, no claim | not a defect |
+
+### A third grant: losing a DISCLOSURE is not asserting a falsehood
+
+Three of this batch share a shape the first batch did not. Their fallback does not claim anything —
+it removes a *caveat*. `confidenceFooter = ''`, `boundaryBlock = ''`, and `overloadCount = 1` all
+leave the answer **less qualified** rather than more confident.
+
+⇒ That is still the fail-open direction, and it is a **weaker** grant than a false banner. Ranking it
+level with "earned the delete banner" would flatten exactly the distinction two-axis grading exists
+to preserve.
+
+### ⚠ `callees.js:183` is the tell again, at low stakes
+
+Its catch reads `/* extra unparseable — claim nothing */`. The value claims something: `1`. And the
+NOTE it gates on exists because — the code's own words — *"'This function is recursive' changes how
+an agent reasons about it, so a self-edge on a merged node must not be presented as recursion."*
+With `overloadCount = 1` the NOTE is suppressed, so an unknown reads as *"exactly one overload"* and
+a merged-overload self-edge is presented as recursion.
+
+**The comment defends what it intends; the value grants something else.** Latent, so recorded rather
+than fixed — but it is the fourth appearance of the same tell, in a file none of the others touched.
+
+⚠ Also observed while checking it: **0 of 5000 sampled nodes carry an `overloads` key at all**, so on
+this graph the NOTE cannot fire regardless. Expected — it is a C++ construct and this repo is JS —
+and noted so a later reader does not mistake its silence for evidence.
+
+### ⭐ The refinement the data gave, and it should drive the remaining 21
+
+Every candidate adjudicated as **reachable** so far had a try block crossing a **process boundary** —
+`git rev-parse` via `getHeadCommit`, an LSP request via `session.client`. Every candidate that came
+back **latent** was calling one of our own helpers, which already fail closed internally:
+`loadManifest` returns a manifest for a malformed file *and* for a directory; `readSymbolBody`
+returns `''` rather than throwing; `parseDb` swallows to `null`; `computeCompileDbCoverage` returned
+on all 12 hostile inputs.
+
+⇒ **Rank the remaining candidates by whether the try block leaves the process.** That is where the
+throws are, because our own helpers were hardened years of incidents ago and the external ones cannot
+be. It costs nothing to apply and it is derived from the adjudications rather than assumed.
+
 ## What this sweep did NOT close
 
-⛔ **26 of the 36 are not yet adjudicated.** The stopping rule is *adjudicate every trust-bearing
+⛔ **21 of the 36 are not yet adjudicated.** The stopping rule is *adjudicate every trust-bearing
 candidate; stop when that set is empty*, and that set is not empty. This ledger is partial and says
 so rather than implying the class is closed.
 
