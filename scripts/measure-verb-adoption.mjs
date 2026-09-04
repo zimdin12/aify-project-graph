@@ -22,9 +22,25 @@ import { readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 
-const ROOT = process.argv[2];
+const argv = process.argv.slice(2);
+const ROOT = argv.find((a) => !a.startsWith('--'));
+// ⭐ THE WINDOW EXISTS TO ANSWER "DID THE FIX MOVE THE NUMBER", which the all-time figure cannot:
+// a rate computed over every transcript ever written is dominated by the regime before the change.
+// ISO-8601, compared as a string against the transcript's own first timestamp (both are Zulu).
+const SINCE = argv.find((a) => a.startsWith('--since='))?.slice('--since='.length) ?? null;
+// ⛔ MY OWN INSTRUMENTATION LIVES IN ONE PROJECT DIRECTORY, AND IT IS THE ONE THIS TOOL IS BUILT IN.
+// The probes I spawn to VERIFY a routing fix are subagents that call the graph because I told them
+// to; counting them as field adoption measures my own prompt. This repo has already come within one
+// step of reporting its own transcript as field evidence. Excluding by directory is mechanical and
+// needs nobody to remember a convention at spawn time.
+const EXCLUDED = argv.filter((a) => a.startsWith('--exclude-project='))
+  .map((a) => a.slice('--exclude-project='.length));
 if (!ROOT) {
-  console.error('usage: node scripts/measure-verb-adoption.mjs <transcripts-root>');
+  console.error('usage: node scripts/measure-verb-adoption.mjs <transcripts-root> [--since=<ISO8601>]');
+  process.exit(2);
+}
+if (SINCE && Number.isNaN(Date.parse(SINCE))) {
+  console.error(`--since is not a parseable date: ${SINCE}`);
   process.exit(2);
 }
 
@@ -63,7 +79,20 @@ class ProjectTally {
   }
 }
 
-/** Walk one transcript, counting tool_use blocks by name. */
+/**
+ * Walk one transcript, counting tool_use blocks by name.
+ *
+ * ⛔ `startedAt` IS THE FIRST LINE'S OWN TIMESTAMP, NOT THE FILE'S mtime. A transcript that was
+ * already open when a change landed keeps being appended to, so mtime says "new" about a session
+ * that started under the old regime — the population would silently include the very transcripts
+ * the cutoff exists to exclude. The file records when it began; use that.
+ *
+ * ⚠ `isSidechain` is also read here, and it is NOT used for classification. The depth rule below
+ * has been the classifier since this script was written, and swapping classifiers mid-measurement
+ * would make the new number incomparable with the 9/1116 baseline. It is reported as a CROSS-CHECK:
+ * if the two ever disagree, one of them is wrong and the baseline needs re-deriving before anything
+ * is compared to it.
+ */
 async function scanSession(file) {
   const verbs = new Map();
   let graphCalls = 0;
@@ -71,6 +100,8 @@ async function scanSession(file) {
   let negative = 0;
   let badLines = 0;
   let lineNo = 0;
+  let startedAt = null;
+  let selfDeclaredSidechain = null;
   const badLineDetail = [];
 
   const rl = createInterface({
@@ -93,6 +124,10 @@ async function scanSession(file) {
       badLineDetail.push({ file, line: lineNo, bytes: line.length, error: String(err && err.message).slice(0, 80) });
       continue;
     }
+    if (startedAt === null && typeof obj?.timestamp === 'string') startedAt = obj.timestamp;
+    if (selfDeclaredSidechain === null && typeof obj?.isSidechain === 'boolean') {
+      selfDeclaredSidechain = obj.isSidechain;
+    }
     const content = obj?.message?.content;
     if (!Array.isArray(content)) continue;
     for (const block of content) {
@@ -108,7 +143,10 @@ async function scanSession(file) {
       }
     }
   }
-  return { graphCalls, verbs, positive, negative, badLines, badLineDetail };
+  return {
+    graphCalls, verbs, positive, negative, badLines, badLineDetail,
+    startedAt, selfDeclaredSidechain,
+  };
 }
 
 // TWO POPULATIONS, NEVER MERGED. A transcript sitting directly in a project directory is a
@@ -140,20 +178,40 @@ const dirs = (await readdir(ROOT, { withFileTypes: true }))
 
 const tallies = [];
 const nestedTally = new ProjectTally('(subagent sidechains, all projects)');
+// ⚠ EXCLUSIONS ARE COUNTED, NOT SILENT. A filter that drops transcripts without saying how many
+// makes a small post-cutoff n look like a small population rather than a narrow window.
+const windowStats = {
+  excludedOlder: 0, noTimestamp: 0, classifierDisagreements: 0, excludedProjects: [],
+};
 for (const dir of dirs) {
+  if (EXCLUDED.includes(dir)) { windowStats.excludedProjects.push(dir); continue; }
   const full = join(ROOT, dir);
   const { sessions, nested } = await collect(full);
   if (sessions.length === 0 && nested.length === 0) continue;
   const tally = new ProjectTally(dir);
+  const admit = (scan, expectedSidechain) => {
+    // ⛔ A TRANSCRIPT WITH NO TIMESTAMP IS UNKNOWN, NOT RECENT. Admitting it would let an
+    // unparseable file join whichever window flatters the result.
+    if (SINCE) {
+      if (!scan.startedAt) { windowStats.noTimestamp += 1; return false; }
+      if (scan.startedAt < SINCE) { windowStats.excludedOlder += 1; return false; }
+    }
+    if (scan.selfDeclaredSidechain !== null && scan.selfDeclaredSidechain !== expectedSidechain) {
+      windowStats.classifierDisagreements += 1;
+    }
+    return true;
+  };
   for (const path of sessions) {
     const { size } = await stat(path);
     if (size === 0) continue;
-    tally.recordSession(await scanSession(path));
+    const scan = await scanSession(path);
+    if (admit(scan, false)) tally.recordSession(scan);
   }
   for (const path of nested) {
     const { size } = await stat(path);
     if (size === 0) continue;
-    nestedTally.recordSession(await scanSession(path));
+    const scan = await scanSession(path);
+    if (admit(scan, true)) nestedTally.recordSession(scan);
   }
   tallies.push(tally);
   process.stderr.write(`  ${dir}: ${tally.sessions} sessions (${tally.graphCalls} calls), ${nested.length} nested\n`);
@@ -177,6 +235,18 @@ for (const t of tallies) for (const [v, n] of t.perVerb) allVerbs.set(v, (allVer
 console.log(JSON.stringify({
   what: 'MEASURED graph-verb invocations across every Claude Code transcript on this machine.',
   carrier: { root: ROOT, projectDirs: tallies.length },
+  // ⛔ THE WINDOW IS PART OF THE CARRIER. A rate without the interval it was taken over is the
+  // error this repo already recorded — "0 of 27" published from a rebuild window.
+  window: SINCE
+    ? {
+      since: SINCE,
+      basis: "the transcript's OWN first timestamp, not the file mtime",
+      excludedAsOlder: windowStats.excludedOlder,
+      excludedAsUndated: windowStats.noTimestamp,
+      classifierCrossCheckDisagreements: windowStats.classifierDisagreements,
+    }
+    : { since: null, note: 'ALL TIME — dominated by whatever regime held for most of the corpus' },
+  excludedProjects: windowStats.excludedProjects,
   controls: {
     positive: { names: POSITIVE_CONTROLS, count: totals.positive, passed: totals.positive > 0 },
     negative: { name: NEGATIVE_CONTROL, count: totals.negative, passed: totals.negative === 0 },
