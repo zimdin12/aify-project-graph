@@ -638,9 +638,44 @@ async function batchWarmup(session, files, warmupMs) {
   session.warmedOnce = true;
 }
 
-async function waitForReady(session, waitForReadyMs = 0) {
+/**
+ * Wait up to `waitForReadyMs` for the session's navigation freshness, and return it.
+ *
+ * ⛔ THIS USED TO BURN THE WHOLE BUDGET TO LEARN NOTHING. `client.waitForReady` resolves on the
+ * ready-waiter set or times out. In the ON-DISK-INDEX state — clangd found an index already built,
+ * so no `$/progress` ever fires — `indexingState` never becomes `'ready'`, no waiter is ever
+ * resolved, and the call returns `navigationFreshness()` only after the FULL budget expires.
+ * Measured on a real client: `waitForReady(1200)` -> `"unknown"` in 1209 ms, while
+ * `waitForIndexReady({1200})` -> `{ ready: true, reason: 'no_progress_signalled' }` in 248 ms.
+ * A caller passing 15000 paid fifteen seconds for a verdict available in a fraction of it.
+ *
+ * ⛔⛔ AND THE VERDICT IS DELIBERATELY UNCHANGED. `waitForIndexReady` is used ONLY to learn when
+ * there is nothing left to wait for; the value returned is still `navigationFreshness()`, exactly
+ * what the old path produced. `freshness === 'fresh'` gates seven strong-evidence branches, so
+ * mapping `no_progress_signalled` to `'fresh'` would be a CLAIM-STRENGTHENING change — and it would
+ * rest on inferring readiness from the ABSENCE of a progress signal, in a codebase whose position is
+ * that an absence is not evidence. That half is refused here and argued separately.
+ * See docs/evidence/m2-contract/PREREGISTERED-routing-waitForReadyMs-through-waitForIndexReady.md
+ *
+ * ⚠ `settleMs` KEEPS ITS DEFAULT. It exists because a `$/progress begin` can arrive a beat after
+ * `didOpen`; shrinking it would return early on a session that was about to index and forfeit the
+ * `'fresh'` verdict the long wait legitimately earns. The win is 15000 -> ~1500, not 15000 -> ~0.
+ *
+ * ⚠ A ZERO BUDGET STILL COSTS NOTHING — the early `<= 0` return is checked by its own test, because
+ * a latency fix that taxes callers who never asked to wait is not a latency fix.
+ */
+export async function awaitFreshness(session, waitForReadyMs = 0) {
   if (typeof session.client.waitForReady !== 'function') return 'unknown';
-  return session.client.waitForReady(Math.min(Math.max(Number(waitForReadyMs) || 0, 0), 30000));
+  const budget = Math.min(Math.max(Number(waitForReadyMs) || 0, 0), 30000);
+  if (budget <= 0) return session.client.waitForReady(0);
+  if (typeof session.client.waitForIndexReady === 'function') {
+    // Resolves as soon as there is no background work left — immediately when already fresh, after
+    // the grace window when the index was already on disk, and after the drain when indexing is
+    // genuinely in flight. Its `ready` flag is intentionally discarded.
+    await session.client.waitForIndexReady({ timeoutMs: budget });
+    return session.client.navigationFreshness();
+  }
+  return session.client.waitForReady(budget);
 }
 
 // A bare `catch { return uri }` here shipped raw `file:///C:/...` URIs as if they
@@ -806,7 +841,7 @@ export async function codeIntelReferences({ repoRoot, language, file, line, col,
   const callerProvided = Array.isArray(warmupFiles) ? warmupFiles.filter(f => f && f !== file) : [];
   const batch = [file, ...callerProvided, ...prewarm.addedFiles.filter(f => f !== file && !callerProvided.includes(f))];
   await batchWarmup(session, batch, warmupMs);
-  const freshness = await waitForReady(session, waitForReadyMs);
+  const freshness = await awaitFreshness(session, waitForReadyMs);
 
   const uri = await openIfNeeded(session, file);
   const pos = { line: line - 1, character: (col || 1) - 1 };
@@ -1068,7 +1103,7 @@ export async function codeIntelDefinitions({ repoRoot, language, file, line, col
   const callerProvided = Array.isArray(warmupFiles) ? warmupFiles.filter(f => f && f !== file) : [];
   const batch = [file, ...callerProvided, ...prewarm.addedFiles.filter(f => f !== file && !callerProvided.includes(f))];
   await batchWarmup(session, batch, warmupMs);
-  const freshness = await waitForReady(session, waitForReadyMs);
+  const freshness = await awaitFreshness(session, waitForReadyMs);
   const uri = await openIfNeeded(session, file);
   const pos = { line: line - 1, character: (col || 1) - 1 };
   const defs = await session.client.definition(uri, pos);
@@ -1107,7 +1142,7 @@ export async function codeIntelHover({ repoRoot, language, file, line, col, warm
   const callerProvided = Array.isArray(warmupFiles) ? warmupFiles.filter(f => f && f !== file) : [];
   const batch = [file, ...callerProvided, ...prewarm.addedFiles.filter(f => f !== file && !callerProvided.includes(f))];
   await batchWarmup(session, batch, warmupMs);
-  const freshness = await waitForReady(session, waitForReadyMs);
+  const freshness = await awaitFreshness(session, waitForReadyMs);
   const uri = await openIfNeeded(session, file);
   const pos = { line: line - 1, character: (col || 1) - 1 };
   const hov = await session.client.hover(uri, pos);
