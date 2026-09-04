@@ -23,7 +23,8 @@
 // guaranteed miss.* The structural repair is that a cause OWNS its remedy in one place, and an
 // unrecognised cause gets NO invented action rather than inheriting someone else's.
 import { describe, it, expect } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { remedyForUnavailable, UNAVAILABLE_REMEDIES } from '../../../mcp/stdio/code-intel/evidence-unavailable.js';
@@ -93,6 +94,26 @@ describe('an unavailable cause owns its own remedy', () => {
     // Proves the test above is discriminating, not just rejecting every reason.
     const bare = mkdtempSync(join(tmpdir(), 'apg-unavail-bare-'));
     expect(buildEvidenceBlock({ repoRoot: bare }).reason).toBe('no_graph');
+  });
+
+  it('★★★ every cause the code can EMIT has a remedy — drift becomes red, not quiet', () => {
+    // ef-manager: the fallback already makes drift HARMLESS (an unknown cause is handed no action,
+    // the correct failure direction). This makes it non-SILENT. A cause added without a remedy is
+    // now a red build instead of a quiet fallback nobody notices.
+    //
+    // ⛔ The expectation is harvested from the PRODUCERS, not from the Map, so the Map cannot vouch
+    // for itself — the same rule that caught the readiness ratchet describing its own classifier.
+    const sources = ['../../../mcp/stdio/query/verbs/packet-evidence.js',
+      '../../../mcp/stdio/code-intel/render.js']
+      .map((rel) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8')).join(' ');
+    const emitted = [...new Set([...sources.matchAll(/reason(?:\s*=|:)\s*'([a-z_]+)'/g)].map((m) => m[1]))];
+
+    // POSITIVE CONTROL: the harvester must see the causes we know are there, or it certifies nothing.
+    expect(emitted, 'harvester is blind — the assertion below would pass vacuously').toContain('no_graph');
+    expect(emitted).toContain('graph_unreadable');
+
+    const unremedied = emitted.filter((c) => !UNAVAILABLE_REMEDIES.has(c));
+    expect(unremedied, 'these causes can reach an agent with no action attached').toEqual([]);
   });
 
   it('★★★ POSITIVE CONTROL ON THE PROBE ITSELF: a VALID database is not called unreadable', () => {

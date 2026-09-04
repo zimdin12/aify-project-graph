@@ -471,7 +471,10 @@ function buildHierarchyEvidenceInner({ mode, indexReady, nodeCount, kind, covera
       operationallyDegraded: false,
       cause: 'index_readiness_unknown', confidence: 'low',
       exhaustive: false,
-      fallback: `clangd reported no indexing activity inside the settle window, which does not establish that the index is ready — raise APG_CLANGD_INDEX_SETTLE_MS and re-run, or verify with code_intel_references / rg before any "no ${noun}" / dead-code claim`,
+      // ⚠ THE SOUND HALF LEADS. This cause covers TWO unknowns with different remedies: the index
+      // may be still building (a longer settle window helps) or already complete on disk (it never
+      // will). rg is correct for both, so it goes first and the knob is named with its limit.
+      fallback: `clangd reported no indexing activity inside the settle window, which does not establish that the index is ready — verify with code_intel_references / rg before any "no ${noun}" / dead-code claim. Raising APG_CLANGD_INDEX_SETTLE_MS helps only if the index was still building; it changes nothing if the index was already complete on disk`,
       warnings: [`index readiness could not be established — the ${noun} tree is a FLOOR, not a complete set`],
     };
   }

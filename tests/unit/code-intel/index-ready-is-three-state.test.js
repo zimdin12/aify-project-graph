@@ -47,10 +47,22 @@ describe('index_ready distinguishes a proven index from an inferred one', () => 
   });
 
   it('★★★ a PROVEN not-ready stays FALSE, and is not softened into unknown', () => {
-    // ⛔ The other direction matters just as much. Turning a known-cold index into `unknown` would
-    // discard a real negative, and `false` is what tells a reader the wait genuinely expired.
+    // ⛔ The other direction matters just as much. Turning a genuinely expired wait into `unknown`
+    // would discard a real negative, and `false` is what tells a reader we watched the whole window.
     expect(indexReadyFromWaitResult({ ready: false, reason: 'index_wait_timeout' })).toBe(false);
-    expect(indexReadyFromWaitResult({ ready: false, reason: 'cold_no_warm' })).toBe(false);
+  });
+
+  it('★★★ `cold_no_warm` is UNKNOWN — it is the SAME silence as no_progress_signalled', () => {
+    // ⛔ THIS LINE USED TO ASSERT `false`, AND IT WAS WRONG IN TWO FILES AT ONCE. lsp-client.js:540
+    // returns both reasons from ONE `if`, forked only on workspaceWarmCount — a count of our own
+    // didOpen calls. The server said the identical nothing in both branches, so the branch where we
+    // warmed NOTHING cannot be the better-evidenced one. Warming less cannot mean knowing more.
+    //
+    // I got it wrong because I distrusted an unrecognised reason only where it would GRANT. Caught
+    // by an outside reader, not by this suite, because both my test files described my code.
+    expect(indexReadyFromWaitResult({ ready: false, reason: 'cold_no_warm' })).toBeNull();
+    expect(indexReadyFromWaitResult({ ready: false, reason: 'cold_no_warm' }))
+      .toBe(indexReadyFromWaitResult({ ready: true, reason: 'no_progress_signalled' }));
   });
 
   it('★★ POSITIVE CONTROL: the three outcomes are genuinely distinct', () => {

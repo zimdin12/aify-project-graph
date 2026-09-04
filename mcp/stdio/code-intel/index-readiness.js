@@ -36,8 +36,38 @@
 // cache exists on disk for the project — which is named as follow-up in the finding rather than
 // guessed at here.
 
-/** Reasons that mean indexing was OBSERVED, not merely un-heard. Anything else fails closed. */
+// ⭐ THE DISCRIMINATOR THAT DECIDES BOTH SETS (ef-manager, and it is a rule rather than a list):
+//
+//     CAN TIME ALONE CHANGE THE ANSWER, WITH NOBODY DOING ANYTHING?
+//
+//       no, we watched the whole window   -> ESTABLISHED   (true or false)
+//       yes, it may be happening right now -> UNKNOWN      (null)
+//
+// Apply it to a new reason and the set is decided. It also settles `skipped_bounded_mode`, which the
+// collector sets directly: bounded mode did not FAIL to observe, it observed a DECISION, and only a
+// config change flips it — established, and it names its own remedy.
+
+/** Reasons that mean indexing was OBSERVED to be done. Anything else fails closed to unknown. */
 const PROVEN_READY = new Set(['index_drained', 'already_ready', 'ready_no_index_needed']);
+
+// ⛔ THIS SET EXISTS BECAUSE I GOT THE OTHER DIRECTION WRONG, AND THE ASYMMETRY IS THE LESSON.
+//
+// The first version allowlisted only the `true` side and let ANY reason with `ready !== true` mean
+// ESTABLISHED not-ready. `lsp-client.js:540-546` shows why that is wrong — one `if`, two returns:
+//
+//     if (indexingState !== 'indexing' && progressTokens.size === 0) {
+//       if (workspaceWarmCount > 0) return { ready: true,  reason: 'no_progress_signalled' };
+//       return                            { ready: false, reason: 'cold_no_warm' };
+//     }
+//
+// Same condition, same silence from the server, forked ONLY on a counter of our own didOpen calls.
+// I demoted the warmed branch to unknown and left the branch where we had warmed NOTHING labelled
+// established. Warming less cannot mean knowing more.
+//
+// ⇒ The mechanism was that I distrusted an unrecognised reason only where it would GRANT. A
+// grant-shaped filter misses every instance that fails closed, which is the exact note I had written
+// down a day earlier and then built anyway. Both directions are allowlists now.
+const ESTABLISHED_NOT_READY = new Set(['index_wait_timeout']);
 
 /**
  * Map a `waitForIndexReady` result onto the three-state `index_ready`.
@@ -45,7 +75,7 @@ const PROVEN_READY = new Set(['index_drained', 'already_ready', 'ready_no_index_
  * @param {{ready?: boolean, reason?: string}|null|undefined} result
  * @returns {true|false|null}
  *   true  — readiness was OBSERVED; may license the exhaustive attestation.
- *   false — not ready, and that was established (a timeout, or a cold workspace).
+ *   false — not ready, and the wait ESTABLISHED it by watching the whole window expire.
  *   null  — UNKNOWN. Silence inside a window too short to contain the signal, an unrecognised
  *           reason, or no result at all.
  *
@@ -55,8 +85,8 @@ const PROVEN_READY = new Set(['index_drained', 'already_ready', 'ready_no_index_
  */
 export function indexReadyFromWaitResult(result) {
   if (!result || typeof result !== 'object') return null;
-  // A stated NOT-ready is a real negative and is preserved. Softening it to `unknown` would throw
-  // away information the wait actually established.
-  if (result.ready !== true) return false;
+  // Symmetric: an unrecognised reason falls to `unknown` in BOTH directions. A stated not-ready is
+  // preserved as a real negative only when the wait actually established it.
+  if (result.ready !== true) return ESTABLISHED_NOT_READY.has(result.reason) ? false : null;
   return PROVEN_READY.has(result.reason) ? true : null;
 }
