@@ -63,7 +63,7 @@ The discriminator is the outer assignment, not the emptiness. Flagging emptiness
 triple the candidate set and catch nothing extra — and a detector that flags everything gets muted,
 which is worse than absent because it looks like coverage.
 
-## What the sweep then found — two live instances, in the trust builder itself
+## What the sweep then found — ONE live instance, in the trust builder itself
 
 Adjudicated from the 71, starting with the highest-stakes paths. Five candidates sit in
 `lsp-evidence.js`, the module that *builds the trust statement*:
@@ -72,7 +72,7 @@ Adjudicated from the 71, starting with the highest-stakes paths. Five candidates
 |---|---|---|
 | `:223` `cpp` | `null` | **correct** — unknown stays unknown |
 | `:558` `collection` | `null` | correct — falls back to a weaker generic line |
-| `:607` `coverageIncomplete` | `false` | ⛔ a failed coverage probe reports coverage **complete** |
+| `:607` `coverageIncomplete` | `false` | ⚠ **LATENT** — would fail open, but nothing reaches the catch (see below) |
 | `:655` `stale` | `false` | ⛔ an unreadable HEAD reports the collection **current** |
 | `:667` compile-DB probe | `false` | ⚠ deliberate — *"a probe failure must not fabricate staleness"* |
 
@@ -100,9 +100,34 @@ Fixed by making currency tri-state — `stale` / `current` / `unknown` — with 
 **beside** the telemetry branch, because keeping them adjacent is what stops one drifting back to a
 silent default.
 
-⚠ **Still open, same shape, not fixed here:** `:607` `coverageIncomplete`. A failed `computeCoverage`
-reports complete coverage. It needs its own reproduction and its own test; it is recorded rather than
-patched blind.
+### The coverage one is LATENT, and I had it filed as live
+
+I first recorded `:607` at the same ⛔ weight as the staleness defect and told a reviewer it was a
+live instance I had chosen not to fix. **I had not checked that anything can throw into that catch.**
+
+The obvious route is closed by code I had already read and not connected: `parseDb` in
+`compile-db.js` swallows a malformed `compile_commands.json` to `null` internally, so a broken DB
+never propagates. Probing `computeCoverage` directly with nine hostile inputs — nonexistent
+`projectRoot`, null `projectRoot`, no arguments at all, a numeric `file`, null language, and the
+typescript and python branches:
+
+```
+cases that THREW: 0 of 9
+```
+
+⇒ **`:607` is a LATENT fail-open, not a demonstrated one.** It would fail open the day something
+throws into it, and nothing does today. It is not fixed, and "one fix is not a sweep" does not apply
+to an instance that is not one.
+
+⚠ **Claim ceiling on the correction itself:** nine probed inputs show I could not construct a throw,
+**not** that none exists. That is a weaker and different statement than "unreachable".
+
+⇒ **The protocol this earns, applied from here:** a candidate is written up at ⛔ weight only with a
+*demonstrated route into the catch*. Without one it is filed as LATENT. One of the five candidates I
+adjudicated was reproducible end to end and one was not, and nothing in the shape distinguished them
+— only the attempt did.
+
+⇒ **Live instances found by this sweep: ONE** (the staleness banner), not two.
 
 ## ⛔ And the first two mutants both survived, for two different reasons
 
