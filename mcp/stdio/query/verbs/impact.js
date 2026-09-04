@@ -8,6 +8,7 @@ import { loadManifest } from '../../freshness/manifest.js';
 import { computeTrustLevel } from './health.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { buildTrustLine, buildAbsenceTrustLine, ABSENCE_TRUST_UNAVAILABLE, RESULTS_TRUST_UNAVAILABLE } from '../lsp-evidence.js';
+import { indexedScopePhrase } from '../miss-scope.js';
 import { IMPACT_FAMILY } from '../../storage/taxonomy.js';
 import { noMatchMessage } from '../did-you-mean.js';
 
@@ -109,7 +110,7 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
         // `graph_status()` is not in the default tools/list profile, so this told most readers
         // to call something they cannot reach. graph_health is the listed verb that answers
         // "can I trust this", which is the actual question behind the suggestion.
-        `NO IMPACT — no edges found for "${symbol}". The symbol may have 0 callers, or the graph may be incomplete. Check graph_health().` + line,
+        `NO IMPACT — no edges found for "${symbol}"${indexedScopePhrase(db)}. The symbol may have 0 callers, or the graph may be incomplete. Check graph_health().` + line,
         freshness.warnings,
       );
     }

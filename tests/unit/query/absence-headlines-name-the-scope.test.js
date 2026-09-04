@@ -39,6 +39,7 @@ import { graphCallees } from '../../../mcp/stdio/query/verbs/callees.js';
 import { graphImpact } from '../../../mcp/stdio/query/verbs/impact.js';
 import { graphNeighbors } from '../../../mcp/stdio/query/verbs/neighbors.js';
 import { graphTrace } from '../../../mcp/stdio/query/verbs/trace.js';
+import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
 const ROOT = dirname(fileURLToPath(new URL('../../../package.json', import.meta.url)));
 
@@ -176,11 +177,34 @@ describe('the migration flag is retired, not left as furniture', () => {
       'mcp/stdio/query/verbs/neighbors.js',
       'mcp/stdio/query/verbs/trace.js',
     ];
-    const offenders = files.filter((f) => readFileSync(join(ROOT, f), 'utf8').includes('scopeInHeadline'));
+    // ⛔ COUNT FROM CODE, NOT FROM COMMENTS — the trap `every-absence-names-its-scope.test.js`
+    // already records: writing up a finding creates new text matching the pattern the finding is
+    // about, and it over-counts in the direction that makes the work look unfinished. The retired
+    // flag is NAMED in a comment in lsp-evidence.js on purpose, so a reader meeting that code knows
+    // what was removed and why. Strip comments, then look for the identifier.
+    const stripComments = (src) => src
+      .replace(/\/\*[\s\S]*?\*\//g, ' ')
+      .split(/\r?\n/).map((l) => l.replace(/\/\/.*$/, '')).join('\n');
+    const offenders = files.filter((f) => stripComments(readFileSync(join(ROOT, f), 'utf8')).includes('scopeInHeadline'));
     expect(offenders, 'the migration is complete, so the flag must be gone').toEqual([]);
     // ⚠ POSITIVE CONTROL on the reader itself: a zero from a mis-resolved path would look identical
     // to a clean sweep. Prove the files are being read and contain what they should.
-    const sample = readFileSync(join(ROOT, 'mcp/stdio/query/verbs/callers.js'), 'utf8');
-    expect(sample, 'the file was actually read').toMatch(/buildAbsenceTrustLine/);
+    const sample = stripComments(readFileSync(join(ROOT, 'mcp/stdio/query/verbs/callers.js'), 'utf8'));
+    expect(sample, 'the file was read AND the comment stripper left the code standing')
+      .toMatch(/buildAbsenceTrustLine/);
+    // ⚠ And prove the stripper actually strips, or it is a no-op that happens to pass: the retired
+    // flag IS named in lsp-evidence.js's prose and must survive a raw read while vanishing here.
+    const raw = readFileSync(join(ROOT, 'mcp/stdio/query/lsp-evidence.js'), 'utf8');
+    expect(raw, 'the comment naming the retired flag is deliberate documentation')
+      .toMatch(/scopeInHeadline/);
+    expectAbsentWithLiveMatcher(
+      /scopeInHeadline/,
+      {
+        forbidden: 'const indexedScope = scopeInHeadline ? 1 : 2;',
+        allowed: 'const indexedScope = 1;',
+      },
+      stripComments(raw),
+      'and the stripper removes it, so the check above tested code and not prose',
+    );
   });
 });

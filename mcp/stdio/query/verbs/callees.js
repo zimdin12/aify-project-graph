@@ -7,6 +7,7 @@ import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
 import { selectBestRoot } from './path.js';
 import { inspectReadFreshness, prefixReadWarnings, staleNotFoundCaveat } from './read_freshness.js';
 import { buildTrustLine, buildAbsenceTrustLine, ABSENCE_TRUST_UNAVAILABLE, RESULTS_TRUST_UNAVAILABLE } from '../lsp-evidence.js';
+import { indexedScopePhrase } from '../miss-scope.js';
 import { EXECUTION_FAMILY, CALL_FAMILY } from '../../storage/taxonomy.js';
 import { normalizePathArg } from '../../util/paths.js';
 import { scanDynamicBoundaries, renderDynamicBoundaries, readSymbolBody } from '../dynamic-boundaries.js';
@@ -129,7 +130,7 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
       return prefixReadWarnings(msg + line + scope, freshness.warnings);
     };
 
-    if (edges.length === 0 && overrideEdges.length === 0) return absence(`NO CALLEES for "${symbol}". Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`);
+    if (edges.length === 0 && overrideEdges.length === 0) return absence(`NO CALLEES for "${symbol}"${indexedScopePhrase(db)}. Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`);
 
     let mapped = edges.map(e => ({
       from_id: e.from_id, to_id: e.to_id, relation: e.relation,
@@ -162,7 +163,7 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
     overrideCount = overrideMapped.length;
 
     if (file) mapped = mapped.filter(e => e.source_file && e.source_file.startsWith(file));
-    if (mapped.length === 0 && overrideCount === 0) return absence(file ? `NO CALLEES in "${file}"` : `NO CALLEES for "${symbol}". Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`);
+    if (mapped.length === 0 && overrideCount === 0) return absence(file ? `NO CALLEES in "${file}"${indexedScopePhrase(db)}` : `NO CALLEES for "${symbol}"${indexedScopePhrase(db)}. Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`);
     const ranked = rankCallees(mapped);
     const { kept, dropped } = enforceBudget(ranked, top_k);
     let body = renderCompact({ nodes: [], edges: [...kept, ...overrideMapped], truncated: dropped, suggestion: `top_k=${top_k + 10}` });

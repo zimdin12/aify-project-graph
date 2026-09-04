@@ -479,25 +479,28 @@ export const RESULTS_TRUST_UNAVAILABLE =
   + ' completeness are unknown. Treat this set as a FLOOR, not an exhaustive list; confirm with'
   + ' code_intel_references or rg before any delete or rename.';
 
-// ⚠ `scopeInHeadline` IS A MIGRATION FLAG, NOT A PREFERENCE, and it is written down here so it does
-// not become permanent furniture. A caller that already states the indexed scope in its FIRST LINE
-// passes true, and this stops repeating the fact — a caveat stated twice on a 999 B surface is a
-// caveat discounted. `graph_callers` is the first migrant because it is the highest-traffic absence
-// and the one an agent reads before deleting code.
+// ⛔ THE MIGRATION IS DONE AND THE FLAG IS GONE. `scopeInHeadline` existed for one commit's worth of
+// staging: `graph_callers` moved its indexed-scope qualifier into the headline first, being the
+// highest-traffic absence and the one an agent reads before deleting code, and the other four kept
+// the clause until their headlines named the scope too. They now all do — callees, impact, neighbors
+// and trace — so every caller of this function states the scope in its own claim sentence, and the
+// duplicate clause here is unconditionally suppressed rather than suppressed by a parameter.
 //
-// ⇒ FOLLOW-UP, owed: callees, impact, neighbors and trace still carry the clause because their
-// headlines do not yet name the scope. When they do, this parameter and its branch are DELETED. The
-// default is the current, correct behaviour for those four — they still disclose — so this is not a
-// flag whose default is the hazard, which is the shape this project treats as a defect with a delay.
+// ⇒ A migration flag that outlives its migration is a branch nobody reads and a default nobody
+// re-derives. `tests/unit/query/absence-headlines-name-the-scope.test.js` holds both halves: every
+// headline names its scope, and the identifier does not appear in this module or its five callers.
 export async function buildAbsenceTrustLine({
-  noun = 'edges', db, language = null, freshness = null, scopeInHeadline = false,
+  noun = 'edges', db, language = null, freshness = null,
 } = {}) {
   const scope = db ? spineScopeClause(db, noun) : '';
   // ⛔ M2's SECOND HALF: name what the heuristic tier searched, not only what the verified tier
   // missed. `scope` above describes the code-intel collection; this describes the graph itself, and
   // a repo with no collection has only the graph. Measured absent on both absence shapes before it
   // was added.
-  const indexedScope = (db && !scopeInHeadline) ? indexedScopeClause(db) : '';
+  // ⚠ ALWAYS EMPTY NOW, AND THE VARIABLE STAYS so the composition below keeps one shape. Every
+  // absence headline carries the scope, so repeating it here would state one fact twice on a 999 B
+  // surface — and a caveat repeated is a caveat discounted.
+  const indexedScope = '';
   // Zero bytes on a repo with no C/C++ — the 445-byte warning wall this project already had to tear
   // out was unconditional prose, and the lesson was that a caveat everyone skims protects nobody.
   const constructs = constructCoverageClause(language);

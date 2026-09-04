@@ -24,6 +24,7 @@ import { resolveSymbol } from './symbol_lookup.js';
 import { scanDynamicBoundaries, renderDynamicBoundaries, readSymbolBody } from '../dynamic-boundaries.js';
 import { inspectReadFreshness, prefixReadWarnings, staleNotFoundCaveat } from './read_freshness.js';
 import { buildTrustLine, buildAbsenceTrustLine, ABSENCE_TRUST_UNAVAILABLE, RESULTS_TRUST_UNAVAILABLE } from '../lsp-evidence.js';
+import { indexedScopePhrase } from '../miss-scope.js';
 import {
   countGraphNodes,
   getSourceBundleBudget,
@@ -465,7 +466,7 @@ const readNodeBody = readSymbolBody;
 
 function renderFailure({ db, repoRoot, fromNode, toNode, maxHops, budget }) {
   const lines = [];
-  lines.push(`TRACE ${fromNode.label} → ${toNode.label}: NO STATIC PATH within ${maxHops} hops.`);
+  lines.push(`TRACE ${fromNode.label} → ${toNode.label}: NO STATIC PATH within ${maxHops} hops${indexedScopePhrase(db)}.`);
 
   // ZERO-RESULT CAUSE HONESTY. This used to assert "the chain most likely breaks
   // at a dynamic-dispatch boundary" unconditionally — a cause never checked, on

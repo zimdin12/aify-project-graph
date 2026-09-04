@@ -33,15 +33,40 @@ const db = {
 // stop-growth lines and not targets: the correct direction for either is DOWN.
 // ⬇ LOWERED 2026-09-03 after collapsing two wordings of the indexed-scope clause into one. The
 // ratchet only ever moves DOWN without a stated reason; moving it up requires one in the diff.
-const CAVEAT_CEILING_BYTES = 598;        // javascript, clean tree      (was 641)
-const WORST_CASE_CEILING_BYTES = 999;    // cpp + an uncommitted source (was 1042)
+// ⬇ LOWERED AGAIN 2026-09-04, when the indexed-scope clause left this surface for the HEADLINE of
+// every absence-emitting verb (callers, callees, impact, neighbors, trace) and the duplicate here
+// was deleted with the `scopeInHeadline` migration flag.
+//
+// ⚠ AND THIS IS NOT A BYTE WIN — say so, or the next reader banks a saving that was never made.
+// The clause left this line (-53 B) and the same fact arrived in the headline as
+// " in N indexed files (not the whole repository)" (+47 B). Net across the whole answer is about
+// -6 B, which is noise. The change bought PLACEMENT, not size: a reader who stops at the first
+// period now has the qualifier, and a caveat is no longer stated twice in one answer. The ceilings
+// move down because this surface genuinely got smaller, not because the answer did.
+// ⛔ AND THE WORST-CASE NUMBER CAME FROM THE TEST, NOT FROM MY OWN PROBE. I measured 813 B in a
+// scratch script and nearly set the ceiling there; the fixture below produces 946 B, because my
+// probe's `freshness` object never fired the `NOT COVERED:` clause this test explicitly asserts.
+// A shape that RESEMBLES the one under test is not the one under test — the ceiling would have been
+// set 133 B below anything reachable, and the next real change would have failed against a number
+// nothing had ever produced.
+const CAVEAT_CEILING_BYTES = 545;        // javascript, clean tree      (was 598, 641)
+const WORST_CASE_CEILING_BYTES = 946;    // cpp + an uncommitted source (was 999, 1042)
 const NO_MATCH_CEILING_BYTES = 157;      // the OTHER surface, shared by nine verbs
 
 describe('the absence caveat surface has an aggregate budget', () => {
   it('⛔ POSITIVE CONTROL: the line is actually assembled — else the budget guards nothing', async () => {
     const line = await buildAbsenceTrustLine({ noun: 'callers', db, language: 'javascript' });
     expect(line, 'the trust banner must be present').toMatch(/TRUST:/);
-    expect(line, 'and the clauses this budget is about').toMatch(/INDEXED SCOPE:/);
+    // ⛔ THE PREMISE EXPIRED; THE SPECIMEN DID NOT MOVE. This asserted `INDEXED SCOPE:` was in the
+    // assembled line, and that clause was DELETED from this surface on purpose — every absence
+    // headline now carries the fact, and repeating it here is the duplication the migration removed.
+    // So the assertion is not repaired by pointing it somewhere else: the thing it checked should no
+    // longer exist. `absence-headlines-name-the-scope.test.js` owns the fact's new home, including
+    // a check that it appears exactly ONCE per answer.
+    //
+    // ⚠ What this control is FOR still stands — proving the line is really assembled, or the ceiling
+    // guards nothing — so the proof moves to two clauses that do belong here.
+    expect(line, 'the LSP scope clause is this surface, not the headline').toMatch(/LSP SCOPE:/);
     expect(line).toMatch(/NOT MODELLED:/);
     expect(line.length, 'a non-trivial surface, or the ceiling is vacuous').toBeGreaterThan(200);
   });

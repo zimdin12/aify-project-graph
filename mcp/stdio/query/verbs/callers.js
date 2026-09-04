@@ -110,7 +110,7 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
       let line = '';
       // The language comes from the resolved target, so the construct-coverage clause appears on a
       // C/C++ absence and costs zero bytes anywhere else.
-      try { line = '\n' + await buildAbsenceTrustLine({ noun: 'callers', db, repoRoot, freshness, language: targets[0]?.language, scopeInHeadline: true }); }
+      try { line = '\n' + await buildAbsenceTrustLine({ noun: 'callers', db, repoRoot, freshness, language: targets[0]?.language }); }
       // ⛔ NOT an empty catch. Measured 2026-09-02: swallowing this shipped a BARE absence with no
       // TRUST, no SCOPE and no NOT MODELLED — indistinguishable from an authoritative "nothing calls
       // this". The answer still returns; the agent is told the caveat is missing.
