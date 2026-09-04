@@ -81,3 +81,59 @@ figure implied.
 - The end-to-end chain is verified by reading the four sites above; I have **not** reproduced a false
   `lsp-verified` banner from a genuinely cold collection end to end. The mechanism is demonstrated;
   the whole-pipeline consequence is argued from those four sites.
+
+---
+
+## ✅ RESOLVED — `c25fa7a8` · `05e6464b` · `b9e61d4c` (suite green, `4e5f5f29`)
+
+**The constant was not changed, and the claim ceiling above is why.** Five runs on one machine can
+show a 1500 ms window is exceeded; they cannot choose a replacement number. Tuning `settleMs` against
+this sample would have been picking a magic constant from n=5 and calling it a fix.
+
+What changed instead is the **state model**, which needed no sample size:
+
+| `waitForIndexReady` reason | before | after |
+|---|---|---|
+| `index_drained` / `already_ready` / `ready_no_index_needed` | `true` | `true` — observed |
+| `ready:false` (timeout, cold, error) | `false` | `false` — established |
+| `no_progress_signalled` | **`true`** | **`null`** — unknown |
+| any unrecognised reason | `true` | `null` — fails closed |
+
+`mcp/stdio/code-intel/index-readiness.js` owns the mapping; `cpp-clangd.js:403` and
+`code_intel_hierarchy.js:723` both call it instead of `!!r.ready`. Nothing downstream needed
+changing: `importer.js` already persisted `null` as SQL NULL, and every consumer gate is `=== true`,
+so the delete-licensing banner fails closed on the unknown.
+
+### ⭐ The wiring alone would have MOVED the error, not removed it
+
+Routing `null` into the existing fall-through gave it `cause: 'cold_index'`, whose remedy reads
+*"raise `APG_CLANGD_INDEX_WAIT_MS` / `waitForReadyMs` and re-run"*. For `no_progress_signalled` the
+wait returned **early — on the settle window, nowhere near its timeout**. That remedy cannot work,
+ever.
+
+⇒ This is a demonstrated instance of the class ef-manager named: *a remedy that cannot address the
+actual fault is worse than no remedy, because it spends the agent's next action on a guaranteed
+miss.* So `false` and `null` now carry different causes and different remedies —
+`index_readiness_unknown` names the settle window, and the banner stops asserting *"index NOT
+ready"*, which is a statement about clangd nobody observed. `false` keeps `cold_index` and the
+timeout knob, held by a test in that direction so a real negative is not softened away.
+
+The new cause is classified `NOT_A_DEGRADATION`, matching the `operationallyDegraded: false` it
+travels with; the `transient` default would have pinned the session degraded on every cold start.
+
+### ⚠ What this COSTS, stated rather than buried
+
+A genuinely on-disk index also reports `no_progress_signalled`, and now records `null` instead of
+`true` — losing an attestation it deserved. The trade was taken deliberately: the flag licenses
+deletion, and an unknown must not license deletion.
+
+**Named follow-up, not attempted here:** the discriminator that would recover that recall is whether
+clangd's index cache exists on disk for the project. That separates "nothing to do" from "has not
+started", which nothing inside the window can. It is a real design question, not a tuning knob, and
+it needs its own evidence.
+
+### Still true, still not measured
+
+The 2125 ms worst case was observed **unloaded**, on one machine, one fixture. It is a floor on the
+worst case, not a ceiling. The fix above does not depend on that number — which is the point of
+fixing the state model rather than the constant.
