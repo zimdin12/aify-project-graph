@@ -40,7 +40,7 @@ function insertCollection(db, over = {}) {
      VALUES ($id, 'cpp-clangd', '0.1.0', $root, 'cpp', 'ok',
         'compile_db_hash', $fv, $hash, $commit, $ops, '2026-06-19T01:02:14.438Z')`,
     {
-      id: 'col-1', root: '/x', fv: 'hash-A', hash: 'hash-A',
+      id: 'col-1', root: '/x', fv: 'hash-A', hash: over.dbHash ?? 'hash-A',
       commit: over.commit ?? 'aaaaaaaaaaaa',
       ops: JSON.stringify({
         references: { status: 'ok', count: 10 },
@@ -149,6 +149,52 @@ describe('stale / unresolved collections cannot license exhaustiveness', () => {
     expect(line, 'a collection proven current keeps the exhaustive wording')
       .toMatch(/index-ready, 1 caller/);
   });
+
+  // ⛔⛔ ONE BOOLEAN, TWO CAUSES, ONE HARD-CODED MESSAGE — AND THE MESSAGE IS FALSE FOR ONE OF THEM.
+  //
+  // `stale` is set from two places: the HEAD comparison, and the compile-DB hash comparison. Both
+  // render the single sentence "the collection is STALE — indexed <sha>, HEAD has moved." When only
+  // the compile DB changed, HEAD has NOT moved, and the banner prints the collection's commit while
+  // claiming it moved — a self-contradicting FALSE statement, in one line, on the surface whose
+  // whole product is honesty.
+  //
+  // Reproduced before this test was written:
+  //     HEAD (actual)            8af5aaa
+  //     collection.indexedCommit 8af5aaa   <- IDENTICAL
+  //     emitted                  "... STALE — indexed 8af5aaa, HEAD has moved ..."
+  //
+  // ⚠ FOUND BY CHECKING A REVIEWER'S CLAIM RATHER THAN ADOPTING IT. They argued `stale` was a
+  // boolean carrying three states, and that `stale=true` "declines to certify" rather than
+  // asserting. The conclusion was right and that supporting clause was not — as rendered it DOES
+  // assert — and the gap between the two is where this defect was sitting.
+  it('★★★ a compile-DB change must not be reported as HEAD moving', async () => {
+    const head = await commitAll(repoRoot, 'one');
+    // A real compile DB on disk, so prepareCompileDb finds one and hashes it. The collection stores
+    // a DIFFERENT hash, so the DB-change branch fires while HEAD is untouched.
+    await writeFile(join(repoRoot, 'compile_commands.json'), JSON.stringify([
+      { directory: repoRoot, file: join(repoRoot, 'a.cpp'), command: 'clang++ -c a.cpp' },
+    ]));
+
+    const db = openDb(dbPath);
+    insertCollection(db, { commit: head, found: 100, notFound: 0, dbHash: 'STALE-DB-HASH' });
+    const line = await buildTrustLine({ edges: [verifiedEdge], db, repoRoot });
+    db.close();
+
+    // The GRANT is unchanged and must stay unchanged: a changed compile DB still means the evidence
+    // describes a different index, so the set is a floor.
+    expect(line, 'a changed compile DB still withholds the exhaustive banner').toMatch(/FLOOR/);
+    // What must change is the CAUSE. HEAD did not move.
+    expectAbsentWithLiveMatcher(
+      /HEAD has moved/,
+      {
+        forbidden: 'the collection is STALE — indexed 8af5aaa, HEAD has moved.',
+        allowed: 'the collection is STALE — the compile DB has changed since it was collected.',
+      },
+      line,
+      'HEAD did not move; saying so is a false statement in the trust banner',
+    );
+    expect(line, 'and the real cause is named instead').toMatch(/compile DB/i);
+  }, 30_000);
 
   it('a capped edge fetch cannot claim a complete caller set', async () => {
     const head = await commitAll(repoRoot, 'one');
