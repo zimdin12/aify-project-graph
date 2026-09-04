@@ -250,6 +250,87 @@ describe('empty catches that silently keep an optimistic default', () => {
   });
 });
 
+// ⛔ "5 OF 71 ADJUDICATED" IS NOT A CLAIM ANYONE CAN ACT ON.
+//
+// The sweep found 71 empty-catch candidates and I adjudicated five, chosen by reading. An outside
+// reviewer named the error: I was ranking by the catch's SHAPE, when what matters is what its
+// fallback GRANTS.
+//
+//   "Does the value this catch leaves standing reach a trust-bearing output — a banner, a gate,
+//    exhaustive / stale / coverage / absenceAuthority, or any refusal-or-delete decision?"
+//
+// That partitions the 71 into a class where a fail-open is a SAFETY defect and a class where it is
+// cosmetic. A catch whose optimistic default only affects a log line is not in the class however
+// identical it looks to the detector. It also gives a stopping rule that terminates on a CONDITION
+// rather than on fatigue — adjudicate every trust-bearing candidate, stop when that set is empty —
+// and it re-runs unchanged as the code grows, which is the actual difference between a sweep and a
+// one-off fix.
+//
+// ⚠ AND THE APPROXIMATION IS NAMED, NOT HIDDEN. Deciding that a VALUE reaches a trust-bearing
+// output needs data-flow analysis, which this module already refuses to fake — see NOT_IMPLEMENTED.
+// So the flag answers a WEAKER question that syntax can answer honestly: does the ENCLOSING
+// FUNCTION emit a trust-bearing output at all? That OVER-includes, which is the safe direction for
+// a triage filter, and the field is named for the question it actually answers.
+describe('candidates are partitioned by what their fallback could reach', () => {
+  const inTrustFn = `
+    async function buildTrustLine(edges, db) {
+      let stale = false;
+      try { stale = await probe(db); } catch { }
+      if (stale) return 'TRUST: lsp-partial — the set is a FLOOR, not exhaustive';
+      return 'TRUST: lsp-verified';
+    }`;
+  const inLogFn = `
+    function writeHookLog(path) {
+      let count = 0;
+      try { count = readEntries(path).length; } catch { }
+      appendFileSync(path, 'entries: ' + count);
+    }`;
+
+  it('★★★ a catch inside a function that emits a trust claim is marked trust-bearing', () => {
+    const hits = emptyCatchKeepsDefault(inTrustFn);
+    expect(hits.length, 'fixture precondition: the shape must be detected at all').toBe(1);
+    expect(hits[0].enclosingEmitsTrustClaim, 'this fallback can reach a banner').toBe(true);
+    expect(hits[0].trustTokens, 'and it names WHY, so the reader can check the call rather than trust it')
+      .toEqual(expect.arrayContaining(['TRUST:', 'exhaustive']));
+  });
+
+  it('★★★ NEGATIVE CONTROL: a catch in a function that only logs is NOT trust-bearing', () => {
+    // ⛔ Without this the flag is decoration: a partition that puts everything on one side does not
+    // partition anything, and this repo has shipped a "detector" with a 100% positive rate before.
+    const hits = emptyCatchKeepsDefault(inLogFn);
+    expect(hits.length, 'fixture precondition: still the same shape').toBe(1);
+    expect(hits[0].enclosingEmitsTrustClaim, 'a log line is not a trust surface').toBe(false);
+    expect(hits[0].trustTokens).toEqual([]);
+  });
+
+  it('★★★ the flag answers the FUNCTION-level question, and the name says so', () => {
+    // ⚠ PINNING THE KNOWN OVER-INCLUSION rather than pretending precision. A trust token ANYWHERE in
+    // the enclosing function marks the candidate, even when the kept value plainly cannot reach it.
+    // That is the documented limit of a syntactic filter; the field is called
+    // `enclosingEmitsTrustClaim` and not `fallbackReachesTrustClaim` for exactly this reason.
+    const overIncluded = `
+      function mixed(db) {
+        let unrelated = 0;
+        try { unrelated = countRows(db); } catch { }
+        log(unrelated);
+        return 'TRUST: lsp-verified';
+      }`;
+    const hits = emptyCatchKeepsDefault(overIncluded);
+    expect(hits.length).toBe(1);
+    expect(hits[0].enclosingEmitsTrustClaim,
+      'over-inclusive by design — the safe direction for a triage filter').toBe(true);
+  });
+
+  it('★★ a catch at top level, with no enclosing function, does not crash and is not trust-bearing', () => {
+    // A file-scope try/catch has no enclosing function to inspect. It must return a usable answer
+    // rather than throwing — an instrument that dies on an ordinary shape reports a false zero for
+    // every file that contains one.
+    const hits = emptyCatchKeepsDefault("let x = 0;\ntry { x = load(); } catch { }\nuse(x);");
+    expect(hits.length).toBe(1);
+    expect(hits[0].enclosingEmitsTrustClaim).toBe(false);
+  });
+});
+
 describe('the inventory is honest about what it does not do', () => {
   it('★★★ the unimplemented categories are NAMED, with reasons', () => {
     // ⚠ A tool silent about its blind spots reads as coverage. Two of the six requested categories
