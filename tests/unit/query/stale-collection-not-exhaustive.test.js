@@ -13,6 +13,7 @@ import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { openDb } from '../../../mcp/stdio/storage/db.js';
 import { buildTrustLine } from '../../../mcp/stdio/query/lsp-evidence.js';
+import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
 const verifiedEdge = { provenance: 'LSP_VERIFIED', extractor: 'cpp-clangd#deadbeef' };
 
@@ -119,8 +120,18 @@ describe('stale / unresolved collections cannot license exhaustiveness', () => {
     const line = await buildTrustLine({ edges: [verifiedEdge], db, repoRoot });
     db.close();
 
-    expect(line, 'an unverifiable currency must not read as a verified one')
-      .not.toMatch(/index-ready, \d+ caller/);
+    // ⛔ THE RATCHET CAUGHT THIS AS A BARE not.toMatch — the third time this session, and every time
+    // only the mechanical guard noticed. A negative assertion whose matcher was never watched fire
+    // is a silence that means nothing; the canaries make it mean something.
+    expectAbsentWithLiveMatcher(
+      /index-ready, \d+ caller/,
+      {
+        forbidden: 'TRUST: lsp-verified (clangd, index-ready, 1 caller, compile-db hash-A)',
+        allowed: 'TRUST: lsp-partial (clangd verified 1 caller, but whether this collection is still current could NOT be established)',
+      },
+      line,
+      'an unverifiable currency must not read as a verified one',
+    );
     expect(line, 'and the reader must be told to treat the set as a floor').toMatch(/FLOOR/);
   });
 
