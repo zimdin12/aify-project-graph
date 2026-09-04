@@ -5,6 +5,8 @@
 // retry", and "not collected" — and tell which provenance any record came
 // from at a glance.
 
+import { remedyForUnavailable } from './evidence-unavailable.js';
+
 export function formatProvenanceTag(record) {
   if (!record) return 'UNKNOWN';
   if (record.kind === 'overlay' || record.provenance === 'overlay') return 'OVERLAY';
@@ -24,7 +26,9 @@ export function formatThreeStateRefs({ state, count = 0, providerStatus = 'ok', 
 export function renderEvidenceLine(input) {
   if (!input || input.available === false) {
     const reason = input?.reason || 'provider_missing';
-    return `EVIDENCE: tree-sitter+overlay only; code_intel unavailable (${reason}: install clangd or set --no-code-intel to silence)`;
+    // The remedy comes from the CAUSE, in one place. It used to be a single hardcoded sentence
+    // written for `provider_missing` that every other cause inherited — see evidence-unavailable.js.
+    return `EVIDENCE: tree-sitter+overlay only; code_intel unavailable (${reason}: ${remedyForUnavailable(reason)})`;
   }
   const parts = [];
   parts.push(`provider=${input.provider}@${input.providerVersion}`);

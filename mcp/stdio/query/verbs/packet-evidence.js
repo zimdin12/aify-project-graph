@@ -9,10 +9,26 @@ export function buildEvidenceBlock({ repoRoot, symbol = null, files = [] } = {})
   if (!existsSync(dbPath)) {
     return { available: false, reason: 'no_graph' };
   }
+  // THREE DIFFERENT FAULTS USED TO ARRIVE AS ONE CAUSE. `no_collection` is a claim about the
+  // REPOSITORY, and it is only true when the collection question was actually ASKED and answered
+  // "none". A database that will not open never got that far, and saying `no_collection` there
+  // reports our own failure as the repo's state. See evidence-unavailable.js.
   let block = { available: false, reason: 'no_collection' };
+  let db;
   try {
-    const db = openExistingDb(dbPath);
-    try {
+    db = openExistingDb(dbPath);
+    // ⛔ ASK THE READABILITY QUESTION, DO NOT INFER IT FROM WHERE THE THROW LANDED. SQLite opens
+    // lazily: a file of non-database bytes passes `openExistingDb` and only throws on the first
+    // real query. Assigning the cause by which try block caught it would report an unreadable file
+    // as a probe fault — the same position-not-fault mistake this module exists to remove, and a
+    // test caught me making it here.
+    db.prepare('SELECT 1 FROM sqlite_master LIMIT 1').get();
+  } catch {
+    try { db?.close(); } catch { /* the handle may never have opened */ }
+    return { available: false, reason: 'graph_unreadable' };
+  }
+  try {
+    {
       const latest = getLatestCollection(db);
       if (!latest) return block;
       const symbolEvidence = symbol ? getCodeIntelEvidenceForSymbol(db, { qname: String(symbol) }) : null;
@@ -30,14 +46,19 @@ export function buildEvidenceBlock({ repoRoot, symbol = null, files = [] } = {})
         symbol: symbolEvidence,
         diagnostics
       };
-    } finally { db.close(); }
-  } catch { /* leave block as not-available */ }
+    }
+  } catch {
+    // The graph DID open, so this is not a fact about the repo either — it is a fault in the probe.
+    return { available: false, reason: 'evidence_probe_failed' };
+  } finally { db.close(); }
   return block;
 }
 
 export function renderEvidenceBlock(block) {
   if (!block || !block.available) {
-    return renderEvidenceLine({ available: false, reason: block?.reason || 'no_collection' });
+    // A missing block means we were never told why. That is not `no_collection`, which is a
+    // claim about the repo that nothing here established.
+    return renderEvidenceLine({ available: false, reason: block?.reason || 'evidence_probe_failed' });
   }
   const lines = [renderEvidenceLine({
     available: true,
