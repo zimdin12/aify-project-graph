@@ -89,6 +89,56 @@ describe('stale / unresolved collections cannot license exhaustiveness', () => {
     expect(line).not.toMatch(/STALE/i);
   });
 
+  // ⛔⛔ AN UNKNOWN HEAD IS NOT A CURRENT ONE, AND THIS MODULE ALREADY KNOWS THAT.
+  //
+  // Found by the fail-open sweep (R1c), which flagged `let stale = false; try { ... } catch { }` in
+  // lsp-evidence.js. The probe does not even have to throw: `getHeadCommit(repoRoot).catch(() =>
+  // null)` swallows a failure to `null` itself, and the guard is `if (head && collection.
+  // indexedCommit && head !== collection.indexedCommit)`. So when HEAD cannot be read, `stale` stays
+  // FALSE, no downgrade branch fires, and the collection earns
+  // `TRUST: lsp-verified (… index-ready, N callers …)` — the exact wording the server-instructions
+  // say licenses "safe to delete", over a collection whose currency could not be established.
+  //
+  // ⚠ THE ASYMMETRY IS THE POINT, and it sits FORTY LINES BELOW in the same function. The telemetry
+  // unknown is handled fail-closed and argued in a comment: "A missing measurement is not a good
+  // measurement — treating absent telemetry as '0% unresolved' would grant the exhaustive banner on
+  // exactly the collections we know least about." That is this case, word for word, and the
+  // staleness unknown gets the opposite treatment silently.
+  //
+  // ⇒ This is the sand_castle incident in the header arriving through a different door: there the
+  // staleness was KNOWN and appended too late; here it is UNKNOWN and reads as current.
+  it('★★★ a collection whose currency CANNOT be established does not earn the exhaustive banner', async () => {
+    const head = await commitAll(repoRoot, 'one');
+
+    const db = openDb(dbPath);
+    insertCollection(db, { commit: head, found: 100, notFound: 0 });
+    // Make HEAD unreadable the way a real repo does — the git directory is gone, so `rev-parse`
+    // fails and the collection's currency is genuinely unknowable. Not a stubbed throw: the
+    // production path swallows to null on its own, and stubbing would test the stub.
+    await rm(join(repoRoot, '.git'), { recursive: true, force: true });
+    const line = await buildTrustLine({ edges: [verifiedEdge], db, repoRoot });
+    db.close();
+
+    expect(line, 'an unverifiable currency must not read as a verified one')
+      .not.toMatch(/index-ready, \d+ caller/);
+    expect(line, 'and the reader must be told to treat the set as a floor').toMatch(/FLOOR/);
+  });
+
+  it('★★ POSITIVE CONTROL: the same fixture WITH a readable HEAD still earns it', async () => {
+    // ⛔ Without this, a fix that downgraded every banner would satisfy the test above while
+    // destroying the attestation entirely. This repo has shipped a guard of exactly that shape
+    // before — one that fired correctly and also deleted real edges.
+    const head = await commitAll(repoRoot, 'one');
+
+    const db = openDb(dbPath);
+    insertCollection(db, { commit: head, found: 100, notFound: 0 });
+    const line = await buildTrustLine({ edges: [verifiedEdge], db, repoRoot });
+    db.close();
+
+    expect(line, 'a collection proven current keeps the exhaustive wording')
+      .toMatch(/index-ready, 1 caller/);
+  });
+
   it('a capped edge fetch cannot claim a complete caller set', async () => {
     const head = await commitAll(repoRoot, 'one');
     const db = openDb(dbPath);
