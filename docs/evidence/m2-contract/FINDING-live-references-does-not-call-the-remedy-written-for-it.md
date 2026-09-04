@@ -85,6 +85,27 @@ The change is "route `waitForReadyMs > 0` through `waitForIndexReady`". Before m
   to callers who passed `waitForReadyMs: 0`.
 - **Check `codeIntelDefinitions` too** — same signature, same helper, same question.
 
+## ⛔ RETRACTED 2026-09-04: the determinism claim above is wrong
+
+Preregistering the change measured the two APIs against a real `LspClient` and found the opposite of
+what this document assumed:
+
+```
+waitForReady(1200)        -> "unknown"                                        in 1209 ms
+waitForIndexReady({1200}) -> { ready: true, reason: 'no_progress_signalled' } in  248 ms
+```
+
+- The current path returns `'unknown'`, and **every strong-evidence branch is gated on
+  `freshness === 'fresh'`** — so it already fails CLOSED. The cost is latency and recall, not safety.
+- Routing through `waitForIndexReady` would therefore be a **claim-STRENGTHENING** change, unlocking
+  seven evidence branches, and its winning path (`no_progress_signalled`) infers readiness from the
+  ABSENCE of a signal.
+- **And it would not make this test deterministic anyway.** The test needs clangd to resolve the
+  reference; returning sooner with the same `'unknown'` freshness does not help.
+
+⇒ See `PREREGISTERED-routing-waitForReadyMs-through-waitForIndexReady.md`. The recommendation is now
+to take the latency half and refuse the claim half. The paragraph below still stands.
+
 ⛔ **Do not weaken the test to go green.** Its assertion — `result_state` must be exactly `found` —
 was deliberately tightened, and it is the assertion that would catch a real regression in caller
 discovery. The honest repair strengthens the wait, not the expectation.
