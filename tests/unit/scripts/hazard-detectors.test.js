@@ -14,6 +14,11 @@
 // ⇒ A tool for finding vacuous checks was itself vacuous. Test an instrument against the case that
 // motivated it, not merely against a case it happens to catch.
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const ROOT = dirname(fileURLToPath(new URL('../../../package.json', import.meta.url)));
 import {
   vacuousQuantifiers, failOpenCatches, emptyCatchKeepsDefault, selfReportingLiterals, NOT_IMPLEMENTED,
 } from '../../../scripts/lib/hazard-detectors.mjs';
@@ -386,6 +391,41 @@ describe('candidates are ranked by whether the try leaves the process', () => {
     expect(hits.length).toBe(1);
     expect(hits[0].crossesProcessBoundary,
       'the guarded call belongs to the inner catch, not this one').toBe(false);
+  });
+
+  it('★★★⛔ the word-boundary anchor holds: `respawn(` is not `spawn(`', () => {
+    // ⛔ THIS EXISTS BECAUSE THE ANCHOR WAS SILENTLY DESTROYED AND EVERY TEST STILL PASSED.
+    // A shell heredoc turned `\b` into a literal BACKSPACE byte (0x08) inside the regex, so the
+    // pattern read `/execFileSync|execSync|<BS>spawn\(|…/`. `sed` renders 0x08 as nothing, so the
+    // source LOOKED correct; the suite stayed green because a DIFFERENT alternative in the same
+    // regex matched the fixture. A test passing on the wrong alternative is exactly the silent kill
+    // this file has started guarding against elsewhere.
+    const respawn = emptyCatchKeepsDefault(
+      "function f(){ let x = null; try { x = respawn(3); } catch { } return 'TRUST: ' + x; }");
+    expect(respawn.length).toBe(1);
+    expect(respawn[0].boundaries, '`respawn(` is not a child-process spawn').toEqual([]);
+
+    const real = emptyCatchKeepsDefault(
+      "function f(){ let x = null; try { x = spawn('git'); } catch { } return 'TRUST: ' + x; }");
+    expect(real[0].boundaries, 'and the anchored form still matches').toContain('child process');
+  });
+
+  it('★★★⛔ the detector source carries no control bytes', () => {
+    // The general form of the defect above. A heredoc, a paste, or an editor can inject a raw
+    // control character that every renderer hides and every regex silently mis-compiles. Checking
+    // the BYTES is the only instrument that held — `sed`, the terminal and a passing suite all
+    // reported the file as fine while it contained 0x08.
+    const src = readFileSync(join(ROOT, 'scripts/lib/hazard-detectors.mjs'), 'utf8');
+    const control = [...src].filter((ch) => {
+      const c = ch.codePointAt(0);
+      return c < 0x20 && ch !== '\n' && ch !== '\r' && ch !== '\t';
+    });
+    expect(control.map((c) => '0x' + c.codePointAt(0).toString(16)),
+      'a control byte in source is invisible in every renderer and changes what the regex means')
+      .toEqual([]);
+    // ⚠ POSITIVE CONTROL on the reader: prove the file was actually read and is non-trivial, or an
+    // empty read would satisfy the assertion above for the wrong reason.
+    expect(src.length, 'the file was actually read').toBeGreaterThan(1000);
   });
 
   it('★★ POSITIVE CONTROL: the stripping does not blind the rule to an UNGUARDED sibling', () => {

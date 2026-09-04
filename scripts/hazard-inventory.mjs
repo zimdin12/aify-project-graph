@@ -157,8 +157,19 @@ console.log('');
     console.log('  a fallback that only reaches a log line is not in the class however identical');
     console.log('  it looks to the detector. (FUNCTION-level test — over-includes by design.)');
     console.log('');
-    for (const f of trustBearing) {
-      console.log(`    ${f.file}:${f.line}  keeps [${f.keeps.join(', ')}]  via ${f.trustTokens.join(', ')}`);
+    // ⭐ ORDERED BY WHERE THE THROWS ACTUALLY ARE. Of the first fifteen adjudicated, every
+    // REACHABLE one crossed a process boundary and every LATENT one called our own helpers,
+    // which already fail closed internally. So a boundary-crossing candidate is worth opening
+    // first. ⚠ It ORDERS, it does not GRADE — one of them is reachable and harmless.
+    const byBoundary = [...trustBearing].sort(
+      (a, b) => Number(b.crossesProcessBoundary) - Number(a.crossesProcessBoundary),
+    );
+    const crossing = byBoundary.filter((f) => f.crossesProcessBoundary).length;
+    console.log(`  ${crossing} of those cross a PROCESS BOUNDARY — open those first.`);
+    console.log('');
+    for (const f of byBoundary) {
+      const where = f.crossesProcessBoundary ? f.boundaries.join(' + ') : 'in-process';
+      console.log(`    [${where}] ${f.file}:${f.line}  keeps [${f.keeps.join(', ')}]`);
     }
     console.log('');
   }

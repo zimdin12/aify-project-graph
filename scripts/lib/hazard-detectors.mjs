@@ -311,6 +311,48 @@ function enclosingTrustTokens(sf, node) {
   return TRUST_VOCABULARY.filter((t) => text.includes(t));
 }
 
+/**
+ * Calls that LEAVE THIS PROCESS. Named individually rather than as one regex, so a hit says WHICH
+ * boundary it crosses — "git" and "an LSP request" want different reasoning from a reader.
+ */
+const PROCESS_BOUNDARIES = [
+  ['child process', /execFileSync|execSync|\bspawn\(|spawnSync|execGit/],
+  ['git', /getHeadCommit|getDirtyFile|commitsBehindHead|rev-parse/],
+  ['language server', /session\.client|\.references\(|\.definition\(|waitForIndexReady|waitForReady/],
+  ['compile DB probe', /prepareCompileDb/],
+  ['filesystem read', /readFileSync|readdirSync|statSync|existsSync|createReadStream/],
+  ['network', /\bfetch\(|https?\.request/],
+];
+
+/**
+ * Which process boundaries can throw INTO this catch?
+ *
+ * ⭐ DERIVED FROM ADJUDICATIONS, NOT ASSUMED. Of the first fifteen trust-bearing candidates worked,
+ * every REACHABLE one crossed a boundary and every LATENT one called our own helpers, which already
+ * fail closed internally. So this ORDERS the queue: look where the throws are.
+ *
+ * ⛔ NESTED GUARDED REGIONS ARE STRIPPED FIRST. A boundary call wrapped in its OWN try/catch can
+ * never reach this catch, and counting it over-ranks the candidate. A prototype flagged
+ * `orchestrator.js:815` as "child process" for an `execFileSync` sitting three lines deep inside
+ * `try { … } catch { changed = null; }` — found by checking the instrument against a case rather
+ * than trusting its output. Over-ranking is how a triage order stops being worth following.
+ *
+ * ⚠ ORDERS, DOES NOT GRADE. A boundary-crossing candidate can be entirely harmless; what the
+ * fallback GRANTS is a separate axis and stays separate.
+ */
+function boundariesReaching(sf, tryStatement) {
+  const guarded = [];
+  const collect = (m) => {
+    // A nested try WITH a catch handles its own throws; stop descending and remove its whole text.
+    if (m !== tryStatement && ts.isTryStatement(m) && m.catchClause) { guarded.push(m.getText(sf)); return; }
+    ts.forEachChild(m, collect);
+  };
+  ts.forEachChild(tryStatement.tryBlock, collect);
+  let text = tryStatement.tryBlock.getText(sf);
+  for (const g of guarded) text = text.split(g).join(' ');
+  return PROCESS_BOUNDARIES.filter(([, re]) => re.test(text)).map(([name]) => name);
+}
+
 export function emptyCatchKeepsDefault(source, fileName = 'x.mjs') {
   const sf = parse(source, fileName);
   const hits = [];
@@ -334,11 +376,14 @@ export function emptyCatchKeepsDefault(source, fileName = 'x.mjs') {
         // ⚠ Computed per hit rather than per file: two catches in one file can sit in functions
         // with completely different jobs, and a file-level answer would tar both with either.
         const trustTokens = enclosingTrustTokens(sf, node);
+        const boundaries = boundariesReaching(sf, node);
         hits.push({
           category: 'empty-catch-keeps-default',
           keeps,
           enclosingEmitsTrustClaim: trustTokens.length > 0,
           trustTokens,
+          crossesProcessBoundary: boundaries.length > 0,
+          boundaries,
           line: at(sf, node),
           text: snippet(sf, node),
           question: `on failure ${keeps.join(', ')} ${keeps.length === 1 ? 'is' : 'are'} left at the `
