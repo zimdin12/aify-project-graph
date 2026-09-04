@@ -18,6 +18,15 @@ const TESTS = execFileSync('git', ['ls-files', 'tests'], { encoding: 'utf8' })
   .split('\n').filter((f) => f.endsWith('.test.js'));
 
 describe('related-tests finds what already describes the contract', () => {
+  // ⭐ INDEPENDENT SOURCE, NAMED (ef-manager's rule for ratchets and contract tests): the expectation
+  // below does NOT come from this detector's behaviour. It comes from a HISTORICAL FACT — on
+  // 2026-09-04 I edited mcp/stdio/query/verbs/packet-evidence.js and did not run
+  // tests/unit/query/packet-evidence.test.js, which had existed since 2026-08-12 and imported the
+  // function I changed. The full suite then went red with 20 failures across four files.
+  //
+  // That pairing was true before this script existed and would stay true if it were deleted, which
+  // is what makes it an oracle rather than a description. A ratchet that cannot name such a source
+  // is only asserting that the code still does what it does.
   it('★★★ POSITIVE CONTROL: it finds the exact file the 2026-09-04 miss skipped', () => {
     const hits = testsImporting(['mcp/stdio/query/verbs/packet-evidence.js'], TESTS);
     expect(hits, 'the historical miss must be caught, or this instrument is decoration')
