@@ -15,7 +15,7 @@
 // motivated it, not merely against a case it happens to catch.
 import { describe, it, expect } from 'vitest';
 import {
-  vacuousQuantifiers, failOpenCatches, selfReportingLiterals, NOT_IMPLEMENTED,
+  vacuousQuantifiers, failOpenCatches, emptyCatchKeepsDefault, selfReportingLiterals, NOT_IMPLEMENTED,
 } from '../../../scripts/lib/hazard-detectors.mjs';
 
 describe('vacuous quantifiers', () => {
@@ -169,6 +169,73 @@ describe('fail-open catches', () => {
       'rethrowing is not failing open').toEqual([]);
     expect(failOpenCatches('function f(){ try { g(); } catch { log(); return 0; } }'),
       'a catch that does something else first needs a human, not this rule').toEqual([]);
+  });
+});
+
+// ⛔⛔ THE DETECTOR COULD NOT MATCH THE DEFECT THE CLASS IS NAMED AFTER.
+//
+// `failOpenCatches` requires a catch body of EXACTLY ONE RETURN STATEMENT. The roadmap's PATTERN A
+// names `FINDING-contract-failed-open` first, and its shape is an EMPTY catch:
+//
+//     let line = '';
+//     try { line = '\n' + await buildAbsenceTrustLine({ ... }); }
+//     catch { /* defensive */ }
+//
+// Zero statements, so `stmts.length === 1` is false and it can never match. An agent received a bare
+// `NO CALLERS` with no TRUST, no SCOPE, no NOT MODELLED — byte-identical to a build without the
+// feature — and the scanner built to find fail-open code reported nothing.
+//
+// Audited rather than assumed, with `git show <fix>^:<file>` against the real pre-fix sources:
+//
+//     pre-fix  callers.js @ 7cd2e74f^   failOpenCatches 0 hits   <- MISSED
+//     pre-fix  callees.js @ 8e0eb4e2^   failOpenCatches 0 hits   <- MISSED
+//
+// ⚠ MEASURED BEFORE BUILDING, because a shape that matches everything is not a detector and this
+// repo has shipped one with a 100% positive rate: 607 try/catch statements in mcp+scripts, 193 with
+// an empty body, and 71 of those over an assignment to a variable declared OUTSIDE the try — 11.7%
+// of all catches. The discriminator is the outer assignment, not the emptiness.
+describe('empty catches that silently keep an optimistic default', () => {
+  it('★★★⛔ THE MOTIVATING DEFECT, in its original form', () => {
+    const hits = emptyCatchKeepsDefault(
+      "async function f(){ let line = ''; try { line = await build(); } catch { /* defensive */ } return line; }");
+    expect(hits.length, 'the shape the whole fail-open class is named after').toBe(1);
+    expect(hits[0].keeps, 'and it names the variable left at its optimistic value').toEqual(['line']);
+    expect(hits[0].question).toMatch(/left at the value it held before/);
+  });
+
+  it('★★★ THE REPAIRED COUNTERPART: assigning a disclosure in the catch is NOT flagged', () => {
+    // This is the actual shipped fix — the catch now emits ABSENCE_TRUST_UNAVAILABLE rather than
+    // leaving the empty string standing. A detector that still flagged it would be untrue to the
+    // remedy and would train a reader to ignore it.
+    expect(emptyCatchKeepsDefault(
+      "async function f(){ let line = ''; try { line = await build(); } catch { line = UNAVAILABLE; } return line; }"),
+    'a catch that discloses is not failing open').toEqual([]);
+  });
+
+  it('★★★ NEGATIVE CONTROL: an empty catch with nothing to keep is not flagged', () => {
+    // ⛔ Emptiness alone is NOT the defect, and flagging it would raise the rate from 11.7% of
+    // catches to 31.8% with nothing gained. What makes it fail open is a value assigned in the try
+    // and READ afterwards, whose pre-try value is a plausible success.
+    expect(emptyCatchKeepsDefault('function f(){ try { doCleanup(); } catch {} }'),
+      'a best-effort side effect keeps no value').toEqual([]);
+    expect(emptyCatchKeepsDefault('function f(){ try { const x = g(); use(x); } catch {} }'),
+      'a variable DECLARED inside the try does not survive it').toEqual([]);
+    expect(emptyCatchKeepsDefault('function f(){ let x = 1; try { g(); } catch {} return x; }'),
+      'no assignment in the try means the catch changed nothing').toEqual([]);
+  });
+
+  it('★★★ POSITIVE CONTROL: several outer names are all reported, not just the first', () => {
+    // Real instance: brief/generator.js:76 leaves TWO names standing.
+    const hits = emptyCatchKeepsDefault(
+      'function f(){ let a = 0; let b = []; try { a = g(); b = h(); } catch {} return [a, b]; }');
+    expect(hits.length).toBe(1);
+    expect(hits[0].keeps, 'both, or a reader chases the wrong variable').toEqual(['a', 'b']);
+  });
+
+  it('★★★⛔ an unparsable source THROWS rather than reporting a reassuring zero', () => {
+    // The same rule every detector here holds: a file that will not parse is an UNKNOWN, not a
+    // clean one, and a silent skip is how a scan reports a zero over files it never read.
+    expect(() => emptyCatchKeepsDefault('function ( {')).toThrow();
   });
 });
 
