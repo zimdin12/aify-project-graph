@@ -651,12 +651,28 @@ async function buildTrustLineBody({ edges = [], db, repoRoot, truncated = false,
   // banner our server-instructions say licenses "safe to delete". Sand Castle
   // ran against a collection 5 weeks / 100+ commits behind HEAD and still saw
   // the exhaustive wording. A stale collection can never license exhaustiveness.
+  // ⛔ AN UNKNOWN CURRENCY IS NOT A CURRENT ONE — three states, not two.
+  //
+  // This was `let stale = false;` with an empty catch, and the probe does not even need to throw:
+  // `getHeadCommit(...).catch(() => null)` swallows the failure itself, so an unreadable HEAD left
+  // `stale` FALSE, no downgrade branch fired, and the collection earned `lsp-verified … index-ready,
+  // N callers` — the wording the server-instructions say licenses "safe to delete" — over a
+  // collection nobody could show was current.
+  //
+  // ⚠ THE RULE WAS ALREADY IN THIS FUNCTION, forty lines down, applied to the OTHER unknown:
+  // "A missing measurement is not a good measurement — treating absent telemetry as '0% unresolved'
+  // would grant the exhaustive banner on exactly the collections we know least about." Identical
+  // case, opposite handling, and the staleness half was silent about it.
   let stale = false;
+  let currencyUnknown = false;
   if (collection) {
     try {
       const head = await getHeadCommit(repoRoot).catch(() => null);
-      if (head && collection.indexedCommit && head !== collection.indexedCommit) stale = true;
-    } catch { /* defensive */ }
+      // A collection with no recorded commit is the same unknown wearing different clothes: there
+      // is nothing to compare, so currency cannot be established either way.
+      if (!head || !collection.indexedCommit) currencyUnknown = true;
+      else if (head !== collection.indexedCommit) stale = true;
+    } catch { currencyUnknown = true; }
     // M4 (2026-07-27): this used to compare collection.compileDbHash against
     // collection.freshnessValue — but the provider writes BOTH from the same
     // variable (cpp-clangd.js), so the condition could never be true and the
@@ -712,6 +728,14 @@ async function buildTrustLineBody({ edges = [], db, repoRoot, truncated = false,
     return `TRUST: lsp-partial (${backend} verified ${verifiedCount} caller${verifiedCount === 1 ? '' : 's'}, but the edge fetch hit its cap `
       + `— more callers exist that were never retrieved, so this is a FLOOR, not a complete set. Narrow with file=, or use `
       + `code_intel_references for a per-symbol census) [${dbHash}, collected ${when}]`;
+  }
+  // Placed beside the telemetry branch on purpose: the two answer the same question about different
+  // unknowns, and keeping them adjacent is what stops one of them drifting back to a silent default.
+  if (collection && collection.indexReady === true && allVerified && currencyUnknown) {
+    line = `TRUST: lsp-partial (${backend} verified ${verifiedCount} caller${verifiedCount === 1 ? '' : 's'}, but whether this collection is still current could NOT be established — `
+      + `HEAD or the collection's own commit is unreadable, so it may be arbitrarily far behind. Treat as a FLOOR and verify with rg before any "no callers" / delete) `
+      + `[${dbHash}, collected ${when}]`;
+    return line;
   }
   if (collection && collection.indexReady === true && allVerified && telemetryMissing) {
     // No resolution telemetry recorded, so we cannot show the index actually
