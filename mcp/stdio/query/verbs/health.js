@@ -822,7 +822,23 @@ export async function graphHealth({ repoRoot }) {
   // manifest snapshot. Fix: compare brief's recorded graph_indexed_at
   // against the current manifest.indexedAt; warn when they diverge so
   // consumers know the brief needs regen.
+  // ⛔ TWO FACTS, NOT ONE, AND THE SECOND ONE USED TO VANISH.
+  //
+  // `briefStaleVsManifest` answers "is the brief behind the graph". A parse failure cannot answer
+  // it, and the empty catch left `false` standing — so a brief.json that could not be read produced
+  // output IDENTICAL to a brief that was perfectly current: no verdict, no next action, nothing.
+  //
+  // ⚠ THE FLAG ITSELF STAYS FALSE ON A FAILURE, DELIBERATELY. The brief is not KNOWN to be stale,
+  // and flipping it would fabricate a fact — the same trap `lsp-evidence.js` records as "a probe
+  // failure must not fabricate staleness", which is right about TRUTH. The repair is not to
+  // overload one boolean; it is to report the separate fact that the check could not run.
+  //
+  // ⚠ AND MISSING IS NOT MALFORMED. `existsSync` gates the try, so the catch only ever sees a file
+  // that exists and would not parse. A repo that never generated a brief has nothing to report, and
+  // saying otherwise would fire on every such repo — the warning wall this project already removed.
+  // The old comment said "missing or malformed" and only one of those reaches here.
   let briefStaleVsManifest = false;
+  let briefUnreadable = false;
   try {
     const briefJsonPath = join(graphDir, 'brief.json');
     if (existsSync(briefJsonPath)) {
@@ -833,7 +849,9 @@ export async function graphHealth({ repoRoot }) {
       }
     }
   } catch {
-    // brief.json missing or malformed — skip the check
+    // The file exists and could not be read or parsed — a truncated write is what a full disk
+    // leaves behind. Unknown staleness, and an orientation artifact a reader should not rely on.
+    briefUnreadable = true;
   }
   const unresolvedCategorizationStaleVsManifest = (() => {
     const categorizationIndexedAt = readArtifactIndexedAt(join(graphDir, 'unresolved-categorization.json'));
@@ -1779,6 +1797,11 @@ export async function graphHealth({ repoRoot }) {
   if (briefStaleVsManifest) {
     verdicts.push('brief-stale: regenerate with graph-brief.mjs');
   }
+  // Beside its sibling on purpose: the two answer the same question about the same file and
+  // splitting them across the function is how one of them drifts back to silence.
+  if (briefUnreadable) {
+    verdicts.push('brief-unreadable: brief.json exists but could not be parsed — its staleness is UNKNOWN; regenerate with graph-brief.mjs');
+  }
   if (unresolvedCategorizationStaleVsManifest) {
     verdicts.push('categorization-stale: regenerate via graph_index()');
   }
@@ -1963,6 +1986,7 @@ export async function graphHealth({ repoRoot }) {
     stale,
     manifestStatus,
     briefStaleVsManifest,
+    briefUnreadable,
     unresolvedCategorizationStaleVsManifest,
     overlay,
     overlayQuality,

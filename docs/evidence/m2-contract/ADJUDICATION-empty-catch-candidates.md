@@ -103,7 +103,7 @@ than fixed — but it is the fourth appearance of the same tell, in a file none 
 this graph the NOTE cannot fire regardless. Expected — it is a C++ construct and this repo is JS —
 and noted so a later reader does not mistake its silence for evidence.
 
-### ⭐ The refinement the data gave, and it should drive the remaining 21
+### ⭐ The refinement the data gave, and it should drive the remaining 19
 
 Every candidate adjudicated as **reachable** so far had a try block crossing a **process boundary** —
 `git rev-parse` via `getHeadCommit`, an LSP request via `session.client`. Every candidate that came
@@ -116,9 +116,45 @@ on all 12 hostile inputs.
 throws are, because our own helpers were hardened years of incidents ago and the external ones cannot
 be. It costs nothing to apply and it is derived from the adjudications rather than assumed.
 
+## Third batch — the ranking's first prediction, paid
+
+The process-boundary ranking put `health.js:826` at the top of the unworked queue. It was a defect.
+
+| site | keeps | reachability | grant | verdict |
+|---|---|---|---|---|
+| `health.js:826` | `briefStaleVsManifest` | **demonstrated** — `JSON.parse` on a truncated file | silence: a brief that cannot be read looks perfectly current | ⛔ **FIXED** → `briefUnreadable` |
+| `consequences.js:968` | `lastTouched` | **demonstrated** — `execFileSync('git', …)` | git-history enrichment only | reachable, low grant — not a defect |
+
+### `health.js:826` — the fifth collapsed state, and the repair is NOT to flip the flag
+
+A `brief.json` that will not parse produced output **identical** to one that is perfectly current:
+no verdict, no next action, nothing. All four consumers went quiet at once.
+
+⚠ **Not a hypothetical corruption.** A truncated write is exactly what a full disk leaves behind, and
+this machine reached 0 bytes free earlier the same day.
+
+⚠ **And the existing test that pins `briefStaleVsManifest === false` on malformed input is RIGHT.**
+The brief is not *known* to be stale; flipping that flag would fabricate a fact — the same trap
+`lsp-evidence.js` records as *"a probe failure must not fabricate staleness"*, which was correct
+about truth. ⇒ The repair is not to overload one boolean but to report the **separate** fact that the
+check could not run. That test stays green, untouched, which is the evidence this adds rather than
+breaks.
+
+⚠ **The catch's comment said "missing or malformed" and only one of those reaches it.** `existsSync`
+gates the try, so the catch only ever sees a file that exists and will not parse — the one case where
+the default is wrong. The comment argues the case where `false` is correct while the value also
+covers the case where it is not. **Fifth appearance of the tell.**
+
+### ⭐ The ranking made a prediction and it paid — once
+
+Its first unworked boundary-crosser was a real defect. That is **one** confirmation, not a
+validation: the ranking is still a heuristic derived from earlier adjudications, and one hit is what
+a coin does half the time. What would falsify it is an in-process candidate turning out reachable,
+and that has not happened yet either.
+
 ## What this sweep did NOT close
 
-⛔ **21 of the 36 are not yet adjudicated.** The stopping rule is *adjudicate every trust-bearing
+⛔ **19 of the 36 are not yet adjudicated.** The stopping rule is *adjudicate every trust-bearing
 candidate; stop when that set is empty*, and that set is not empty. This ledger is partial and says
 so rather than implying the class is closed.
 
