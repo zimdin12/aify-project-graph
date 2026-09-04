@@ -135,6 +135,35 @@ console.log('');
 for (const [cat, n] of Object.entries(byCategory)) console.log(`  ${String(n).padStart(4)}  ${cat}`);
 console.log('');
 
+// ⛔ THE TRIAGE NUMBER, PRINTED HERE SO NOBODY RE-POSES THE QUESTION AND ANSWERS IT DIFFERENTLY.
+//
+// A raw candidate count is not actionable: "5 of 71 adjudicated" says nothing about whether the 66
+// matter. What matters is what a fallback GRANTS, so the set worth working is the one whose
+// enclosing function emits a trust-bearing output — a banner, a gate, a completeness word.
+//
+// ⇒ STOPPING RULE, and it terminates on a CONDITION rather than on fatigue: adjudicate every
+// trust-bearing candidate; stop when that set is empty. It re-runs unchanged as the code grows,
+// which is the difference between a sweep and a one-off fix wearing a sweep's name.
+//
+// ⚠ NAMED FOR THE QUESTION IT ANSWERS. This is a FUNCTION-level test, not a value-level one, so it
+// over-includes — the safe direction, since an extra candidate costs one adjudication and a missed
+// one costs a defect. See enclosingTrustTokens for why the stronger question is not attempted.
+{
+  const partitionable = findings.filter((f) => 'enclosingEmitsTrustClaim' in f);
+  const trustBearing = partitionable.filter((f) => f.enclosingEmitsTrustClaim);
+  if (partitionable.length > 0) {
+    console.log(`  TRIAGE — ${trustBearing.length} of ${partitionable.length} empty-catch candidates sit in a`);
+    console.log('  function that emits a trust-bearing output. Those are the ones to adjudicate;');
+    console.log('  a fallback that only reaches a log line is not in the class however identical');
+    console.log('  it looks to the detector. (FUNCTION-level test — over-includes by design.)');
+    console.log('');
+    for (const f of trustBearing) {
+      console.log(`    ${f.file}:${f.line}  keeps [${f.keeps.join(', ')}]  via ${f.trustTokens.join(', ')}`);
+    }
+    console.log('');
+  }
+}
+
 const show = process.argv.includes('--detail');
 if (show) {
   for (const f of findings) {

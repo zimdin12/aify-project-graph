@@ -272,6 +272,45 @@ export function failOpenCatches(source, fileName = 'x.mjs') {
  * assignment is often right. The value is the question: can a caller tell the kept value apart from
  * a genuine one?
  */
+/**
+ * The vocabulary of a trust-bearing output, derived from the surfaces this project already treats
+ * as decision-grade rather than invented for the filter.
+ *
+ * ⚠ EVERY ENTRY EARNS ITS PLACE BY BEING A THING AN AGENT ACTS ON: a banner it reads before
+ * deleting code, a gate that grants or withholds authority, or a completeness word. A token added
+ * here without that property widens the class and quietly turns the triage number back into noise.
+ */
+const TRUST_VOCABULARY = [
+  'TRUST:', 'exhaustive', 'absenceAuthority', 'FLOOR', 'NO CALLERS',
+  'lsp-verified', 'lsp-partial', 'safe to delete', 'attest',
+];
+
+/**
+ * Does the FUNCTION enclosing this node emit a trust-bearing output?
+ *
+ * ⛔ THIS IS THE WEAKER QUESTION, ON PURPOSE, AND THE CALLER'S FIELD NAME SAYS SO. The question
+ * worth answering is whether the VALUE the catch leaves standing reaches such an output, and that
+ * needs data-flow analysis — which this module refuses to fake (see NOT_IMPLEMENTED, first entry:
+ * a syntactic stand-in for data flow is high-noise, and a high-noise detector gets muted).
+ *
+ * ⇒ So it answers what syntax can answer honestly, and OVER-INCLUDES. For a triage filter that is
+ * the safe direction: an extra candidate costs one adjudication, a missed one costs a defect.
+ *
+ * ⚠ Returns `false` for a node with no enclosing function rather than throwing. A file-scope
+ * try/catch is ordinary, and an instrument that dies on an ordinary shape reports a false zero for
+ * every file that contains one.
+ */
+function enclosingTrustTokens(sf, node) {
+  let fn = node.parent;
+  while (fn && !ts.isFunctionDeclaration(fn) && !ts.isFunctionExpression(fn)
+    && !ts.isArrowFunction(fn) && !ts.isMethodDeclaration(fn)) {
+    fn = fn.parent;
+  }
+  if (!fn) return [];
+  const text = fn.getText(sf);
+  return TRUST_VOCABULARY.filter((t) => text.includes(t));
+}
+
 export function emptyCatchKeepsDefault(source, fileName = 'x.mjs') {
   const sf = parse(source, fileName);
   const hits = [];
@@ -292,9 +331,14 @@ export function emptyCatchKeepsDefault(source, fileName = 'x.mjs') {
       scan(node.tryBlock);
       const keeps = assigned.filter((a) => !declaredInTry.has(a));
       if (keeps.length > 0) {
+        // ⚠ Computed per hit rather than per file: two catches in one file can sit in functions
+        // with completely different jobs, and a file-level answer would tar both with either.
+        const trustTokens = enclosingTrustTokens(sf, node);
         hits.push({
           category: 'empty-catch-keeps-default',
           keeps,
+          enclosingEmitsTrustClaim: trustTokens.length > 0,
+          trustTokens,
           line: at(sf, node),
           text: snippet(sf, node),
           question: `on failure ${keeps.join(', ')} ${keeps.length === 1 ? 'is' : 'are'} left at the `
