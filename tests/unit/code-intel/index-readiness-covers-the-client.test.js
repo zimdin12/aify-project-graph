@@ -44,30 +44,73 @@ describe('index-readiness classifies every reason the client can emit', () => {
     expect(found.length, 'the client emits more than a couple of outcomes').toBeGreaterThanOrEqual(5);
   });
 
-  it('★★★ every emittable outcome maps to true, false or null, and NONE is an accident', () => {
-    for (const outcome of emittedOutcomes()) {
-      const verdict = indexReadyFromWaitResult(outcome);
-      expect([true, false, null], `${outcome.reason} produced ${verdict}`).toContain(verdict);
-      if (outcome.ready === false) {
-        expect(verdict, `${outcome.reason} is a stated NOT-ready and must stay false`).toBe(false);
-      }
+  // ⭐⭐ THE EXPECTATION BELOW COMES FROM A DIFFERENT SOURCE THAN THE CODE IT CHECKS, ON PURPOSE.
+  //
+  // My previous version of this file derived its invariant by reading `indexReadyFromWaitResult`
+  // minutes after writing it, so it described what the function DID rather than what it SHOULD do.
+  // It then encoded a real defect as an invariant, with a failure message asserting I was right:
+  // `cold_no_warm` was pinned to `false` because that is what the code happened to return.
+  //
+  // ⇒ A ratchet's expectation must come from a DIFFERENT SOURCE than the thing it ratchets. This one
+  // has two, and neither is the classifier:
+  //   1. THE PRODUCER — the reason literals are harvested from lsp-client.js (above).
+  //   2. THE DISCRIMINATOR — a stated principle that decides which bucket each reason belongs in.
+  //
+  // ⭐ THE DISCRIMINATOR (ef-manager): CAN TIME ALONE CHANGE THE ANSWER, WITH NOBODY DOING ANYTHING?
+  //     yes -> we did not establish anything, the index may be building right now  -> null
+  //     no  -> we watched the whole window, or the state is a decision             -> true / false
+  //
+  // The test for whether this is an assertion or a description: COULD IT HAVE BEEN WRITTEN BEFORE
+  // THE CODE? This one could. Every row is justified from the client's own source, not from mine.
+  const DISCRIMINATOR = [
+    // reason, expected, why — argued from lsp-client.js, never from index-readiness.js
+    ['already_ready', true,
+      'navigationFreshness() was already fresh. OBSERVED, and time cannot un-observe it.'],
+    ['ready_no_index_needed', true,
+      'freshness went fresh DURING the poll. We watched it happen.'],
+    ['index_drained', true,
+      'indexing was seen to start and then finish. The strongest evidence available.'],
+    ['no_progress_signalled', null,
+      'silence inside settleMs, with files warmed. Time can change it: 2 of 5 measured cold starts '
+      + 'announced at 1525 and 2125 ms, after a 1500 ms window.'],
+    ['cold_no_warm', null,
+      'THE SAME `if` AS no_progress_signalled (lsp-client.js:540-546), forked only on '
+      + 'workspaceWarmCount, which counts OUR didOpen calls. The server said the identical nothing. '
+      + 'Warming less cannot mean knowing more.'],
+    ['index_wait_timeout', false,
+      'we waited the FULL timeout and it did not drain. Established, and the timeout knob is the '
+      + 'remedy that fits.'],
+  ];
+
+  it('★★★ every reason is classified by the DISCRIMINATOR, not by what the code returns', () => {
+    // ⛔ THE `ready` FLAG COMES FROM THE PRODUCER, NEVER FROM THE EXPECTATION. My first draft wrote
+    // `const ready = expected !== false`, which fabricates the input from the answer: `cold_no_warm`
+    // is emitted with ready:false, but the table expects null, so it built {ready:true} — a pair the
+    // client never emits — and passed over the very defect it was written to catch. Same circularity
+    // as the bug above, one level down, inside the fix for it.
+    const emitted = new Map(emittedOutcomes().map((o) => [o.reason, o.ready]));
+    for (const [reason, expected, why] of DISCRIMINATOR) {
+      expect(emitted.has(reason), `${reason} is not emitted by the client at all`).toBe(true);
+      const outcome = { ready: emitted.get(reason), reason };
+      expect(indexReadyFromWaitResult(outcome), `${reason}: ${why}`).toBe(expected);
     }
   });
 
-  it('★★★ a ready:true reason this file has never seen fails CLOSED, not open', () => {
-    // The whole justification for keeping an allowlist. If the client gains a reason and nobody
-    // updates index-readiness.js, the new reason must not inherit the attestation.
-    const emitted = new Set(emittedOutcomes().map((o) => o.reason));
-    expect(emitted.has('zzq_hypothetical_new_reason'), 'control: this must NOT be a real reason').toBe(false);
-    expect(indexReadyFromWaitResult({ ready: true, reason: 'zzq_hypothetical_new_reason' })).toBeNull();
+  it('★★★ the producer emits NOTHING the discriminator has not judged', () => {
+    // This is the drift the ratchet is actually for: a reason added to lsp-client.js that nobody
+    // classified. It fails here rather than silently inheriting a bucket.
+    const judged = new Set(DISCRIMINATOR.map(([r]) => r));
+    const emitted = [...new Set(emittedOutcomes().map((o) => o.reason))];
+    expect(emitted.filter((r) => !judged.has(r)),
+      'a reason exists in lsp-client.js that this table does not judge').toEqual([]);
+    // And the reverse, so the table cannot rot into judging reasons that no longer exist.
+    expect(judged.size, 'the table judges a reason the producer never emits').toBe(emitted.length);
   });
 
-  it('★★ exactly one ready:true reason is an INFERENCE, and it is the measured one', () => {
-    // If a second inference-shaped reason ever appears, that is a design change worth noticing here
-    // rather than discovering from a false attestation in the field.
-    const inferred = emittedOutcomes()
-      .filter((o) => o.ready === true && indexReadyFromWaitResult(o) === null)
-      .map((o) => o.reason);
-    expect(inferred).toEqual(['no_progress_signalled']);
+  it('★★★ the two branches of ONE silence are classified the same way', () => {
+    // The defect this file previously enshrined, stated as its own assertion so it cannot come back
+    // by a different route. These two returns share a condition; only our bookkeeping differs.
+    expect(indexReadyFromWaitResult({ ready: true, reason: 'no_progress_signalled' }))
+      .toBe(indexReadyFromWaitResult({ ready: false, reason: 'cold_no_warm' }));
   });
 });
