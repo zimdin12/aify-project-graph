@@ -24,6 +24,7 @@ import { execFileSync } from 'node:child_process';
 import { graphHealth } from '../../../mcp/stdio/query/verbs/health.js';
 import { openDb } from '../../../mcp/stdio/storage/db.js';
 import { ensureCodeIntelCollectionsTable, ensureCodeIntelRecordsTable } from '../../../mcp/stdio/storage/schema.js';
+import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
 let repo;
 afterEach(async () => {
@@ -265,8 +266,15 @@ describe('the coverage warning names the surface [lsp✓] actually covers', () =
     const action = codeIntelAction(h);
     expect(action, 'fixture precondition: the coverage branch fired').toBeTruthy();
     expect(action.why, 'one file carries all three edges').toMatch(/reach only 1 file/);
-    expect(action.why, 'the edge count must not stand in for the file count')
-      .not.toMatch(/reach only 3 file/);
+    // ⛔ THE RATCHET CAUGHT THIS AS A BARE not.toMatch, IN THE SAME CYCLE I WROTE "positive control
+    // on every zero" into the commit above it. A negative assertion whose matcher was never watched
+    // fire is a silence that means nothing; the canaries make it mean something.
+    expectAbsentWithLiveMatcher(
+      /reach only 3 files?/,
+      { forbidden: 'live [lsp✓] edges reach only 3 files', allowed: 'live [lsp✓] edges reach only 1 file' },
+      action.why,
+      'the edge count must not stand in for the file count',
+    );
   }, 30_000);
 
   it('★★ POSITIVE CONTROL — the count moves with the population', async () => {
