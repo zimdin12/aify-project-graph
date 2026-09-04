@@ -22,7 +22,10 @@ export function buildEvidenceBlock({ repoRoot, symbol = null, files = [] } = {})
     // real query. Assigning the cause by which try block caught it would report an unreadable file
     // as a probe fault — the same position-not-fault mistake this module exists to remove, and a
     // test caught me making it here.
-    db.prepare('SELECT 1 FROM sqlite_master LIMIT 1').get();
+    // ⚠ `openExistingDb` returns a WRAPPER (raw/all/get/run/exec/transaction/close), not a
+    // better-sqlite3 handle. Calling `.prepare` here threw TypeError on EVERY database and
+    // reported all of them unreadable — a guard that refuses everything is a wall, not a guard.
+    db.get('SELECT 1 FROM sqlite_master LIMIT 1');
   } catch {
     try { db?.close(); } catch { /* the handle may never have opened */ }
     return { available: false, reason: 'graph_unreadable' };

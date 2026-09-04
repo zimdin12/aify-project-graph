@@ -29,6 +29,7 @@ import { join } from 'node:path';
 import { remedyForUnavailable, UNAVAILABLE_REMEDIES } from '../../../mcp/stdio/code-intel/evidence-unavailable.js';
 import { renderEvidenceLine } from '../../../mcp/stdio/code-intel/render.js';
 import { buildEvidenceBlock } from '../../../mcp/stdio/query/verbs/packet-evidence.js';
+import { openDb } from '../../../mcp/stdio/storage/db.js';
 import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
 describe('an unavailable cause owns its own remedy', () => {
@@ -92,5 +93,22 @@ describe('an unavailable cause owns its own remedy', () => {
     // Proves the test above is discriminating, not just rejecting every reason.
     const bare = mkdtempSync(join(tmpdir(), 'apg-unavail-bare-'));
     expect(buildEvidenceBlock({ repoRoot: bare }).reason).toBe('no_graph');
+  });
+
+  it('★★★ POSITIVE CONTROL ON THE PROBE ITSELF: a VALID database is not called unreadable', () => {
+    // ⛔ THE CONTROL THIS FILE WAS MISSING, AND THE FULL SUITE PAID FOR IT. The unreadable-DB test
+    // above passes just as happily when the readability probe rejects EVERY database — which is
+    // exactly what shipped: `openExistingDb` returns a WRAPPER, so `.prepare` threw TypeError on
+    // every input and 20 tests in four other files went red.
+    //
+    // The `no_graph` case cannot stand in for this: it returns BEFORE the probe runs, so it never
+    // exercises the instrument at all. A probe that cannot return PRESENT cannot return ABSENT.
+    const repo = mkdtempSync(join(tmpdir(), 'apg-unavail-valid-'));
+    mkdirSync(join(repo, '.aify-graph'), { recursive: true });
+    openDb(join(repo, '.aify-graph', 'graph.sqlite')).close();
+
+    const block = buildEvidenceBlock({ repoRoot: repo });
+    expect(block.reason, 'a real SQLite database must survive the readability probe')
+      .not.toBe('graph_unreadable');
   });
 });
