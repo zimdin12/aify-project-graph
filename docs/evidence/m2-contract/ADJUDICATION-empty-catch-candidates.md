@@ -258,6 +258,37 @@ construct a throw*, which is a statement about my attempts — and the asymmetry
 file says a probe count never promotes anything. What the ranking earned is a place in the triage
 order, not a claim about the code.
 
+### ⛔ CORRECTION, and it cuts BOTH ways — the design is CONFOUNDED, which is stronger than underclaimed
+
+ef-manager, reviewing the above: 4-of-12 against 0-of-24 is p≈0.008, so I had read the caution as
+underclaiming. It is not. **The outcome variable is *"I demonstrated a route"*, and demonstrability
+is caused by the same thing as the partition.** Staging a failure that crosses a process boundary is
+easy — delete the file, kill the child, unset the variable. Forcing a throw through a pure in-process
+function is hard, and `parseDb` shows it is often *impossible*. So the two columns differ in how
+reachable a defect is **and** in how reachable a demonstration is, and nothing in this design
+separates them.
+
+⇒ The right verdict is not "the ranking is unvalidated". It is that **this design cannot produce
+evidence about reachability at all** — a stronger and less flattering statement. The p-value is
+measuring my instrument against itself.
+
+### ⭐ AND I DECLINED A CLAIM I WAS ENTITLED TO — the same confound SUPPORTS it
+
+Refusing the reachability claim is right. Refusing *every* claim was not: the confound that destroys
+the first one is the evidence for a second, different one.
+
+> **Boundary-crossers are where reachability is cheaply demonstrable, so adjudicate them first.**
+
+That is a claim about **triage economics**, not about where defects live, and it is fully supported —
+by exactly the mechanism that invalidates the other reading. It is also the honest justification for
+what this sweep actually did: the order was right, and the reason it was right is not the reason
+recorded at the time.
+
+⚠ It carries its own cost, and the cost belongs next to the claim: adjudicating cheap-to-demonstrate
+candidates first means the residue is the expensive ones, whose `latent` verdicts are the weakest in
+this file. Ordering by demonstrability **concentrates the uncertainty** rather than reducing it. A
+later reader must not read the queue's completion as evidence about that residue.
+
 ## What this sweep did NOT close
 
 ✅ **All 36 are adjudicated and the stopping rule is met** — but "met" is a statement about the
