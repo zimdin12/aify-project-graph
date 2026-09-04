@@ -1,3 +1,5 @@
+import { BACKENDS, normalizeLanguage } from '../code-intel/backends.js';
+
 // ★ THE DENOMINATOR, EXTRACTED SO IT CAN BE RUN INSTEAD OF GREPPED.
 //
 // `lspVerifiedPct` was computed inline in health.js, so the only way to guard it was to
@@ -23,9 +25,45 @@
 //  4. UNKNOWN SCOPE ≠ EVERYTHING IN SCOPE. If the tracked-file list cannot be read, the
 //     honest answer is that scope is unknown — not that every edge is in it.
 
-// Languages an LSP backend in this server can actually verify. Anything else is
-// unverifiable by construction.
-export const LSP_VERIFIABLE_LANGUAGES = new Set(['cpp', 'c', 'cxx', 'cc', 'h', 'hpp']);
+// ⛔ THIS SET WAS HARDCODED TO C++ AND THE SERVER GREW TWO MORE BACKENDS UNDER IT.
+//
+// It read `['cpp','c','cxx','cc','h','hpp']`, so TypeScript and Python were classed "unverifiable
+// by construction" — while ts-langserver was verifying 949 TypeScript/JavaScript CALLS edges in this
+// very repo. The denominator therefore excluded exactly the population being verified, the numerator
+// counted them anyway, and graph_health published a coverage figure of 4995%.
+//
+// Measured on this repo at the time of the fix:
+//     hardcoded set : 0 / 19      ->    0%   (C++ only, a trivial population)
+//     derived set   : 949 / 11267 ->    8%   (what the server can actually verify)
+// and inside that, typescript is 859/862 while javascript is 90/10374 — a real signal the broken
+// number was hiding.
+//
+// ⭐ DERIVED, NOT LISTED. `BACKENDS` is what decides which server spawns for a language, so a
+// backend added later becomes verifiable here without anyone remembering to edit this line.
+// `normalizeLanguage` is what maps javascript onto the TypeScript server, so JS counts as
+// verifiable for the same reason the router treats it that way.
+const VERIFIABLE_BACKENDS = new Set(Object.keys(BACKENDS));
+
+// ⚠ HEADER TAGS ARE KEPT EXPLICITLY, BECAUSE normalizeLanguage DOES NOT MAP THEM. Measured:
+// 'cc'/'cxx'/'c' normalize to 'cpp', but 'h'/'hpp'/'hxx' return themselves unchanged. Deriving the
+// set purely from the normalizer therefore DROPPED them — and dropping a language SHRINKS the
+// denominator, which INFLATES the coverage percentage. That is the wrong direction for a trust
+// figure, so the C-family aliases are unioned in rather than filtered.
+const C_FAMILY_TAGS = ['c', 'cc', 'cxx', 'h', 'hh', 'hpp', 'hxx'];
+
+/** Can any backend registered in THIS server verify an edge from a file of `lang`? */
+export function isLspVerifiableLanguage(lang) {
+  const l = String(lang || '').toLowerCase();
+  return VERIFIABLE_BACKENDS.has(normalizeLanguage(l)) || C_FAMILY_TAGS.includes(l);
+}
+
+// ⚠ Retained as a value for readers, but DERIVED now rather than maintained by hand.
+export const LSP_VERIFIABLE_LANGUAGES = new Set([...VERIFIABLE_BACKENDS, ...C_FAMILY_TAGS]);
+
+// ⚠ RESIDUAL, MEASURED AND LEFT: this graph also carries the node language tags `js_ts` and `c_cpp`,
+// which normalize to themselves and are therefore NOT counted as verifiable. Neither carries a
+// single CALLS edge here, so the figures above are unaffected — but a repo where they do would
+// under-count its denominator. Recorded rather than guessed at.
 
 /**
  * @param {Array<{lang: string, c: number, inScope?: boolean}>} langScopeRows
@@ -43,19 +81,40 @@ export function computeCoverage(langScopeRows = [], verified = 0) {
   const inScopeRows = langScopeRows.filter((r) => r.inScope !== false);
 
   const verifiable = inScopeRows
-    .filter((r) => LSP_VERIFIABLE_LANGUAGES.has(r.lang))
+    .filter((r) => isLspVerifiableLanguage(r.lang))
     .reduce((a, r) => a + r.c, 0);
 
   const unverifiable = inScopeRows
-    .filter((r) => !LSP_VERIFIABLE_LANGUAGES.has(r.lang))
-    .map((r) => ({ reason: 'non_cpp_language', lang: r.lang, count: r.c }));
+    .filter((r) => !isLspVerifiableLanguage(r.lang))
+    // ⛔ WAS 'non_cpp_language', WHICH IS NOW A MISATTRIBUTED CAUSE — Python is non-C++ AND
+    // verifiable. The real reason an edge is excluded is that no backend in this server
+    // handles its language, which is what the predicate above actually tests.
+    .map((r) => ({ reason: 'no_lsp_backend_for_language', lang: r.lang, count: r.c }));
+
+  // ⛔ A PERCENTAGE OF 4995 SHIPPED IN graph_health, AND THIS FUNCTION ROUNDED IT WITHOUT COMPLAINT.
+  //
+  // Found live 2026-09-05: numerator 949 (every LSP_VERIFIED edge in the database, any relation,
+  // repo-wide) over denominator 19 (in-scope C++ CALLS edges). Two populations, one ratio.
+  //
+  // The old guard covered a ZERO denominator — it protected against NaN, which is visibly broken,
+  // and not against 4995, which merely looks precise. `verified` is supposed to be a SUBSET of
+  // `verifiable`, so exceeding it is not a large coverage figure; it is proof the two arguments
+  // counted different things, and the only honest output is a refusal that says so.
+  const incommensurable = verifiable > 0 && verified > verifiable;
 
   return {
     verifiable,
     verified,
     // Guard the divide: a zero denominator reports 0, never NaN or Infinity — a NaN
     // percentage renders as a plausible-looking blank rather than as an error.
-    pct: verifiable > 0 ? Math.round((verified / verifiable) * 100) : 0,
+    //
+    // ⛔ AND NULL RATHER THAN A CLAMP. Clamping 4995 to 100 would report PERFECT coverage from
+    // inputs known to be broken — the worst available answer, and one no reader could question.
+    pct: incommensurable ? null : (verifiable > 0 ? Math.round((verified / verifiable) * 100) : 0),
+    pctUnavailableReason: incommensurable
+      ? `incommensurable inputs: ${verified} verified exceeds ${verifiable} verifiable, so the two `
+        + 'counted different populations and no percentage is meaningful'
+      : null,
     // The denominator names its own population. This is the `basis` pattern that §4 of
     // the plan generalises from — a ratio that travels without its denominator is how
     // two correct numbers produce a wrong comparison.

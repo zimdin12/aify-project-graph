@@ -70,7 +70,7 @@ export function decayFromCoveredFiles(covered, latest, head, repoRoot) {
   }
 }
 
-import { computeCoverage } from '../coverage-denominator.js';
+import { computeCoverage, isLspVerifiableLanguage } from '../coverage-denominator.js';
 import { openExistingDb, captureExistingSnapshot } from '../../storage/db.js';
 import { readTrustClassificationInputs } from '../../storage/unresolved-refs.js';
 import { classifyPublication, readGraphPublication, ATTESTATION } from '../../storage/publication-schema.js';
@@ -1494,10 +1494,20 @@ export async function graphHealth({ repoRoot }) {
           } catch { return null; } // unknown scope ≠ everything in scope
         })();
 
+        // ⛔ THE NUMERATOR AND DENOMINATOR ARE COUNTED FROM THE SAME ROWS, DELIBERATELY.
+        //
+        // They used to come from separate queries: `verified` was every LSP_VERIFIED edge in the
+        // database (any relation, repo-wide) while the denominator was in-scope C++ CALLS edges.
+        // graph_health then published `lspVerifiedPctOfVerifiableInScopeCalls: 4995` — 949/19.
+        //
+        // Counting `v` here makes the numerator a SUBSET of the denominator by construction rather
+        // than by agreement between two queries nobody diffed. The bad state is unconstructible
+        // instead of merely guarded, and the guard in computeCoverage is the second line of defence.
         const byLang = db2.all(
           `SELECT COALESCE(NULLIF(n.language, ''), '(unknown)') AS lang,
                   COALESCE(NULLIF(n.file_path, ''), '') AS fp,
-                  COUNT(*) AS c
+                  COUNT(*) AS c,
+                  SUM(CASE WHEN e.provenance = 'LSP_VERIFIED' THEN 1 ELSE 0 END) AS v
              FROM edges e JOIN nodes n ON n.id = e.from_id
             WHERE e.relation = 'CALLS' GROUP BY lang, fp`,
         ).reduce((acc, r) => {
@@ -1506,20 +1516,22 @@ export async function graphHealth({ repoRoot }) {
           // scope is unknown rather than assuming everything counts.
           const inScope = trackedFiles == null ? null : trackedFiles.has(r.fp);
           const key = `${r.lang}\x00${inScope}`;
-          acc.set(key, { lang: r.lang, inScope, c: (acc.get(key)?.c ?? 0) + r.c });
+          acc.set(key, { lang: r.lang, inScope,
+            c: (acc.get(key)?.c ?? 0) + r.c,
+            v: (acc.get(key)?.v ?? 0) + (r.v ?? 0) });
           return acc;
         }, new Map());
         const langScopeRows = [...byLang.values()];
         const outOfScope = langScopeRows.filter((r) => r.inScope === false);
         const inScopeRows = langScopeRows.filter((r) => r.inScope !== false);
-        // Languages an LSP backend in this server can actually verify. Anything
-        // else is unverifiable by construction, not unverified by omission.
-        const LSP_VERIFIABLE_LANGUAGES = new Set(['cpp', 'c', 'cxx', 'cc', 'h', 'hpp']);
+        // ⛔ THIS WAS A SECOND, HAND-MAINTAINED COPY of the verifiable-language set, and it drifted
+        // exactly as a duplicate does: hardcoded to C++ while the server grew TypeScript and Python
+        // backends. Now imported from coverage-denominator.js, which derives it from BACKENDS.
         // Verifiable AND in-scope. Out-of-scope edges never enter the denominator,
         // and — the point of attack nine — never MIGRATE into it when a backend
         // for their language lands.
-        const verifiable = inScopeRows.filter((r) => LSP_VERIFIABLE_LANGUAGES.has(r.lang)).reduce((a, r) => a + r.c, 0);
-        const unverifiable = inScopeRows.filter((r) => !LSP_VERIFIABLE_LANGUAGES.has(r.lang));
+        const verifiable = inScopeRows.filter((r) => isLspVerifiableLanguage(r.lang)).reduce((a, r) => a + r.c, 0);
+        const unverifiable = inScopeRows.filter((r) => !isLspVerifiableLanguage(r.lang));
 
         // ★ SURFACE THE SPLIT. The honest headline is "833 not found, 833 degraded,
         // 0 clean" and until now the tool could not say it — the cause reached the
@@ -1567,7 +1579,18 @@ export async function graphHealth({ repoRoot }) {
         // which is why the only guard on it was eight regexes over this file — every one
         // asserting spelling, none able to fail on a wrong number, on a statistic whose
         // entire failure mode IS a wrong number.
-        const verifiedPct = computeCoverage(langScopeRows, verified).pct;
+        // The verified count for THIS population — in-scope, LSP-verifiable, CALLS — not the
+        // repo-wide edge total, which is a different noun and is reported separately as
+        // `lspVerifiedEdges`.
+        const verifiedInScopeCalls = inScopeRows
+          .filter((r) => isLspVerifiableLanguage(r.lang))
+          .reduce((a, r) => a + (r.v ?? 0), 0);
+        const coverage = computeCoverage(langScopeRows, verifiedInScopeCalls);
+        const verifiedPct = coverage.pct;
+        codeIntel.lspVerifiedInScopeCalls = verifiedInScopeCalls;
+        if (coverage.pctUnavailableReason) {
+          codeIntel.lspVerifiedPctUnavailableReason = coverage.pctUnavailableReason;
+        }
         codeIntel.lspVerifiedPctOfVerifiableInScopeCalls = verifiedPct;
         codeIntel.lspVerifiedPctOfCalls = verifiedPct;
         codeIntel.lspVerifiedPctDenominator = trackedFiles == null
@@ -1594,7 +1617,7 @@ export async function graphHealth({ repoRoot }) {
             pct_of_all_calls: calls > 0 ? Math.round((unverifiableTotal / calls) * 100) : 0,
             by_reason: unverifiable
               .sort((a, b) => b.c - a.c)
-              .map((r) => ({ language: r.lang, edges: r.c, reason: 'non_cpp_language — no LSP backend in this server can verify it' })),
+              .map((r) => ({ language: r.lang, edges: r.c, reason: 'no_lsp_backend_for_language — no LSP backend in this server can verify it' })),
             note:
               `${unverifiableTotal} CALLS edge(s) are unverifiable BY CONSTRUCTION and are excluded from the `
               + 'coverage denominator. An edge nobody could have verified is not an edge that failed verification. '
