@@ -663,16 +663,41 @@ async function buildTrustLineBody({ edges = [], db, repoRoot, truncated = false,
   // "A missing measurement is not a good measurement — treating absent telemetry as '0% unresolved'
   // would grant the exhaustive banner on exactly the collections we know least about." Identical
   // case, opposite handling, and the staleness half was silent about it.
-  let stale = false;
-  let currencyUnknown = false;
+  // ⛔ ONE VALUE, THREE STATES, AND IT CARRIES ITS OWN CAUSE.
+  //
+  // This was a BOOLEAN set from two places with ONE hard-coded sentence behind it, and the sentence
+  // was false for one of them: a compile-DB change rendered "indexed <sha>, HEAD has moved" while
+  // HEAD was that sha. Reproduced — it printed the commit and claimed it moved, in one line.
+  //
+  // A boolean cannot distinguish `checked, current` / `checked, out of date` / `COULD NOT CHECK`, so
+  // every probe site was forced to encode the third as one of the first two, and each site argued
+  // its own answer. That is not two judgement calls in tension; it is one missing state producing
+  // two. The grant now lives in ONE renderer and the probes only report what they saw.
+  //
+  // ⚠ THE TELL, worth keeping: the old comment at the compile-DB probe defended "a probe failure
+  // must not FABRICATE staleness" — an argument about what is TRUE, when the decision is about what
+  // is LICENSED. It was RIGHT about the truth question, because the only available encoding did
+  // assert "HEAD has moved". Carrying a cause removes the trade: `unknown` declines to certify
+  // without asserting anything false.
+  //
+  // ⇒ Whenever a guard's comment defends what is true rather than what the value grants, suspect a
+  // collapsed state.
+  let currency = { state: 'current', cause: null };
   if (collection) {
     try {
       const head = await getHeadCommit(repoRoot).catch(() => null);
-      // A collection with no recorded commit is the same unknown wearing different clothes: there
-      // is nothing to compare, so currency cannot be established either way.
-      if (!head || !collection.indexedCommit) currencyUnknown = true;
-      else if (head !== collection.indexedCommit) stale = true;
-    } catch { currencyUnknown = true; }
+      // The unknowns differ in their CAUSE — the subject (no commit recorded) versus the apparatus
+      // (HEAD unreadable) — and not in what they grant. For a trust banner both mean "cannot certify".
+      if (!head) currency = { state: 'unknown', cause: 'HEAD could not be read' };
+      else if (!collection.indexedCommit) {
+        currency = { state: 'unknown', cause: 'the collection recorded no commit to compare against' };
+      } else if (head !== collection.indexedCommit) {
+        currency = {
+          state: 'stale',
+          cause: `indexed ${String(collection.indexedCommit).slice(0, 7)}, HEAD has moved`,
+        };
+      }
+    } catch { currency = { state: 'unknown', cause: 'the HEAD probe failed' }; }
     // M4 (2026-07-27): this used to compare collection.compileDbHash against
     // collection.freshnessValue — but the provider writes BOTH from the same
     // variable (cpp-clangd.js), so the condition could never be true and the
@@ -680,15 +705,23 @@ async function buildTrustLineBody({ edges = [], db, repoRoot, truncated = false,
     // Compare against the compile DB as it exists NOW: a rebuilt/re-configured
     // DB means the collected evidence describes a different index.
     if (collection.freshnessBasis === 'compile_db_hash' && collection.compileDbHash) {
-      try {
-        const prep = prepareCompileDb({ projectRoot: repoRoot });
-        if (prep?.found && prep.dbHash && prep.dbHash !== collection.compileDbHash) stale = true;
-      } catch { /* best-effort — a probe failure must not fabricate staleness */ }
+      // ⚠ ESCALATE ONLY. A `stale` or `unknown` verdict already reached above must never be walked
+      // back to `current` by a second probe that happens to agree — the first finding stands.
+      if (currency.state === 'current') {
+        try {
+          const prep = prepareCompileDb({ projectRoot: repoRoot });
+          if (prep?.found && prep.dbHash && prep.dbHash !== collection.compileDbHash) {
+            currency = { state: 'stale', cause: 'the compile DB has changed since it was collected' };
+          }
+        } catch {
+          currency = { state: 'unknown', cause: 'the compile DB could not be probed' };
+        }
+      }
     }
   } else {
-    // A verified edge with no collection row to vouch for it — treat as stale so
-    // the agent re-collects rather than trusting an orphan edge.
-    stale = true;
+    // A verified edge with no collection row to vouch for it — the agent should re-collect rather
+    // than trust an orphan edge.
+    currency = { state: 'stale', cause: 'no collection row vouches for these edges' };
   }
 
   // P0-3: a collection that left a large share of symbols unresolved did not
@@ -709,9 +742,15 @@ async function buildTrustLineBody({ edges = [], db, repoRoot, truncated = false,
   const telemetryMissing = !haveTelemetry;
 
   let line;
-  if (collection && collection.indexReady === true && allVerified && stale) {
-    line = `TRUST: lsp-partial (${backend} verified ${verifiedCount} caller${verifiedCount === 1 ? '' : 's'}, but the collection is STALE — `
-      + `indexed ${String(collection.indexedCommit ?? '?').slice(0, 7)}, HEAD has moved. The set is a FLOOR, not exhaustive; `
+  // ⭐ ONE RENDERER FOR THE WHOLE CURRENCY QUESTION. `stale` and `unknown` grant the same thing — a
+  // FLOOR — and differ only in the sentence they can honestly say. Splitting them into two branches
+  // is what let one of them drift into asserting a cause it had not established.
+  if (collection && collection.indexReady === true && allVerified && currency.state !== 'current') {
+    const verdict = currency.state === 'stale'
+      ? 'the collection is STALE'
+      : 'whether the collection is still current could NOT be established';
+    line = `TRUST: lsp-partial (${backend} verified ${verifiedCount} caller${verifiedCount === 1 ? '' : 's'}, but ${verdict} — `
+      + `${currency.cause}. The set is a FLOOR, not exhaustive; `
       + `re-run graph_collect_code_intel, or verify with rg before any "no callers" / delete) [${dbHash}, collected ${when}]`;
     return line;
   }
@@ -731,12 +770,6 @@ async function buildTrustLineBody({ edges = [], db, repoRoot, truncated = false,
   }
   // Placed beside the telemetry branch on purpose: the two answer the same question about different
   // unknowns, and keeping them adjacent is what stops one of them drifting back to a silent default.
-  if (collection && collection.indexReady === true && allVerified && currencyUnknown) {
-    line = `TRUST: lsp-partial (${backend} verified ${verifiedCount} caller${verifiedCount === 1 ? '' : 's'}, but whether this collection is still current could NOT be established — `
-      + `HEAD or the collection's own commit is unreadable, so it may be arbitrarily far behind. Treat as a FLOOR and verify with rg before any "no callers" / delete) `
-      + `[${dbHash}, collected ${when}]`;
-    return line;
-  }
   if (collection && collection.indexReady === true && allVerified && telemetryMissing) {
     // No resolution telemetry recorded, so we cannot show the index actually
     // resolved what it saw. Name the provenance without licensing exhaustiveness.
@@ -759,6 +792,8 @@ async function buildTrustLineBody({ edges = [], db, repoRoot, truncated = false,
   // exhaustive-licensing banner can never be emitted for a stale collection.
   // The remaining (already non-exhaustive) wordings still carry the marker.
 
-  if (stale) line += ' — STALE, re-collect';
+  // The same tri-state, so the suffix cannot claim staleness the probes never established.
+  if (currency.state === 'stale') line += ' — STALE, re-collect';
+  else if (currency.state === 'unknown') line += ' — CURRENCY UNKNOWN, re-collect';
   return line;
 }
