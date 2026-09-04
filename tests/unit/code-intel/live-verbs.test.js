@@ -17,6 +17,7 @@ import {
 import { _resetSessions, shutdownAllSessions } from '../../../mcp/stdio/code-intel/live.js';
 import { LspClient } from '../../../mcp/stdio/code-intel/lsp-client.js';
 import { vi } from 'vitest';
+import { BACKENDS } from '../../../mcp/stdio/code-intel/backends.js';
 
 const fakeServer = path.resolve('tests/fixtures/code-intel/lsp/fake-lsp-server.mjs');
 const fakeSpawn = { command: process.execPath, args: [fakeServer] };
@@ -89,7 +90,11 @@ describe('code_intel_references (live)', () => {
     expect(r.telemetry.prewarmSource).toMatch(/^(compile_db|fs_siblings|mixed)$/);
     expect(r.result_state).toBe('found');
     expect(r.references[0].file).toMatch(/bar\.cpp/);
-    expect(r.references[0].provenance).toBe('clangd@live');
+    // ⭐ ASSERTED FROM THE PRODUCER, not from a literal. This line used to pin 'clangd@live',
+    // which was never the registered provider name — BACKENDS.cpp.providerName is 'cpp-clangd',
+    // and that is what graph_health reports and what decides which server spawns. Pinning the
+    // literal is how a TypeScript session came to claim clangd resolved it.
+    expect(r.references[0].provenance).toBe(`${BACKENDS.cpp.providerName}@live`);
   });
 });
 

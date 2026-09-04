@@ -15,6 +15,7 @@ import { shutdownAllSessions, _resetSessions } from '../../../mcp/stdio/code-int
 // Gate on the PRODUCT's resolver, not on bare PATH — see clangd-gate.js. The old
 // PATH-only check made this whole suite skip on any normal Windows LLVM install.
 import { clangdAvailable, skipReason } from './clangd-gate.js';
+import { BACKENDS } from '../../../mcp/stdio/code-intel/backends.js';
 
 function tmpRepo() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'apg-live-real-'));
@@ -75,7 +76,8 @@ describe.skipIf(!clangdAvailable)('bounded live verbs (real clangd)', () => {
     expect(refFiles).toContain('src/bar.cpp');
     // Every ref must carry the live-verb provenance and high confidence.
     for (const ref of r.references) {
-      expect(ref.provenance).toBe('clangd@live');
+      // Asserted from BACKENDS (the producer), not a literal — see live-verbs.test.js.
+      expect(ref.provenance).toBe(`${BACKENDS.cpp.providerName}@live`);
       expect(ref.confidence).toBe('high');
     }
     // The call site in bar.cpp is on line 2 ("int main() { return foo(7); }")

@@ -11,6 +11,7 @@ import path from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { getLiveSession } from '../../code-intel/live.js';
 import { computeCoverage, coverageCause } from '../../code-intel/coverage.js';
+import { liveProvenanceFor } from '../../code-intel/provenance.js';
 import { inferLanguage } from '../../code-intel/backends.js';
 import { toRepoRelative, uriToRepoRelativeSafe } from '../../ingest/code-intel/paths.js';
 import { selectCppPrewarmFiles } from '../../code-intel/prewarm/cpp.js';
@@ -899,7 +900,7 @@ export async function codeIntelReferences({ repoRoot, language, file, line, col,
   let droppedNonLocations = 0;
   const allRefs = refs.map(r => {
     const c = classifyUri(r.uri, repoRoot);
-    return { file: c.path, range: rangeFromLsp(r.range), provenance: 'clangd@live', confidence: 'high',
+    return { file: c.path, range: rangeFromLsp(r.range), provenance: liveProvenanceFor(session.language), confidence: 'high',
              ...(c.inRepo ? {} : { outsideRepo: true, reason: c.reason }), __isDir: c.isDirectory };
   }).filter(r => {
     if (r.__isDir) { droppedNonLocations += 1; return false; }
@@ -929,7 +930,7 @@ export async function codeIntelReferences({ repoRoot, language, file, line, col,
   // and a reader comparing counts deserves to know which they have.
   const definitionLocations = split.definitionLocations.length > 0
     ? split.definitionLocations
-    : defLocations.map(d => ({ ...d, provenance: 'clangd@live', confidence: 'high' }));
+    : defLocations.map(d => ({ ...d, provenance: liveProvenanceFor(session.language), confidence: 'high' }));
   const definitionSource = split.definitionLocations.length > 0
     ? 'split_from_references'
     : (defLocations.length > 0 ? 'definition_request' : 'none');
@@ -1108,7 +1109,7 @@ export async function codeIntelDefinitions({ repoRoot, language, file, line, col
   const pos = { line: line - 1, character: (col || 1) - 1 };
   const defs = await session.client.definition(uri, pos);
   const list = Array.isArray(defs) ? defs : (defs ? [defs] : []);
-  const definitions = list.filter(d => d?.uri).map(d => ({ file: uriToRel(d.uri, repoRoot), range: rangeFromLsp(d.range), provenance: 'clangd@live', confidence: 'high' }));
+  const definitions = list.filter(d => d?.uri).map(d => ({ file: uriToRel(d.uri, repoRoot), range: rangeFromLsp(d.range), provenance: liveProvenanceFor(session.language), confidence: 'high' }));
   // Same fail-closed coverage input the references path uses (P0-2). Best-effort:
   // a failed probe yields complete:false, which under-claims rather than over-claims.
   let defCoverage = null;
@@ -1148,7 +1149,7 @@ export async function codeIntelHover({ repoRoot, language, file, line, col, warm
   const hov = await session.client.hover(uri, pos);
   if (!hov) return markNoValueAdded({ status: 'ok', freshness, warmedFiles: batch.length, hover: null, telemetry: { operation: 'hover', hover: 0, warmedFiles: batch.length, latencyMs: latencyMs(startedAt), freshness } });
   const content = typeof hov.contents === 'string' ? hov.contents : (hov.contents?.value ?? '');
-  return { status: 'ok', freshness, warmedFiles: batch.length, hover: { content, range: rangeFromLsp(hov.range), provenance: 'clangd@live', confidence: 'high' }, telemetry: { operation: 'hover', hover: 1, warmedFiles: batch.length, latencyMs: latencyMs(startedAt), freshness } };
+  return { status: 'ok', freshness, warmedFiles: batch.length, hover: { content, range: rangeFromLsp(hov.range), provenance: liveProvenanceFor(session.language), confidence: 'high' }, telemetry: { operation: 'hover', hover: 1, warmedFiles: batch.length, latencyMs: latencyMs(startedAt), freshness } };
 }
 
 /** Symbol outline for one file. */

@@ -596,6 +596,25 @@ describe('code_intel_hierarchy — [lsp✓] is bound to node provenance, not to 
     expect(t).toContain('[lsp✓]');
   });
 
+  it('★★★ a NON-C++ node still earns [lsp✓] — the mark asserts SHAPE, not one engine', () => {
+    // ⛔ THE REGRESSION THIS EXISTS FOR. The mark used to be `provenance === 'clangd@live'`. Once
+    // provenance became per-language, an equality test against one engine would have silently
+    // downgraded every TypeScript and Python node to `[lsp~]` — a node resolved by a compiler being
+    // reported as unverified. Nothing in the suite covered it, because every fixture said clangd.
+    for (const prov of ['ts-langserver@live', 'pyright@live', 'cpp-clangd@live']) {
+      const line = render({ name: 'foo', file: 'src/a.ts', line: 1, children: [], provenance: prov });
+      expect(line, `${prov} was resolved by a live server and must be marked verified`).toContain('[lsp✓]');
+    }
+  });
+
+  it('★★★ a node with NO live provenance still gets [lsp~]', () => {
+    // The other direction, so the suffix check cannot become "mark everything".
+    for (const prov of ['tree-sitter', 'EXTRACTED', undefined, null, '', 'clangd']) {
+      const line = render({ name: 'foo', file: 'src/a.cpp', line: 1, children: [], provenance: prov });
+      expect(line, `${prov} is not a live-resolved location`).toContain('[lsp~]');
+    }
+  });
+
   it('⛔ does NOT mark a node with no provenance — the predicate can say no', () => {
     const t = render({ name: 'injected', file: 'src/a.cpp', line: 1, children: [] });
     expect(t).not.toContain('[lsp✓]');

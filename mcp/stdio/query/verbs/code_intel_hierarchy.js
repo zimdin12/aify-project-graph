@@ -28,6 +28,7 @@ import { pathToFileURL, fileURLToPath } from 'node:url';
 import { getLiveSession } from '../../code-intel/live.js';
 import { computeCoverage, coverageCause } from '../../code-intel/coverage.js';
 import { inferLanguage } from '../../code-intel/backends.js';
+import { liveProvenanceFor } from '../../code-intel/provenance.js';
 import { identifierColumn, leafNameOf } from '../../code-intel/identifier-position.js';
 import { toRepoRelative } from '../../ingest/code-intel/paths.js';
 import { indexReadyFromWaitResult } from '../../code-intel/index-readiness.js';
@@ -74,7 +75,16 @@ const RESOLVE_TYPES = ['Function', 'Method', 'Class', 'Interface', 'Type'];
 // withheld a true per-edge precision mark whenever completeness was uncertain. It was the same
 // precision/completeness collapse as the original defect, running in the opposite direction:
 // I moved the error instead of removing it.
-const LSP_PROVENANCE = 'clangd@live';
+// ⛔ WAS `const LSP_PROVENANCE = 'clangd@live'` — a constant named for the general concept while
+// holding ONE provider's value, so a TypeScript tree claimed clangd resolved it. Minted per
+// session now; see code-intel/provenance.js.
+//
+// ⚠ AND THE MARK BELOW USED TO COMPARE AGAINST THAT LITERAL. Making the value per-language while
+// leaving an equality test against one engine would have silently downgraded every non-C++ node to
+// `[lsp~]` — the same 'new value into an old branch' shape that cost two defects yesterday. The
+// test now asserts the SHAPE (resolved by a live server) rather than which server it was.
+const LIVE_PROVENANCE_SUFFIX = '@live';
+const isLiveResolved = (p) => String(p || '').endsWith(LIVE_PROVENANCE_SUFFIX);
 
 function errorResponse(code, message) {
   return { status: 'error', errors: [{ code, message, hint: HINTS[code] || '' }] };
@@ -533,7 +543,7 @@ export function buildHierarchyTrustLine({ mode, indexReady, kind, nodeCount, cov
 //   { label, file, line, children:[…], truncated:N }
 // `direction` is 'callers' (incomingCalls) or 'callees' (outgoingCalls).
 async function walkCallHierarchy(session, rootItem, { direction, depth, breadthCap, totalCap, projectRoot }) {
-  const root = { ...itemLabel(rootItem, projectRoot), children: [], truncated: 0, provenance: LSP_PROVENANCE };
+  const root = { ...itemLabel(rootItem, projectRoot), children: [], truncated: 0, provenance: liveProvenanceFor(session.language) };
   // `truncated` accumulates every edge dropped at the breadth/total caps so the
   // caller can downgrade the exhaustive claim — a capped tree is a FLOOR, not a
   // complete caller set (audit 2026-06-12 B3).
@@ -562,7 +572,7 @@ async function walkCallHierarchy(session, rootItem, { direction, depth, breadthC
       const childItem = direction === 'callers' ? edge.from : edge.to;
       if (!childItem) continue;
       const childLabel = itemLabel(childItem, projectRoot);
-      const child = { ...childLabel, children: [], truncated: 0, provenance: LSP_PROVENANCE };
+      const child = { ...childLabel, children: [], truncated: 0, provenance: liveProvenanceFor(session.language) };
       budget.nodes += 1;
       if (seen.has(child.key)) {
         child.cycle = true;
@@ -582,7 +592,7 @@ async function walkCallHierarchy(session, rootItem, { direction, depth, breadthC
 // Type hierarchy is one level of subtypes/supertypes by default but we honor
 // `depth` for deep inheritance chains, with the same caps.
 async function walkTypeHierarchy(session, rootItem, { direction, depth, breadthCap, totalCap, projectRoot }) {
-  const root = { ...itemLabel(rootItem, projectRoot), children: [], truncated: 0, provenance: LSP_PROVENANCE };
+  const root = { ...itemLabel(rootItem, projectRoot), children: [], truncated: 0, provenance: liveProvenanceFor(session.language) };
   const budget = { nodes: 1, truncated: 0 };
   const seen = new Set([root.key]);
 
@@ -602,7 +612,7 @@ async function walkTypeHierarchy(session, rootItem, { direction, depth, breadthC
     for (const kid of capped) {
       if (budget.nodes >= totalCap) { node.truncated += 1; budget.truncated += 1; continue; }
       const childLabel = itemLabel(kid, projectRoot);
-      const child = { ...childLabel, children: [], truncated: 0, provenance: LSP_PROVENANCE };
+      const child = { ...childLabel, children: [], truncated: 0, provenance: liveProvenanceFor(session.language) };
       budget.nodes += 1;
       if (seen.has(child.key)) { child.cycle = true; node.children.push(child); continue; }
       seen.add(child.key);
@@ -638,7 +648,7 @@ export function renderTree(node, { indent = '', isLast = true, isRoot = true } =
   const detail = node.detail ? node.detail : '';
   // Per-node, from its own provenance. A node with no LSP provenance never gets the mark,
   // whatever the tree around it claims.
-  const mark = node.provenance === LSP_PROVENANCE ? '[lsp✓]' : '[lsp~]';
+  const mark = isLiveResolved(node.provenance) ? '[lsp✓]' : '[lsp~]';
   lines.push(`${indent}${branch}${node.name}${detail}  ${node.file}:${node.line} ${mark}${cycleMark}`);
   const childIndent = isRoot ? '' : indent + (isLast ? '   ' : '│  ');
   const kids = node.children || [];
@@ -878,7 +888,7 @@ export async function codeIntelHierarchy(args = {}) {
   // this violated — "precision and exhaustiveness are orthogonal, never let one become the
   // other" — and gating the per-edge mark on the set claim did exactly that: it would have
   // stripped a TRUE signal from every edge to express a doubt about the set.
-  // (no tree-wide mark: renderTree reads each node's own provenance — see LSP_PROVENANCE)
+  // (no tree-wide mark: renderTree reads each node's own provenance — see isLiveResolved)
   const treeText = [
     `${kind.toUpperCase()} of ${rootItem.name || symbol || file} (depth ${depth})`,
     // Overload/multi-root sets: we walk only the first root to stay budgeted —
