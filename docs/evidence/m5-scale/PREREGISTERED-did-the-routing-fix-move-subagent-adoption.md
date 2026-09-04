@@ -14,32 +14,67 @@ said. **That is a mechanism proven, not an outcome measured.** A green badge is 
 and treating the probe as evidence the fix worked in the field is the error this document exists to
 prevent.
 
-## The baseline is NOT the 0.8% I have been quoting
+## The baseline is not 0.8%, and it is not 0.31% either. It is ZERO.
 
 `9 / 1116 = 0.806%` includes `C--Docker-aify-project-graph`, the project directory where this tool
-is built and where I spawn the probes that verify it. **Six of those nine calls are mine.** Measured
-2026-09-04 with `--exclude-project=C--Docker-aify-project-graph`, both controls passing in the same
-pass:
+is built and where I spawn the probes that verify it. Excluding that directory gave `3 / 973 =
+0.308%`, and I was about to preregister against that.
 
-| Population, my own project directory EXCLUDED | Count | Rate |
+⛔ **A reviewer then pointed out that the directory is a PROXY for the property that matters**, which
+is *was this agent told to call the graph*. So I read the opening prompt of all **11** subagent
+sidechains that have ever made a real graph `tool_use` call, and classified by content instead:
+
+| When | Project directory | Opening prompt |
 |---|---|---|
-| Subagent sidechains with ≥1 graph call | **3 / 973** | **0.308%** |
-| Top-level sessions with ≥1 graph call | 13 / 32 | 40.6% |
+| 2026-06-02 ×4 | aify-project-graph | *"Design 3 HARD, GREP-HOSTILE tasks for an A/B eval"*, then *"CONDITION B (treatment). USE the aify-project-graph graph tools"* |
+| 2026-07-26/27 ×3 | **sand-castle** | *"TOOL EVALUATION of aify-project-graph… you may ONLY use `mcp__aify-project-graph__*` tools"* |
+| 2026-08-25 ×2 | aify-project-graph | *"★ THIS REPOSITORY HAS THE aify-project-graph MCP SERVER AVAILABLE… run ToolSearch"* |
+| 2026-09-03 ×2 | aify-project-graph | *"You are a measurement probe…"* |
 
-⇒ **The field baseline is 0.308%, and every future comparison uses it.** The higher figure measured
-my own instrumentation and flattered the tool.
+**Every one was instructed. None was organic.** And the proxy failed in exactly the direction the
+reviewer warned about: three of them sit in *sand_castle's* directory, so a directory rule keeps my
+own tool evaluations in the field population.
+
+⇒ **The organic subagent adoption rate is `0 / 973`. No subagent on this machine has ever reached
+for the graph without being told the tool exists.**
+
+That is not a smaller version of "0.8% adoption". It is a different statement: the layer carrying 31×
+the transcript volume has never spontaneously used this tool, and the auto-memory routing fix is the
+first intervention that could change it.
+
+⚠ **The mechanical filter (`--exclude-instructed`) reports `1 / 974`, not `0 / 973`, and the
+difference is a known hole rather than a disagreement.** It matches the tool's name in the opening
+prompt; the one survivor is my own June eval-design subagent, whose prompt says *"a
+code-intelligence tool"* and *"symbol/call-graph tool"* without ever naming it. I am **not** widening
+the marker list to catch it — tuning a filter until it produces the number I already believe is how
+a screen ends up selecting its own answer. The filter is an approximation with one documented miss;
+the content read is the finding.
 
 ## The decision rule, fixed before the data exists
 
 **Population.** Subagent sidechain transcripts (nested `.jsonl`), whose OWN first-line timestamp is
-at or after `2026-09-03T20:04:28.335Z`, in every project directory EXCEPT
-`C--Docker-aify-project-graph`.
+at or after `2026-09-03T20:04:28.335Z`, with BOTH exclusions applied:
+
+    --exclude-project=C--Docker-aify-project-graph   where my own instrumentation lives
+    --exclude-instructed                             opening prompt names the tool
+
+Both, not either. The directory rule alone kept three of my own tool evaluations that ran in
+sand_castle's directory; the content rule alone has the one documented miss above. Together they are
+strictly more conservative than either, and every transcript they drop is one that could only have
+inflated the result.
 
 ⚠ The timestamp is the transcript's own, never the file's mtime: a session already open when the fix
 landed keeps being appended to, so mtime would admit exactly the transcripts the cutoff exists to
 exclude.
 
-**Test.** One-sided exact binomial against `p0 = 3/973`, α = 0.05.
+**Test.** One-sided exact binomial against `p0 = 3/973 = 0.31%`, α = 0.05.
+
+⚠ **Where that `p0` comes from now that the observed baseline is zero.** An exact test against a
+point null of 0 is degenerate — any single call rejects it, which would make one curious agent look
+like a fixed product. So the null is the **95% upper confidence bound consistent with 0 of 973**,
+which by the rule of three is `3/973`. It lands on the same number I had before for a different and
+better reason, and it is the conservative choice: it is the highest organic rate the pre-fix data
+cannot rule out.
 
 **Stopping point and critical value — do not read the outcome before n reaches this.**
 

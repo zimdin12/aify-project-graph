@@ -35,8 +35,31 @@ const SINCE = argv.find((a) => a.startsWith('--since='))?.slice('--since='.lengt
 // needs nobody to remember a convention at spawn time.
 const EXCLUDED = argv.filter((a) => a.startsWith('--exclude-project='))
   .map((a) => a.slice('--exclude-project='.length));
+
+// ⛔⛔ DIRECTORY IS A PROXY FOR "WAS THIS AGENT TOLD TO CALL THE GRAPH", AND THE PROXY MISSES.
+//
+// An outside reviewer made the distinction: the defining property is instruction, not location.
+// Reading the actual first prompt of all 11 subagent sidechains that ever made a real graph call
+// found the proxy wrong in BOTH directions it warned about — three of them sit in
+// `C--Users-Administrator-sand-castle` and open "TOOL EVALUATION of aify-project-graph ... you may
+// ONLY use mcp__aify-project-graph__* tools", so a directory rule keeps them; and none of the ones
+// it drops were organic.
+//
+// ⇒ Classify by CONTENT. A sidechain whose opening prompt names the tool was told about it, and it
+// cannot testify about whether an agent reaches for the graph unprompted.
+//
+// ⚠ DELIBERATELY OVER-BROAD, and that direction is the safe one: a prompt that merely mentions the
+// name is also excluded. Over-exclusion can only LOWER a measured adoption rate, so it can never
+// manufacture the success this measurement exists to test for.
+const EXCLUDE_INSTRUCTED = argv.includes('--exclude-instructed');
+// ⚠ The prefix is spelled out rather than reusing GRAPH_PREFIX: that const is declared BELOW this
+// line, and referencing it here is a temporal-dead-zone crash on every run.
+const INSTRUCTION_MARKERS = [
+  'mcp__aify-project-graph__', 'aify-project-graph', 'graph_health', 'graph_callers',
+];
 if (!ROOT) {
-  console.error('usage: node scripts/measure-verb-adoption.mjs <transcripts-root> [--since=<ISO8601>]');
+  console.error('usage: node scripts/measure-verb-adoption.mjs <transcripts-root>'
+    + ' [--since=<ISO8601>] [--exclude-project=<dir>] [--exclude-instructed]');
   process.exit(2);
 }
 if (SINCE && Number.isNaN(Date.parse(SINCE))) {
@@ -102,6 +125,7 @@ async function scanSession(file) {
   let lineNo = 0;
   let startedAt = null;
   let selfDeclaredSidechain = null;
+  let instructed = false;
   const badLineDetail = [];
 
   const rl = createInterface({
@@ -125,6 +149,11 @@ async function scanSession(file) {
       continue;
     }
     if (startedAt === null && typeof obj?.timestamp === 'string') startedAt = obj.timestamp;
+    if (lineNo === 1) {
+      const c0 = obj?.message?.content;
+      const opening = Array.isArray(c0) ? (c0[0]?.text ?? '') : String(c0 ?? '');
+      instructed = INSTRUCTION_MARKERS.some((m) => opening.includes(m));
+    }
     if (selfDeclaredSidechain === null && typeof obj?.isSidechain === 'boolean') {
       selfDeclaredSidechain = obj.isSidechain;
     }
@@ -145,7 +174,7 @@ async function scanSession(file) {
   }
   return {
     graphCalls, verbs, positive, negative, badLines, badLineDetail,
-    startedAt, selfDeclaredSidechain,
+    startedAt, selfDeclaredSidechain, instructed,
   };
 }
 
@@ -181,7 +210,7 @@ const nestedTally = new ProjectTally('(subagent sidechains, all projects)');
 // ⚠ EXCLUSIONS ARE COUNTED, NOT SILENT. A filter that drops transcripts without saying how many
 // makes a small post-cutoff n look like a small population rather than a narrow window.
 const windowStats = {
-  excludedOlder: 0, noTimestamp: 0, classifierDisagreements: 0, excludedProjects: [],
+  excludedOlder: 0, noTimestamp: 0, classifierDisagreements: 0, excludedProjects: [], excludedInstructed: 0,
 };
 for (const dir of dirs) {
   if (EXCLUDED.includes(dir)) { windowStats.excludedProjects.push(dir); continue; }
@@ -196,6 +225,7 @@ for (const dir of dirs) {
       if (!scan.startedAt) { windowStats.noTimestamp += 1; return false; }
       if (scan.startedAt < SINCE) { windowStats.excludedOlder += 1; return false; }
     }
+    if (EXCLUDE_INSTRUCTED && scan.instructed) { windowStats.excludedInstructed += 1; return false; }
     if (scan.selfDeclaredSidechain !== null && scan.selfDeclaredSidechain !== expectedSidechain) {
       windowStats.classifierDisagreements += 1;
     }
@@ -247,6 +277,7 @@ console.log(JSON.stringify({
     }
     : { since: null, note: 'ALL TIME — dominated by whatever regime held for most of the corpus' },
   excludedProjects: windowStats.excludedProjects,
+  excludedAsInstructed: EXCLUDE_INSTRUCTED ? windowStats.excludedInstructed : null,
   controls: {
     positive: { names: POSITIVE_CONTROLS, count: totals.positive, passed: totals.positive > 0 },
     negative: { name: NEGATIVE_CONTROL, count: totals.negative, passed: totals.negative === 0 },
