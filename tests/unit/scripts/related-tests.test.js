@@ -53,6 +53,17 @@ describe('related-tests finds what already describes the contract', () => {
     ])).toEqual(['mcp/stdio/query/verbs/packet-evidence.js']);
   });
 
+  it('★★★ scripts/ is source too — the guard must cover the room it stands in', () => {
+    // ⛔ The first version filtered `mcp/` only, so the commit that added
+    // scripts/lib/oracle-built-fixtures.mjs ran NO related tests. A guard blind to its own code.
+    expect(stagedSourceFiles(['scripts/lib/oracle-built-fixtures.mjs']))
+      .toEqual(['scripts/lib/oracle-built-fixtures.mjs']);
+    expect(stagedSourceFiles(['scripts/related-tests.mjs'])).toEqual(['scripts/related-tests.mjs']);
+    // ...and its own test file must still be found from it.
+    expect(testsImporting(['scripts/lib/oracle-built-fixtures.mjs'], TESTS))
+      .toContain('tests/unit/scripts/no-oracle-built-fixtures.test.js');
+  });
+
   it('★★ an empty staged set asks for nothing', () => {
     expect(testsImporting([], TESTS)).toEqual([]);
   });

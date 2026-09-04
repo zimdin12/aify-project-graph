@@ -34,7 +34,13 @@ function repo() {
 
 /** Source files in the commit that a test could plausibly import. Docs and evidence are excluded. */
 export function stagedSourceFiles(files) {
-  return files.filter((f) => f.startsWith('mcp/') && f.endsWith('.js') && !f.endsWith('.test.js'));
+  // ⚠ `scripts/` IS SOURCE TOO, AND LEAVING IT OUT MADE THIS GUARD BLIND TO ITS OWN CODE. The first
+  // version filtered `mcp/` only, so the commit that added scripts/lib/oracle-built-fixtures.mjs ran
+  // no related tests at all — a forced door that does not cover the room it stands in.
+  const SOURCE_DIRS = ['mcp/', 'scripts/'];
+  return files.filter((f) => SOURCE_DIRS.some((d) => f.startsWith(d))
+    && (f.endsWith('.js') || f.endsWith('.mjs'))
+    && !f.endsWith('.test.js'));
 }
 
 /**
