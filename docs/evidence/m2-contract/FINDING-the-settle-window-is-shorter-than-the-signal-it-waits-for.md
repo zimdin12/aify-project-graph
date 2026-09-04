@@ -127,10 +127,15 @@ A genuinely on-disk index also reports `no_progress_signalled`, and now records 
 `true` — losing an attestation it deserved. The trade was taken deliberately: the flag licenses
 deletion, and an unknown must not license deletion.
 
-**Named follow-up, not attempted here:** the discriminator that would recover that recall is whether
-clangd's index cache exists on disk for the project. That separates "nothing to do" from "has not
-started", which nothing inside the window can. It is a real design question, not a tuning knob, and
-it needs its own evidence.
+**Named follow-up: MEASURED AND CLOSED, 2026-09-04.** The discriminator would have been whether
+clangd's index cache exists on disk. Before building it I measured whether the case occurs, and it
+does not: five paired trials, positive control passing in all five, and a warm already-indexed
+workspace reported `index_drained` 5 of 5 — PROVEN ready, attestation intact. clangd announces
+indexing work on a fresh session even with a warm cache, so a complete on-disk index is not reported
+as unknown. See `RESULT-the-readiness-recall-loss-is-not-real.md`.
+
+⇒ The cost accepted above is therefore **rare, not common**: the trade is a rare false attestation
+for a rare withheld one. That was the open question and it now has a number.
 
 ### Still true, still not measured
 
