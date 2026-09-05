@@ -28,7 +28,7 @@ import { pathToFileURL, fileURLToPath } from 'node:url';
 import { getLiveSession } from '../../code-intel/live.js';
 import { computeCoverage, coverageCause } from '../../code-intel/coverage.js';
 import { inferLanguage } from '../../code-intel/backends.js';
-import { liveProvenanceFor } from '../../code-intel/provenance.js';
+import { liveProvenanceFor, backendNameFor } from '../../code-intel/provenance.js';
 import { identifierColumn, leafNameOf } from '../../code-intel/identifier-position.js';
 import { toRepoRelative } from '../../ingest/code-intel/paths.js';
 import { indexReadyFromWaitResult } from '../../code-intel/index-readiness.js';
@@ -499,18 +499,23 @@ function buildHierarchyEvidenceInner({ mode, indexReady, nodeCount, kind, covera
 
 // Single-line TRUST banner, same vocabulary as lsp-evidence.js buildTrustLine,
 // but derived from the LIVE session's index-ready state (not a collection row).
-export function buildHierarchyTrustLine({ mode, indexReady, kind, nodeCount, coverage, truncated = 0, multiRoot = false }) {
+// ⛔ EVERY BANNER BELOW SAID "clangd", WHATEVER ANSWERED. A TypeScript hierarchy announced a C++
+// toolchain on the one surface that exists to be trusted. Seven sites — and one was added during the
+// session spent removing exactly this class, which is the argument for deriving the name rather than
+// remembering to write it.
+export function buildHierarchyTrustLine({ mode, indexReady, kind, nodeCount, coverage, truncated = 0, multiRoot = false, language }) {
+  const backend = backendNameFor(language);
   const noun = (kind === 'subtypes' || kind === 'supertypes') ? 'type' : 'call';
   const edgeNoun = (kind === 'subtypes' || kind === 'supertypes') ? 'subtypes' : (kind === 'callees' ? 'callees' : 'callers');
   const empty = !(Number(nodeCount) > 1);
   if (mode === 'bounded') {
-    return `TRUST: lsp-partial (clangd, bounded mode — no index wait; may undercount ${noun} hierarchy; re-run INDEXED) [${nodeCount} node${nodeCount === 1 ? '' : 's'}]`;
+    return `TRUST: lsp-partial (${backend}, bounded mode — no index wait; may undercount ${noun} hierarchy; re-run INDEXED) [${nodeCount} node${nodeCount === 1 ? '' : 's'}]`;
   }
   if (indexReady === true && empty) {
     // HIGH-1 — index-ready but 0 resolved edges. Never claim "lsp-verified
     // exhaustive" on an empty tree; the absence is unconfirmed (cross-TU
     // resolution not confirmed). Say lsp-partial and point at references/rg.
-    return `TRUST: lsp-partial (clangd, index-ready but 0 ${edgeNoun} — NOT safe evidence of no ${edgeNoun}; cross-TU resolution unconfirmed; verify with code_intel_references / rg) [${nodeCount} node${nodeCount === 1 ? '' : 's'}]`;
+    return `TRUST: lsp-partial (${backend}, index-ready but 0 ${edgeNoun} — NOT safe evidence of no ${edgeNoun}; cross-TU resolution unconfirmed; verify with code_intel_references / rg) [${nodeCount} node${nodeCount === 1 ? '' : 's'}]`;
   }
   // FALSE-EXHAUSTIVE GUARD (2026-06-02): index-ready + a non-empty tree is NOT
   // exhaustive when the compile DB can't cover all TUs (foreign Linux/WSL DB on
@@ -520,22 +525,22 @@ export function buildHierarchyTrustLine({ mode, indexReady, kind, nodeCount, cov
   // evidence + nodes say partial. Without this the banner alone falsely licenses
   // "safe to delete" on a foreign/unity DB.
   if (indexReady === true && coverage && coverage.complete === false) {
-    return `TRUST: lsp-partial (clangd, index-ready but compile-DB coverage incomplete — ${noun} hierarchy is a FLOOR, may undercount; verify with code_intel_references / rg before any "no ${edgeNoun}" / delete) [${nodeCount} node${nodeCount === 1 ? '' : 's'}]`;
+    return `TRUST: lsp-partial (${backend}, index-ready but compile-DB coverage incomplete — ${noun} hierarchy is a FLOOR, may undercount; verify with code_intel_references / rg before any "no ${edgeNoun}" / delete) [${nodeCount} node${nodeCount === 1 ? '' : 's'}]`;
   }
   if (indexReady === true && (Number(truncated) > 0 || multiRoot)) {
     // Audit 2026-06-12 B3 — capped/overload tree is complete only up to the caps.
     const why = [Number(truncated) > 0 ? `${truncated} dropped at caps` : null, multiRoot ? 'overload set, first root only' : null].filter(Boolean).join('; ');
-    return `TRUST: lsp-partial (clangd, index-ready but tree TRUNCATED — ${why}; a FLOOR, not exhaustive; raise breadthCap/totalCap or verify with code_intel_references / rg) [${nodeCount} node${nodeCount === 1 ? '' : 's'}]`;
+    return `TRUST: lsp-partial (${backend}, index-ready but tree TRUNCATED — ${why}; a FLOOR, not exhaustive; raise breadthCap/totalCap or verify with code_intel_references / rg) [${nodeCount} node${nodeCount === 1 ? '' : 's'}]`;
   }
   if (indexReady === true) {
-    return `TRUST: lsp-verified (clangd, index-ready, ${noun} hierarchy, ${nodeCount} node${nodeCount === 1 ? '' : 's'})`;
+    return `TRUST: lsp-verified (${backend}, index-ready, ${noun} hierarchy, ${nodeCount} node${nodeCount === 1 ? '' : 's'})`;
   }
   // Same three-state split as the evidence above: "index NOT ready" is a CLAIM about clangd, and
   // on a `null` we did not observe it — we heard nothing and the window was too short to conclude.
   if (indexReady !== false) {
-    return `TRUST: lsp-partial (clangd index readiness could not be established — no indexing activity inside the settle window, which does not prove the index is ready; tree is a FLOOR, verify with code_intel_references / rg) [${nodeCount} node${nodeCount === 1 ? '' : 's'}]`;
+    return `TRUST: lsp-partial (${backend} index readiness could not be established — no indexing activity inside the settle window, which does not prove the index is ready; tree is a FLOOR, verify with code_intel_references / rg) [${nodeCount} node${nodeCount === 1 ? '' : 's'}]`;
   }
-  return `TRUST: lsp-partial (clangd index NOT ready — may undercount; re-collect) [${nodeCount} node${nodeCount === 1 ? '' : 's'}]`;
+  return `TRUST: lsp-partial (${backend} index NOT ready — may undercount; re-collect) [${nodeCount} node${nodeCount === 1 ? '' : 's'}]`;
 }
 
 // Walk the call hierarchy from a root CallHierarchyItem to `depth`, capping
@@ -847,7 +852,7 @@ export async function codeIntelHierarchy(args = {}) {
       treeText: (indexReady === true)
         ? `(no ${needsCall ? 'call' : 'type'} hierarchy root at ${file}:${line}:${col || 1})${anchorNote}`
         : `(no ${needsCall ? 'call' : 'type'} hierarchy root resolved at ${file}:${line}:${col || 1} — clangd index/AST not confirmed ready${coldPrepareRetries ? ` after ${coldPrepareRetries} parse-wait retr${coldPrepareRetries === 1 ? 'y' : 'ies'}` : ''}; re-run in INDEXED mode or after warmup before treating this as "no hierarchy")${anchorNote}`,
-      trust: buildHierarchyTrustLine({ mode, indexReady, kind, nodeCount: 0, coverage }),
+      trust: buildHierarchyTrustLine({ mode, indexReady, kind, nodeCount: 0, coverage, language: lang }),
       evidence,
       telemetry: {
         operation: 'hierarchy', kind, nodes: 0, depth, breadthCap, totalCap,
@@ -872,7 +877,7 @@ export async function codeIntelHierarchy(args = {}) {
   const truncated = walked.truncated || 0;
   const multiRoot = items.length > 1;
   const finalEvidence = buildHierarchyEvidence({ mode, indexReady, nodeCount, kind, coverage, truncated, multiRoot, contractVersion: contract.version });
-  const trust = buildHierarchyTrustLine({ mode, indexReady, kind, nodeCount, coverage, truncated, multiRoot });
+  const trust = buildHierarchyTrustLine({ mode, indexReady, kind, nodeCount, coverage, truncated, multiRoot, language: lang });
   // I3 + HIGH-1 — stamp the ground-truth `[lsp✓]` only on a tree whose edges really are
   // compiler-resolved: INDEXED mode, index ready, and a non-empty resolved tree. An
   // index-ready-but-empty tree stays lsp-partial (no_incoming_unconfirmed), so its marker is

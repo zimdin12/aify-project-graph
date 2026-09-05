@@ -371,7 +371,11 @@ export async function graphExplainDiff({ repoRoot, range, staged = false, files,
         symbol_count: affectedNodeIds.length,
         file_count: affectedByFile.length,
         by_file: affectedByFile.slice(0, top_k),
-        provenance: affectedIsHeuristic ? 'heuristic (tree-sitter)' : 'lsp-verified (clangd) where [lsp✓]',
+        // ⛔ SAID "(clangd)" FOR EVERY LANGUAGE. A diff can span C++, TypeScript and Python in one
+        // answer, so naming a single engine here is wrong whatever is in scope — and unlike the
+        // banners there is no per-result language to derive from. The honest form names the
+        // PROPERTY (compiler-verified) rather than guessing which compiler.
+        provenance: affectedIsHeuristic ? 'heuristic (tree-sitter)' : 'compiler-verified where [lsp✓]',
       },
       layers: layers.available
         ? {

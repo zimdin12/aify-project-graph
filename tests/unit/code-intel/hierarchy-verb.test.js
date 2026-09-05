@@ -136,7 +136,7 @@ describe('code_intel_hierarchy — index-ready vs not-ready banner/evidence', ()
     const r = await codeIntelHierarchy({ repoRoot: repo, file: 'src/foo.cpp', line: 1, col: 6, kind: 'callers', waitForReadyMs: 2000, spawn: fakeProgressSpawn });
     expect(r.mode).toBe('indexed');
     expect(r.indexReady).toBe(true);
-    expect(r.trust).toMatch(/lsp-verified \(clangd, index-ready/);
+    expect(r.trust).toMatch(/lsp-verified \(cpp-clangd, index-ready/);
     expect(r.evidence.exhaustive).toBe(false);
     expect(r.evidence.cause).toBe('index_population_unattested');
     expect(r.evidence.ready).toBe(true);
@@ -242,7 +242,7 @@ describe('code_intel_hierarchy — HIGH-1 empty-tree is NOT exhaustive', () => {
     expect(r.evidence.cause).toBe('no_incoming_unconfirmed');
     expect(r.evidence.warnings.join(' ')).toMatch(/NOT safe evidence of no callers/);
     // Banner must NOT claim lsp-verified exhaustive; must point at references/rg.
-    expect(r.trust).not.toMatch(/lsp-verified \(clangd, index-ready, call hierarchy/);
+    expect(r.trust).not.toMatch(/lsp-verified \(cpp-clangd, index-ready, call hierarchy/);
     expect(r.trust).toMatch(/lsp-partial/);
     expect(r.trust).toMatch(/code_intel_references/);
     // I3/HIGH-1 — partial banner ⇒ no bare ground-truth [lsp✓] node mark.
@@ -271,7 +271,7 @@ describe('code_intel_hierarchy — HIGH-1 empty-tree is NOT exhaustive', () => {
     // degraded:true with a STANDING cause, matching code_intel_references. A standing cause is
     // not an incident (see STANDING_CAUSES in code_intel_live.js) - it is true of every call.
     expect(r.evidence.degraded).toBe(true);
-    expect(r.trust).toMatch(/lsp-verified \(clangd, index-ready/);
+    expect(r.trust).toMatch(/lsp-verified \(cpp-clangd, index-ready/);
     expect(r.treeText).toContain('[lsp✓]');
   });
 

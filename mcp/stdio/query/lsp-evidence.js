@@ -30,6 +30,7 @@ import { computeCoverage } from '../code-intel/coverage.js';
 import { prepareCompileDb } from '../code-intel/compile-db.js';
 // Language normalisation comes from the backend REGISTRY, never a parallel alias list here.
 import { normalizeLanguage } from '../code-intel/backends.js';
+import { backendNameFor } from '../code-intel/provenance.js';
 // One owner for the indexed-file count and the limit it carries — see miss-scope.js.
 import { indexedScopeClause } from './miss-scope.js';
 
@@ -569,12 +570,24 @@ async function buildTrustLineBody({ edges = [], db, repoRoot, truncated = false,
   // tsserver-verified result claimed a C++ toolchain and printed
   // `compile-db ????????` (hash8 of an absent hash). Small, but it is a false
   // statement on the trust surface, and the compile DB is a C++-only concept.
-  const lang = collection?.language || verifiedLang || 'cpp';
-  const backend = lang === 'python' ? 'pyright'
-    : (lang === 'typescript' || lang === 'javascript') ? 'tsserver'
-      : 'clangd';
-  // Only C++ has a compile DB; for other backends cite the collection instead.
-  const provenanceTag = (backend === 'clangd' && collection?.compileDbHash)
+  // ⛔ THIS WAS A PARALLEL NAME LIST, 540 LINES BELOW THIS FILE'S OWN RULE: "Language normalisation
+  // comes from the backend REGISTRY, never a parallel alias list here." Normalisation was derived.
+  // The NAMES were not — and the list said `tsserver`, a string that appears NOWHERE else in the
+  // codebase while the registry says `ts-langserver`. One backend, two names, and the banner used
+  // the one nothing else knows.
+  //
+  // ⚠ THE DEFAULT WAS ALSO WRONG IN THE UNSAFE DIRECTION: `|| 'cpp'` meant a collection with no
+  // recorded language asserted a C++ toolchain on a TRUST banner. An unknown backend now says so.
+  // ⚠ AND A COMPILE DB IS EVIDENCE, NOT AN ASSUMPTION. The original wrote `|| 'cpp'`, asserting a
+  // C++ toolchain for any collection with no recorded language. My first correction dropped that
+  // default entirely and a test caught it: only C++ HAS a compile DB, so a recorded compileDbHash
+  // genuinely identifies the backend. Removing the default threw away a real signal along with the
+  // unfounded one. Unknown stays unknown; evidenced stays evidenced.
+  const lang = collection?.language || verifiedLang
+    || (collection?.compileDbHash ? 'cpp' : null);
+  const backend = lang ? backendNameFor(lang) : 'unknown-provider';
+  // Only C++ has a compile DB, so the tag is gated on the C++ PROVIDER rather than on a literal.
+  const provenanceTag = (backend === backendNameFor('cpp') && collection?.compileDbHash)
     ? `compile-db ${hash8(collection.compileDbHash)}`
     : `${backend} collection`;
   const dbHash = provenanceTag;
@@ -785,7 +798,9 @@ async function buildTrustLineBody({ edges = [], db, repoRoot, truncated = false,
   } else {
     // null/unknown indexReady: name provenance + freshness, make NO completeness
     // claim (honest for a mixed set — it isn't licensing "exhaustive").
-    line = `TRUST: lsp-verified (clangd, ${dbHash}, collected ${when})`;
+    // ⛔ THIS BRANCH IGNORED THE DERIVED `backend` AND WROTE clangd LITERALLY, three lines below
+    // two siblings that use it. The same file, the same function, one branch out of step.
+    line = `TRUST: lsp-verified (${backend}, ${dbHash}, collected ${when})`;
   }
 
   // `stale` was computed above, before the wording was chosen (P0-5), so an

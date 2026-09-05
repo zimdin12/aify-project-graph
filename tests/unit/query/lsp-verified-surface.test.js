@@ -130,7 +130,7 @@ describe('Code-Intel v2 L2b — LSP_VERIFIED surface', () => {
     // Edge marker: clangd ground truth is tagged distinctly.
     expect(out).toContain('[lsp✓]');
     // TRUST banner names the provider + compile-db hash (8 chars).
-    expect(out).toMatch(/TRUST: lsp-verified \(clangd, compile-db deadbeef, collected /);
+    expect(out).toMatch(/TRUST: lsp-verified \(cpp-clangd, compile-db deadbeef, collected /);
     // Fresh collection (HEAD == indexed_commit, hash matches) → NOT stale.
     expect(out).not.toContain('STALE');
     // It must NOT fall back to the heuristic-only caveat.
@@ -157,7 +157,7 @@ describe('Code-Intel v2 L2b — LSP_VERIFIED surface', () => {
     // cleanExecute has ONLY an LSP_VERIFIED caller → clean set → exhaustive banner.
     const out = await graphCallers({ repoRoot, symbol: 'cleanExecute' });
     expect(out).toContain('[lsp✓]');
-    expect(out).toMatch(/TRUST: lsp-verified \(clangd, index-ready, \d+ caller/);
+    expect(out).toMatch(/TRUST: lsp-verified \(cpp-clangd, index-ready, \d+ caller/);
     expect(out).not.toContain('lsp-partial');
   });
 
@@ -174,7 +174,7 @@ describe('Code-Intel v2 L2b — LSP_VERIFIED surface', () => {
     expect(out).toContain('[lsp✓]');           // the verified edge is still marked
     expect(out).toContain('lsp-partial');       // but the banner is a floor
     expect(out).toMatch(/FLOOR/);
-    expect(out).not.toMatch(/TRUST: lsp-verified \(clangd, index-ready, \d+ caller/);
+    expect(out).not.toMatch(/TRUST: lsp-verified \(cpp-clangd, index-ready, \d+ caller/);
   });
 
   it('(e) FIX A/B: indexReady=false → lsp-partial "index NOT ready" banner', async () => {

@@ -38,7 +38,10 @@ import { getBackend, normalizeLanguage } from './backends.js';
  * @param {string} language
  * @returns {string} e.g. 'ts-langserver@live', 'cpp-clangd@live', 'unknown-provider@live'
  */
+export function backendNameFor(language) {
+  return getBackend(normalizeLanguage(language))?.providerName ?? 'unknown-provider';
+}
+
 export function liveProvenanceFor(language) {
-  const backend = getBackend(normalizeLanguage(language));
-  return `${backend?.providerName ?? 'unknown-provider'}@live`;
+  return `${backendNameFor(language)}@live`;
 }

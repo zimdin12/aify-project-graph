@@ -126,7 +126,7 @@ describe('stale / unresolved collections cannot license exhaustiveness', () => {
     expectAbsentWithLiveMatcher(
       /index-ready, \d+ caller/,
       {
-        forbidden: 'TRUST: lsp-verified (clangd, index-ready, 1 caller, compile-db hash-A)',
+        forbidden: 'TRUST: lsp-verified (cpp-clangd, index-ready, 1 caller, compile-db hash-A)',
         allowed: 'TRUST: lsp-partial (clangd verified 1 caller, but whether this collection is still current could NOT be established)',
       },
       line,
