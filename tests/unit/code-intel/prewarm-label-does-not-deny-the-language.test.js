@@ -19,10 +19,20 @@
 import { describe, it, expect } from 'vitest';
 import { BACKENDS } from '../../../mcp/stdio/code-intel/backends.js';
 import { PREWARM_NOT_IMPLEMENTED } from '../../../mcp/stdio/query/verbs/code_intel_live.js';
+import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
 describe('the prewarm label describes prewarm, not language support', () => {
   it('★★★ the label does not claim the LANGUAGE is unsupported', () => {
-    expect(PREWARM_NOT_IMPLEMENTED).not.toMatch(/unsupported_language/);
+    // ⛔ NOT a bare not.toMatch. A negative assertion is only evidence if the matcher COULD have
+    // fired, and the ratchet caught me writing the bare form here — in a test about a label that
+    // made a false claim, written the one way that lets a matcher make a false claim of its own.
+    expectAbsentWithLiveMatcher(
+      /unsupported_language/,
+      { forbidden: 'unsupported_language',
+        allowed: 'prewarm_not_implemented_for_language' },
+      PREWARM_NOT_IMPLEMENTED,
+      'the label must not deny that the language is supported',
+    );
     expect(PREWARM_NOT_IMPLEMENTED, 'it should name PREWARM as the thing that is missing')
       .toMatch(/prewarm/i);
   });
