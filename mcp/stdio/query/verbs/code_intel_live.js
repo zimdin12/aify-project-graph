@@ -118,6 +118,17 @@ export function splitDefinitionFromReferences(refs, defs) {
 // every correctness test — a full day of them passed over it. One choke point rather
 // than fifteen return sites, so it cannot regress per-branch: `fallback` owns the
 // actionable remedy, and `warnings` carries only what is NOT already said there.
+/**
+ * What is worth warming to reach a symbol, phrased for the language that will read it.
+ *
+ * Two true statements about how a symbol is reached, not an enumeration to extend per backend:
+ * C++ resolves through the include graph, so headers matter; every other backend here resolves
+ * through imports. An unrecognised language gets the neutral form rather than inheriting C++'s.
+ */
+function warmupHint(language) {
+  return String(language || '').toLowerCase() === 'cpp' ? 'callers + headers' : 'callers + importers';
+}
+
 export function buildReferencesEvidence(args) {
   // ONE choke point, so the stamp cannot be missing from a branch. Fifteen return sites in the
   // inner function is exactly how a per-branch field goes absent on the one path that matters.
@@ -138,7 +149,7 @@ export function dedupeEvidenceProse(ev) {
   return warnings.length === ev.warnings.length ? ev : { ...ev, warnings };
 }
 
-function buildReferencesEvidenceInner({ freshness, callsiteCount, defCount, resultState, coverage, shapeWarnings = [] }) {
+function buildReferencesEvidenceInner({ freshness, callsiteCount, defCount, resultState, coverage, shapeWarnings = [], language }) {
   // ⛔ SHAPE WARNINGS ATTACH ONLY TO AN EMPTY CALLER SET. A field agent's sharpest complaint was
   // that the identical caveat block renders whether or not it bears on the decision, "which trains
   // me to skim it in the one case where it decides everything". A shape that might hide a caller is
@@ -366,7 +377,11 @@ function buildReferencesEvidenceInner({ freshness, callsiteCount, defCount, resu
   if (freshness === 'cold' || (freshness === 'unknown' && callsiteCount === 0)) {
     return {
       ready: false, degraded: true, cause: 'cold_index', confidence: 'low',
-      exhaustive: false, fallback: 'pass warmupFiles[] (callers + headers), or wait_for_ready, then retry; absence not safe until evidence.ready=true', warnings
+      // ⛔ THIS USED TO SAY "headers" TO EVERY LANGUAGE. A JavaScript agent was told to warm its
+      // headers, in the one place an empty result most needs signal. The branch is on a real
+      // distinction rather than a language list: C++ reaches a symbol through the include graph,
+      // everything else through importers. An unknown language gets the neutral form.
+      exhaustive: false, fallback: `pass warmupFiles[] (${warmupHint(language)}), or wait_for_ready, then retry; absence not safe until evidence.ready=true`, warnings
     };
   }
   // freshness='unknown' with callsites — server gave us data, just no readiness signal.
@@ -971,7 +986,8 @@ export async function codeIntelReferences({ repoRoot, language, file, line, col,
 
   const evidence = buildReferencesEvidence({
     freshness, callsiteCount: callsiteLocations.length, defCount: definitionLocations.length || defLocations.length, resultState, coverage,
-    contractVersion: contract.version, shapeWarnings,
+    // The remedy phrases its warm-up hint for the language that will read it — see warmupHint.
+    contractVersion: contract.version, shapeWarnings, language: lang,
   });
 
   // ⛔ AN EMPTY CALLER SET FROM A TU THAT NEVER COMPILED IS BYTE-IDENTICAL TO A TU WITH NO
