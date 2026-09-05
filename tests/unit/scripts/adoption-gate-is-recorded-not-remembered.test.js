@@ -18,7 +18,9 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { gradeControls, runIsPublishable } from '../../../scripts/lib/population-controls.mjs';
 import { ADOPTION_WINDOW, counterArgsFor, classifyReading } from '../../../scripts/lib/adoption-window.mjs';
-import { COLUMNS, formatRow, lastRecordedN } from '../../../scripts/lib/n-ledger-rows.mjs';
+import {
+  COLUMNS, formatRow, lastRecordedN, shouldAppendRow,
+} from '../../../scripts/lib/n-ledger-rows.mjs';
 import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
 const read = (rel) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
@@ -128,6 +130,25 @@ describe('the gate condition n is recorded, not remembered', () => {
     expect(lastRecordedN(`${COLUMNS.join('\t')}\nshort\trow\n`), 'a short row is corrupt').toBeNull();
     const good = formatRow(Object.fromEntries(COLUMNS.map((c) => [c, c === 'n' ? 42 : 'x'])));
     expect(lastRecordedN(`${COLUMNS.join('\t')}\n${good}`)).toBe(42);
+  });
+
+  it('★★★ AN IDLE READ WRITES NOTHING — the instrument must not dirty the tree', () => {
+    // ⛔ MEASURED THE DAY AFTER SHIPPING IT. The first version appended on every run. The loop reads
+    // n every cycle and mostly finds it unchanged, so each idle tick left a modified file in the
+    // working tree — and run-suite.mjs REFUSES on a dirty tree. The instrument built to make the
+    // gate readable would have blocked the suite that guards the gate.
+    expect(shouldAppendRow('unchanged'), 'an idle read earns no row').toBe(false);
+    expect(shouldAppendRow('first'), 'the first reading must be recorded').toBe(true);
+    expect(shouldAppendRow('grew'), 'movement must be recorded').toBe(true);
+    // The direction a tidy-minded filter is most tempted to drop, and the one that matters most.
+    expect(shouldAppendRow('shrank'), 'a DROP must always reach the file').toBe(true);
+  });
+
+  it('★★★ the entry point gates the append on that rule, not on its own inline condition', () => {
+    // The pure function is only worth having if the writer actually consults it.
+    const src = read('../../../scripts/n-ledger.mjs');
+    expect(src).toMatch(/shouldAppendRow\(verdict\.movement\)/);
+    expect(src, 'the append must be guarded, not unconditional').toMatch(/if \(wrote\) \{/);
   });
 
   it('★★ a partial row is refused rather than written short', () => {

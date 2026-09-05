@@ -10,9 +10,11 @@
 // reproducible under any filter combination, cutoff, or mtime-versus-timestamp reading. A wrong
 // entry in my own notes is an instrument failure like any other, and it fails toward looking busy.
 //
-// ⭐ SO THE READING GETS AN ARTIFACT, NOT A MEMORY. Each run appends one row carrying n, the
-// controls that ran in the same pass, the exclusion counts, and the SHA of the instrument that
-// produced it — so a count that changes because the INSTRUMENT changed is visible as exactly that.
+// ⭐ SO THE READING GETS AN ARTIFACT, NOT A MEMORY. A reading that MOVED appends one row carrying
+// n, the controls that ran in the same pass, the exclusion counts, and the SHA of the instrument
+// that produced it — so a count that changes because the INSTRUMENT changed is visible as exactly
+// that. A reading that found nothing new writes nothing: this runs every loop cycle, and the first
+// version dirtied the working tree on every idle tick, which makes run-suite.mjs refuse.
 //
 // ⭐ AND IT PRINTS ONLY THE n SIDE. The outcome (how many transcripts made a graph call) is gated
 // until n = 100, and the underlying counter prints it in the same JSON. Nothing here reads that
@@ -23,7 +25,7 @@ import { homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ADOPTION_WINDOW, counterArgsFor, classifyReading } from './lib/adoption-window.mjs';
-import { HEADER, formatRow, lastRecordedN } from './lib/n-ledger-rows.mjs';
+import { HEADER, formatRow, lastRecordedN, shouldAppendRow } from './lib/n-ledger-rows.mjs';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
 const COUNTER = join(REPO, 'scripts', 'measure-verb-adoption.mjs');
@@ -80,7 +82,10 @@ const row = {
   instrumentSha: instrumentSha(),
 };
 
-if (!dryRun) {
+// A read that found nothing new writes nothing: this runs every loop cycle, and a modified file in
+// the working tree makes run-suite.mjs refuse.
+const wrote = !dryRun && shouldAppendRow(verdict.movement);
+if (wrote) {
   if (!existsSync(LEDGER)) appendFileSync(LEDGER, HEADER, 'utf8');
   appendFileSync(LEDGER, formatRow(row), 'utf8');
 }
@@ -92,6 +97,8 @@ console.log(`  [CONTROL-] fabricated verb name                      : ${row.cont
 console.log(`  excluded older / undated / instructed                : `
   + `${row.excludedOlder} / ${row.excludedUndated} / ${row.excludedInstructed}`);
 console.log(`  instrument                                           : ${row.instrumentSha}`);
+console.log(`  ledger                                               : `
+  + `${wrote ? 'row appended' : 'unchanged, nothing written (the tree stays clean)'}`);
 console.log(row.verdictAllowed
   ? '  ⇒ GATE REACHED. The outcome may now be read, once.'
   : `  ⇒ no verdict. ${verdict.movement === 'shrank'

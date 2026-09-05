@@ -13,6 +13,24 @@ export const COLUMNS = Object.freeze([
 
 export const HEADER = `${COLUMNS.join('\t')}\n`;
 
+/**
+ * Whether a reading earns a row.
+ *
+ * ⛔ WHY THIS IS NOT "ALWAYS", 2026-09-05. The first version appended on every run. The loop that
+ * runs it reads n every cycle and mostly finds it unchanged, so each idle tick left a modified file
+ * in the working tree — and `scripts/run-suite.mjs` REFUSES on a dirty tree. An instrument built to
+ * make the gate readable would have blocked the suite that guards the gate.
+ *
+ * ⭐ SO A READING THAT FOUND NOTHING NEW WRITES NOTHING. The ledger records the values n has taken
+ * and when it first took each one; the absence of a later row means every read since agreed.
+ *
+ * ⭐ AND `shrank` ALWAYS WRITES. A drop is the one movement that must survive in the file even
+ * though it is the one a tidy-minded filter would be most tempted to treat as noise.
+ */
+export function shouldAppendRow(movement) {
+  return movement !== 'unchanged';
+}
+
 /** One row, in column order. Every column is written, so a short row is a corrupt row. */
 export function formatRow(row) {
   const missing = COLUMNS.filter((c) => row[c] === undefined || row[c] === null);
