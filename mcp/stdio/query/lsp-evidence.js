@@ -100,6 +100,34 @@ export function lspVerifiedEdgeCount(edges = []) {
 // banner used to always prefer the cpp collection, so a TS/Python verified edge
 // was attributed to clangd's compile-db hash + coverage. Returns null when no
 // verified edge / unknown tag (caller falls back to the latest collection).
+/**
+ * Which backend produced this collection's evidence?
+ *
+ * ⚠ A COMPILE DB IS EVIDENCE, NOT AN ASSUMPTION. The original wrote `|| 'cpp'`, asserting a C++
+ * toolchain for ANY collection with no recorded language. Only C++ HAS a compile DB, so a recorded
+ * compileDbHash genuinely identifies the backend — unknown stays unknown, evidenced stays evidenced.
+ *
+ * ⛔ CORRECTION TO MY OWN STORY: I first wrote that a test caught me removing this clause. IT DID
+ * NOT. The failure I was chasing came from the branch that ignored the derived `backend` and wrote
+ * clangd literally; the fixture there records `language: 'cpp'` and never exercises this clause. I
+ * attributed a failure to my nearest edit rather than its cause. A SURVIVING MUTANT caught it —
+ * deleting the clause broke nothing, proving in one step that the story was false and the code
+ * unguarded.
+ *
+ * ⭐ Extracted so it can be RUN rather than inferred from a banner string. It was inline, which is
+ * precisely why it shipped untested: a decision buried in a template literal can only be checked
+ * through the text it renders.
+ *
+ * @param {{language?: string, compileDbHash?: string}|null} collection
+ * @param {string|null} verifiedLang language derived from a verified edge's extractor tag
+ * @returns {string} a registry provider name, or 'unknown-provider'
+ */
+export function backendForCollection(collection, verifiedLang = null) {
+  const lang = collection?.language || verifiedLang
+    || (collection?.compileDbHash ? 'cpp' : null);
+  return lang ? backendNameFor(lang) : 'unknown-provider';
+}
+
 export function verifiedEdgeLanguage(edges = []) {
   const v = edges.find((e) => e?.provenance === LSP_PROVENANCE);
   const ex = String(v?.extractor || '').toLowerCase();
@@ -583,9 +611,7 @@ async function buildTrustLineBody({ edges = [], db, repoRoot, truncated = false,
   // default entirely and a test caught it: only C++ HAS a compile DB, so a recorded compileDbHash
   // genuinely identifies the backend. Removing the default threw away a real signal along with the
   // unfounded one. Unknown stays unknown; evidenced stays evidenced.
-  const lang = collection?.language || verifiedLang
-    || (collection?.compileDbHash ? 'cpp' : null);
-  const backend = lang ? backendNameFor(lang) : 'unknown-provider';
+  const backend = backendForCollection(collection, verifiedLang);
   // Only C++ has a compile DB, so the tag is gated on the C++ PROVIDER rather than on a literal.
   const provenanceTag = (backend === backendNameFor('cpp') && collection?.compileDbHash)
     ? `compile-db ${hash8(collection.compileDbHash)}`
