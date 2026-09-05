@@ -19,6 +19,7 @@ import { fileURLToPath } from 'node:url';
 import { gradeControls, runIsPublishable } from '../../../scripts/lib/population-controls.mjs';
 import { ADOPTION_WINDOW, counterArgsFor, classifyReading } from '../../../scripts/lib/adoption-window.mjs';
 import { COLUMNS, formatRow, lastRecordedN } from '../../../scripts/lib/n-ledger-rows.mjs';
+import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
 const read = (rel) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
@@ -83,10 +84,18 @@ describe('a control vouches only for the population it counted', () => {
     expect(src, 'the nested tally must be graded').toMatch(/gradeControls\(\{\s*\n?\s*population: nestedTally\.sessions/);
     expect(src, 'the top-level totals must be graded separately').toMatch(/population: totals\.sessions/);
     // The old shape, which summed one population's control across the whole run.
-    expect(src, 'no single run-wide positive control may survive')
-      .not.toMatch(/passed: totals\.positive > 0/);
-    // Live matcher: the assertion above is only evidence if that pattern could match something.
-    expect('passed: totals.positive > 0').toMatch(/passed: totals\.positive > 0/);
+    // expectAbsentWithLiveMatcher, not a bare not.toMatch: I wrote the negative assertion here and
+    // hand-rolled its control on the next line, and the ratchet caught it — a matcher I prove
+    // myself is a matcher nobody checked. The helper carries the proof with the assertion.
+    expectAbsentWithLiveMatcher(
+      /passed: totals\.positive > 0/,
+      {
+        forbidden: 'positive: { names: POSITIVE_CONTROLS, count: totals.positive, passed: totals.positive > 0 },',
+        allowed: 'gradeControls({ population: nestedTally.sessions, positive: nestedTally.positive })',
+      },
+      src,
+      'one run-wide positive control cannot vouch for two populations',
+    );
   });
 });
 
