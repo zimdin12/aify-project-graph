@@ -51,8 +51,19 @@ Those two have different fixes and the second one has never been worked on.
 
 - **One transcript.** One agent, one moment, 2026-08-25. This does not establish a rate and is not
   offered as one.
-- **It does not explain the other two.** They never invoked ToolSearch at all, so this refusal says
-  nothing about why. The surfacing hypothesis remains live for them.
+- ~~**It does not explain the other two.**~~ **ANSWERED 2026-09-05, and the answer completes the
+  split.** Read from ASSISTANT text only — the earlier grep matched the verb names in these
+  transcripts and I nearly read that as consideration, but the PROMPT lists them and so does the
+  deferred-tools reminder. Prompt text is what the agent was TOLD; assistant text is what it THOUGHT.
+  With the streams separated (controls: assistant blocks found, prompt banner absent from the
+  assistant stream and present in the user stream):
+
+  | agent | mentioned the tool in its own words? | what the mention was |
+  |---|---|---|
+  | `afef9dd3` | once | describing a BUG in `graph_search`, not considering using it |
+  | `a089f88b` | twice | both were FILE PATHS containing `aify-project-graph` |
+
+  ⇒ **Neither ever considered it.** So the three split **1 reachability / 2 surfacing**.
 - ⚠ **IT IS NOT ESTABLISHED THAT THIS STILL HAPPENS.** The memory
   `graph-tools-are-deferred.md` records the opposite — that ToolSearch loads the verbs, probe-
   verified — and it was written later. Either the situation changed, or the probe and this agent
@@ -74,3 +85,20 @@ prompt named the graph tools — and the BASELINE prompt names them too, in orde
 ⇒ A discriminator that cannot tell *told to use it* from *told not to* is not a discriminator. Without
 the published table I would have reported causes for eight agents, five of which were forbidden from
 calling.
+
+## ⭐ The completed split, and the hypothesis that found NO support
+
+| cause | agents | fixable by us? |
+|---|---|---|
+| **reachability** — asked by name, refused at the door | 1 | yes, and it is fixed (`cd8b8d8c`) |
+| **surfacing** — never considered it after the prompt | 2 | yes, and it is the standing hypothesis |
+| **no felt need** — reached for grep because grep was enough | **0** | no, and it would have ended the project |
+
+⛔ **THE THIRD ROW IS THE RESULT.** "Agents do not use it because they do not need it" is the one
+explanation under which no amount of index quality, honesty work or routing changes anything. Across
+all three zero-call agents it has **no support**: one was blocked, two never thought about it, and
+none of them weighed the tool against grep and chose grep.
+
+⚠ **n = 3, one A/B, one machine, one moment.** This is the first evidence either way on a question
+that had none, and it is not a rate. It does not license "the tool is wanted"; it licenses
+*"non-use has not yet been shown to be a preference"*, which is a weaker and more useful claim.
