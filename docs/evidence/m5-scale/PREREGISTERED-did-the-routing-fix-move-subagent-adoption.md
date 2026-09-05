@@ -117,6 +117,58 @@ measuring my own prompt.
 
 ⇒ **Independent post-fix transcripts: 0. Elapsed: 5 hours.** Nothing here is a rate.
 
+## ⛔ CORRECTION 2026-09-05 — that control did not fail correctly. It was on the wrong population.
+
+The line above reads *"[POSITIVE CONTROL] ... 0 <- FAILS, correctly"*, reasoning that an empty
+population records no tool calls. **The population was not empty. The control was counting a
+different one.**
+
+`measure-verb-adoption.mjs` counts two populations and is emphatic that they must never be merged:
+top-level SESSIONS, and nested subagent SIDECHAINS. Every `n` in this document comes from the nested
+population. The published `controls.positive` was summed over the top-level tallies only. Measured
+today, in this window:
+
+| population | transcripts | Bash/Read/Grep tool_use blocks |
+|---|---|---|
+| top-level sessions | 0 | 0 — the number that was published as the control |
+| **subagent sidechains (what `n` counts)** | **6** | **255** |
+
+⇒ The instrument was demonstrably seeing tool calls in the population it was measuring, and said it
+was blind. Same arithmetic, wrong noun.
+
+**What it changes, and what it does not.** The verdict gate says no verdict is rendered unless the
+positive control passes in the same run. Left alone that gate could never have opened, because the
+control could not fire on the measured population however long the corpus grew. It does **not**
+change the 2026-09-04 conclusion: `n` was 0 that day and the rule is "n < 100 — no verdict".
+
+Fixed in `scripts/lib/population-controls.mjs`: each population is graded on its own counts, and an
+empty population is **undecided** rather than passing — 0 of 0 demonstrates nothing in either
+direction.
+
+## ⛔ CORRECTION 2026-09-05 — and `n` itself was being carried in prose
+
+`n` was tracked in a loop prompt across cycles, with no record of the command or the filters that
+produced it. It read **16** for two cycles. Re-measured today it is **5**, and 16 is not reproducible
+under any combination of the exclusion filters, the cutoff, or mtime-versus-first-timestamp:
+
+| reading | nested in window |
+|---|---|
+| both preregistered exclusions | 5 |
+| directory exclusion only | 5 |
+| instructed exclusion only | 5 |
+| no exclusions | 6 |
+| by file mtime instead of first timestamp | 6 |
+| independent filesystem walk, no shared code | 6 |
+
+A count over a fixed cutoff cannot shrink — a transcript that was in the window stays in it — so
+either the corpus lost files or 16 was never a reading of this noun. **I cannot tell which, and say
+so rather than pick the flattering one.** The series restarts today from a recorded reading.
+
+⇒ `docs/evidence/m5-scale/N-LEDGER.tsv`, appended by `node scripts/n-ledger.mjs`. Each row carries
+`n`, the controls that ran in the same pass, the exclusion counts and the SHA of the instrument, and
+the command exits non-zero if `n` ever drops. It prints only the population side, never the gated
+outcome, so it is safe to run every cycle.
+
 ## Claim ceiling
 
 ⛔ One machine, one person's agents. It is a biased sample of the use that matters, and it is not

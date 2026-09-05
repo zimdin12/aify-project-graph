@@ -21,6 +21,7 @@ import { createReadStream } from 'node:fs';
 import { readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
+import { gradeControls, runIsPublishable } from './lib/population-controls.mjs';
 
 const argv = process.argv.slice(2);
 const ROOT = argv.find((a) => !a.startsWith('--'));
@@ -262,6 +263,14 @@ const totals = tallies.reduce(
 const allVerbs = new Map();
 for (const t of tallies) for (const [v, n] of t.perVerb) allVerbs.set(v, (allVerbs.get(v) ?? 0) + n);
 
+const gradedPopulations = [
+  gradeControls({ population: totals.sessions, positive: totals.positive, negative: totals.negative }),
+  gradeControls({
+    population: nestedTally.sessions, positive: nestedTally.positive, negative: nestedTally.negative,
+  }),
+];
+const publishable = runIsPublishable(gradedPopulations);
+
 console.log(JSON.stringify({
   what: 'MEASURED graph-verb invocations across every Claude Code transcript on this machine.',
   carrier: { root: ROOT, projectDirs: tallies.length },
@@ -278,9 +287,20 @@ console.log(JSON.stringify({
     : { since: null, note: 'ALL TIME — dominated by whatever regime held for most of the corpus' },
   excludedProjects: windowStats.excludedProjects,
   excludedAsInstructed: EXCLUDE_INSTRUCTED ? windowStats.excludedInstructed : null,
+  // ⛔ ONE SET OF CONTROLS PER POPULATION, BECAUSE A CONTROL VOUCHES ONLY FOR WHAT IT COUNTED.
+  // Until 2026-09-05 this reported a single positive control summed over the TOP-LEVEL tallies
+  // while the preregistered adoption measurement reads its n from the NESTED population. In the
+  // measurement window that published "positive control: 0, FAILS" over a nested population
+  // holding 255 Bash/Read/Grep calls, and the preregistration wrote the failure down as correct.
   controls: {
-    positive: { names: POSITIVE_CONTROLS, count: totals.positive, passed: totals.positive > 0 },
-    negative: { name: NEGATIVE_CONTROL, count: totals.negative, passed: totals.negative === 0 },
+    names: { positive: POSITIVE_CONTROLS, negative: NEGATIVE_CONTROL },
+    topLevelSessions: gradeControls({
+      population: totals.sessions, positive: totals.positive, negative: totals.negative,
+    }),
+    subagentSidechains: gradeControls({
+      population: nestedTally.sessions, positive: nestedTally.positive, negative: nestedTally.negative,
+    }),
+    publishable,
     ranInSamePass: true,
     unparseableLines: totals.bad,
     unparseableDetail: [...tallies, nestedTally].flatMap((t) => t.unparseableDetail),
@@ -311,5 +331,6 @@ console.log(JSON.stringify({
   })),
 }, null, 2));
 
-// Report-only. A measurement script must not gate anything on its own result.
-process.exit(totals.positive > 0 && totals.negative === 0 ? 0 : 1);
+// Report-only. A measurement script must not gate anything on its own RESULT — the exit code
+// reflects only whether the instrument demonstrated it works, never what it found.
+process.exit(publishable.ok ? 0 : 1);
