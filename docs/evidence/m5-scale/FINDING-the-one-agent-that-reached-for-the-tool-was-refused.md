@@ -64,11 +64,22 @@ Those two have different fixes and the second one has never been worked on.
   | `a089f88b` | twice | both were FILE PATHS containing `aify-project-graph` |
 
   ⇒ **Neither ever considered it.** So the three split **1 reachability / 2 surfacing**.
-- ⚠ **IT IS NOT ESTABLISHED THAT THIS STILL HAPPENS.** The memory
-  `graph-tools-are-deferred.md` records the opposite — that ToolSearch loads the verbs, probe-
-  verified — and it was written later. Either the situation changed, or the probe and this agent
-  differed in a way that matters. **That question is the highest-value next measurement, and it is
-  cheap.** Until it is answered this is history, not a live defect.
+- ~~**It is not established that this still happens.**~~ **IT DOES. REPRODUCED LIVE the same day**,
+  in a session with the server connected and the tools available:
+
+  | query | result |
+  |---|---|
+  | `select:code_intel_references,graph_callers,graph_whereis` | **"No matching deferred tools found"** |
+  | `select:mcp__aify-project-graph__graph_callers` | loads |
+  | keyword `graph` | loads |
+
+  ⇒ The tools were never absent. `select:` matches the FULLY QUALIFIED name, and the instructions
+  handed agents 22 unprefixed verb names and the working form zero times. The memory
+  `graph-tools-are-deferred.md` is not contradicted — its probe used the keyword form, which works.
+  Both are true, and the gap between them is exactly where the agent fell.
+
+  Fixed in `cd8b8d8c`, at the line that caused it: TOOL SURFACE said *"if a tool-search returns
+  nothing, do NOT retry"*, which is the instruction this agent obeyed.
 
 ## The instrument, and it failed once first
 
