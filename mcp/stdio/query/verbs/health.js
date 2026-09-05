@@ -1582,9 +1582,10 @@ export async function graphHealth({ repoRoot }) {
         // The verified count for THIS population — in-scope, LSP-verifiable, CALLS — not the
         // repo-wide edge total, which is a different noun and is reported separately as
         // `lspVerifiedEdges`.
-        const verifiedInScopeCalls = inScopeRows
-          .filter((r) => isLspVerifiableLanguage(r.lang))
-          .reduce((a, r) => a + (r.v ?? 0), 0);
+        // ONE source for the denominator, its verified subset, and the breakdown below — so the
+        // three cannot disagree about which languages they describe.
+        const verifiableRows = inScopeRows.filter((r) => isLspVerifiableLanguage(r.lang));
+        const verifiedInScopeCalls = verifiableRows.reduce((a, r) => a + (r.v ?? 0), 0);
         const coverage = computeCoverage(langScopeRows, verifiedInScopeCalls);
         const verifiedPct = coverage.pct;
         codeIntel.lspVerifiedInScopeCalls = verifiedInScopeCalls;
@@ -1609,6 +1610,29 @@ export async function graphHealth({ repoRoot }) {
               + 'their language lands. Scope and verifiability are independent: an edge can be in-scope and '
               + 'unverifiable (real code, no backend yet) or out-of-scope and verifiable (vendored C++).',
           };
+        }
+        // ⛔ MEMBERSHIP, NOT JUST A TOTAL — BECAUSE THE TOTAL CAN SURVIVE AN INVERTED SET.
+        //
+        // Found by ef-manager, 2026-09-05, comparing a stale server against a fixed one. Before the
+        // verifiable-language set was derived from BACKENDS, and after, this repo reported:
+        //
+        //     BROKEN: lspUnverifiableCalls.total = 11289 (js+ts+php+python+glsl)
+        //             lspCallsVerifiable         =    19 (cpp+c)
+        //     FIXED:  lspCallsVerifiable         = 11289 (js+ts+cpp+python+c)
+        //             excluded                   =    19 (php+glsl)
+        //
+        // cpp+c moved IN and php+glsl moved OUT, and both groups happen to number 19 — so the
+        // headline total did not move by a single call while the SET was inverted. Anyone auditing
+        // the fix by diffing totals sees 11289 -> 11289 and concludes the denominator was untouched.
+        // A number that changes invites scrutiny; a number that does not is the one nobody re-reads.
+        //
+        // ⇒ The excluded side already itemised itself (`by_reason`). The denominator did not, so its
+        // membership was the half nobody could diff. It does now. Matched swaps are the EXPECTED
+        // case when a fix moves items across a boundary, not a fluke worth waiting for.
+        if (verifiableRows.length > 0) {
+          codeIntel.lspVerifiableCallsByLanguage = verifiableRows
+            .sort((a, b) => b.c - a.c)
+            .map((r) => ({ language: r.lang, edges: r.c, verified: r.v ?? 0 }));
         }
         if (unverifiable.length > 0) {
           const unverifiableTotal = unverifiable.reduce((a, r) => a + r.c, 0);
