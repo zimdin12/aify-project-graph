@@ -48,6 +48,7 @@ export function graphCapabilities({
   languageHasServer = true,
   integrity = null,
   attestation = null,
+  lspPopulationAttested = false,
 } = {}) {
   // ⛔ AN INTERRUPTED INDEX LEAVES A GRAPH THAT PASSES EVERY OTHER CHECK. Observed: a `graph_index`
   // killed mid-write left click holding 90 nodes — Document 43, Directory 25, Config 22 — and ZERO
@@ -99,9 +100,33 @@ export function graphCapabilities({
   // caller written before it existed, which is the fail-open default this project keeps removing.
   const attested = attestation === ATTESTATION.ATTESTED;
 
+  // ⛔⛔⛔ THE CLAUSE THIS GATE WAS MISSING, AND THE WRONG NOUN WAS INSIDE THE GATE ITSELF.
+  //
+  // Measured 2026-09-06: on a best-case fixture — verified edges, complete collection, collection at
+  // HEAD, attested graph — this returned `true / reason: null`, with negative controls denying
+  // correctly in the same pass. And NO ANSWER PATH WOULD EVER HONOUR IT: `graph_callers` routes
+  // every absence through `buildAbsenceTrustLine`, which says "NOT exhaustive" unconditionally and
+  // branches on nothing. So the field health calls "the question that deletes code" could grant a
+  // licence the product could not cash anywhere.
+  //
+  // ⭐ `coverageComplete` RECORDS THE FILES APG PROCESSED. This gate was reading it as evidence of
+  // what the LANGUAGE SERVER INDEXED. Different populations, and `cause-classification.js` has said
+  // so on every call since 2026-08-19: the compile DB selects which files clangd MAY index and never
+  // reports which it DID, so `index_population_unattested` is true of every call.
+  //
+  // ⇒ Named, not hardcoded false. A hardcoded false is a list someone must remember to update, and
+  // it would make every other clause here dead code. A named unsatisfied clause is a derivation: the
+  // workspace-symbol round-trip and the background-index opt-in that README.md already lists as
+  // future work can satisfy it without anyone rediscovering this reasoning.
+  //
+  // ⚠ AND THE ROADMAP'S FIX WAS BACKWARDS. `ROADMAP-2026-09-03.md` R1.1 says to wire this gate INTO
+  // `graph_callers`. That would let the caller verb UPGRADE its absence claim whenever the flag was
+  // true — fail-open, in the codebase whose recorded dominant defect class is fail-open. The answer
+  // paths were already right; the GRANT was wrong.
   const absenceAuthority = Boolean(
     indexed && !incomplete && attested
-    && collectionAvailable && hasVerified && coverageComplete && collectionIsCurrent,
+    && collectionAvailable && hasVerified && coverageComplete && collectionIsCurrent
+    && lspPopulationAttested === true,
   );
 
   let reason = null;
@@ -128,6 +153,12 @@ export function graphCapabilities({
   // `headKnown`, and non-git checkouts are supported.
   else if (collectionCurrent === false) reason = 'collection_stale';
   else if (collectionCurrent !== true) reason = 'collection_currency_unknown';
+  // ⛔ ORDERED AFTER EVERY COLLECTION DIAGNOSIS, DELIBERATELY. A partial, stale or absent collection
+  // is the more specific and more actionable answer; this one says the architecture cannot establish
+  // the language server's own indexed population even when the collection is perfect. Placed higher
+  // it would diagnose every ordinary collection problem as an unattestable population and send the
+  // reader to fix something they cannot.
+  else if (lspPopulationAttested !== true) reason = 'index_population_unattested';
   // ⛔ LAST, BECAUSE IT IS A FACT ABOUT THE CALLER AND NOT ABOUT THE GRAPH. It still DENIES — an
   // authority nobody asked to verify is not granted — but it must not outrank a real diagnosis.
   // Placed first, it masked `no_collection` and `trust_spine_empty` on every caller written before

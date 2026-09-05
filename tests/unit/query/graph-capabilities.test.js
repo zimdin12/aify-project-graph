@@ -58,6 +58,9 @@ describe('graphCapabilities — orientation and absence authority are INDEPENDEN
       // And an unattested graph cannot support an absence claim at all, so "every clause" now
       // includes the publication generation agreeing with the manifest.
       attestation: ATTESTATION.ATTESTED,
+      // And 2026-09-06: a complete collection says what APG PROCESSED, never what the language
+      // server INDEXED, so "every clause" now includes the LSP's own population being attested.
+      lspPopulationAttested: true,
     });
     expect(c.absenceAuthority).toBe(true);
     expect(c.reason).toBeNull();
@@ -146,7 +149,9 @@ describe('every refusal carries an action a reader can take', () => {
       // attestation added the same way: an unattested graph cannot support an absence claim, so the
       // single granting state has to satisfy that clause as well. The COUNT is what this test is
       // about — one YES against four NOs — and adding a clause must not quietly turn it into zero.
-      { indexed: true, compilerVerifiedEdges: 1410, collectionAvailable: true, coverage: { complete: true }, collectionCurrent: true, attestation: ATTESTATION.ATTESTED },
+      // lspPopulationAttested added the same way, 2026-09-06, and this test's own warning above is
+      // why: adding a clause must not quietly turn the one YES into zero.
+      { indexed: true, compilerVerifiedEdges: 1410, collectionAvailable: true, coverage: { complete: true }, collectionCurrent: true, attestation: ATTESTATION.ATTESTED, lspPopulationAttested: true },
       { indexed: false },
       { indexed: true, compilerVerifiedEdges: 0, collectionAvailable: false },
       { indexed: true, compilerVerifiedEdges: 0, collectionAvailable: true, coverage: { complete: true } },
@@ -172,7 +177,11 @@ describe('every refusal carries an action a reader can take', () => {
 // signal rather than ordinary drift. The `HEALTHY` case below is that control in test form: without
 // it, every assertion here is satisfied by a function that calls every graph broken.
 describe('graphCapabilities — an incomplete index is reported, and only when it IS one', () => {
-  const FULL = { indexed: true, compilerVerifiedEdges: 1410, collectionAvailable: true, coverage: { complete: true }, collectionCurrent: true, attestation: ATTESTATION.ATTESTED };
+  // `FULL` means every capability clause satisfied, so it gained `lspPopulationAttested` on
+  // 2026-09-06 with the clause itself — otherwise this positive control would assert that an
+  // integrity-agreeing graph "keeps every capability" while one of them was denied for an unrelated
+  // reason, and the integrity tests below would be measuring the wrong denial.
+  const FULL = { indexed: true, compilerVerifiedEdges: 1410, collectionAvailable: true, coverage: { complete: true }, collectionCurrent: true, attestation: ATTESTATION.ATTESTED, lspPopulationAttested: true };
 
   it('⭐ POSITIVE CONTROL: a graph whose counts agree keeps every capability', () => {
     const c = graphCapabilities({ ...FULL, integrity: { manifestNodes: 2572, dbNodes: 2572, manifestEdges: 13618, dbEdges: 13618, codeNodes: 1904 } });
@@ -282,6 +291,12 @@ describe('absence authority requires a CURRENT collection, not just a complete o
     coverage: { complete: true },
     compilerVerifiedEdges: 1054,
     attestation: ATTESTATION.ATTESTED,
+    // Added 2026-09-06 with the clause it satisfies: the gate now also requires that the LANGUAGE
+    // SERVER attested which files it indexed, because `coverage.complete` counts files APG
+    // PROCESSED and the two are different populations. The base means "every clause satisfied", so
+    // it carries the new one too — same extension this fixture took for `collectionCurrent` and
+    // `attestation` before it.
+    lspPopulationAttested: true,
   };
 
   it('POSITIVE CONTROL: a current, complete collection still grants authority', () => {
@@ -398,6 +413,9 @@ describe('publication attestation gates the claim that deletes code', () => {
     collectionAvailable: true,
     coverage: { complete: true },
     collectionCurrent: true,
+    // See the note on `complete` above — "every other clause satisfied" now includes the language
+    // server's own indexed population being attested.
+    lspPopulationAttested: true,
   };
 
   it('POSITIVE CONTROL: an attested graph with every other clause satisfied still grants authority', () => {
