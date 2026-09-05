@@ -305,14 +305,14 @@ export const TOOLS = [
   {
     name: 'graph_explain_diff',
     handler: graphExplainDiff,
-    description: 'Explain an EXISTING change/diff (reverse of graph_consequences). Keyed on a git range — NOT a symbol. Input: range (e.g. "main...HEAD", "HEAD~3", "<sha>~1..<sha>") OR staged=true OR files[]; defaults to uncommitted working-tree changes. Output: CHANGED (files → symbols the diff touched), AFFECTED 1-hop (callers/dependents grouped by file, [lsp✓] where clangd-verified), LAYERS (architecture layers the change spans — cross-layer = higher risk), RISK (labeled heuristic score: cross-layer × fan-out × contract/test signals), TESTS (adjacent coverage). Carries the LSP-vs-heuristic trust banner. Use when reviewing/triaging a PR or an already-made change to see its blast radius. Pass overlay=true to also emit .aify-graph/diff-overlay.json for the dashboard blast-radius highlight.',
+    description: 'Explain an EXISTING change/diff (reverse of graph_consequences). Keyed on a git range — NOT a symbol. Input: range (e.g. "main...HEAD", "HEAD~3", "<sha>~1..<sha>") OR staged=true OR files[]; defaults to uncommitted working-tree changes. Output: CHANGED (files → symbols the diff touched), AFFECTED 1-hop (callers/dependents grouped by file, [lsp✓] where clangd-verified), LAYERS (architecture layers the change spans — cross-layer = higher risk), RISK (labeled heuristic score: cross-layer × fan-out × contract/test signals), TESTS (adjacent coverage). Carries the LSP-vs-heuristic trust banner. Use when reviewing/triaging a PR or an already-made change to see its blast radius. ⛔ Answers what a diff TOUCHES, never how the shape CHANGED — it maps changed files onto CURRENT symbols and never sees the previous graph.',
     schema: {
       type: 'object',
       properties: {
         range: { type: 'string', description: 'Git rev range understood by `git diff` — "main...HEAD", "HEAD~3", "<sha>~1..<sha>", a bare sha, etc. Omit for working-tree (uncommitted) changes.' },
         staged: { type: 'boolean', default: false, description: 'Explain the staged (index) diff instead of working tree. Ignored when range or files[] is given.' },
         files: { type: 'array', items: { type: 'string' }, description: 'Explicit repo-relative changed-file list. Overrides range/staged/working-tree resolution.' },
-        overlay: { type: 'boolean', default: false, description: 'Also write .aify-graph/diff-overlay.json ({changedNodeIds, affectedNodeIds}) for the dashboard blast-radius highlight (P2-2).' },
+        overlay: { type: 'boolean', default: false, description: 'Write .aify-graph/diff-overlay.json ({changedNodeIds, affectedNodeIds}). ⛔ NOTHING READS IT YET — the dashboard highlight it was written for does not exist, so this produces a file for your own use, not a rendered view.' },
         top_k: { type: 'integer', default: 30, description: 'Max affected-file groups returned.' },
       },
     },

@@ -331,7 +331,19 @@ export async function graphExplainDiff({ repoRoot, range, staged = false, files,
     } catch { trustLine = RESULTS_TRUST_UNAVAILABLE; }
     const affectedIsHeuristic = !hasLspVerifiedEdge(affectedEdges);
 
-    // 7. Optional diff-overlay.json for the dashboard (P2-2 blast-radius).
+    // 7. Optional diff-overlay.json (P2-2 blast-radius).
+    //
+    // ⛔ NOTHING READS THIS YET, AND THE SCHEMA USED TO SAY IT DID. Measured 2026-09-06 with a
+    // positive control: the dashboard's `loadOverlayJson` is called EIGHT times and every one asks
+    // for `functionality.json` or `tasks.json` — never this file. The positive control was
+    // `functionality.json`, which has three consumers, so the zero is the dashboard's silence and
+    // not a broken search. `tests/unit/query/explain-diff.test.js` asserts only that the file is
+    // WRITTEN, which is why a producer with no consumer stayed green.
+    //
+    // ⇒ Producer proven, consumer absent, claim shipped anyway — the fourth recorded instance of
+    // that shape here. The tool description now says so plainly. The consumer arrives in the delta
+    // work (`docs/PLAN-2026-09-06-two-tags.md`, D3), and the description changes back THEN, on
+    // evidence, rather than staying true-by-intention in the meantime.
     let overlayWritten = null;
     if (overlay) {
       try {
