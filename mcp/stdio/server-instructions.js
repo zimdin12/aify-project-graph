@@ -15,8 +15,9 @@ TOOL SURFACE: tools/list shows a FOCUSED default (16 verbs). Long-tail verbs nam
 below (graph_onboard, graph_shader, graph_callees, graph_overview, …) are callable
 only where a host allows calling an UNLISTED tool. In a managed session that defers
 MCP tools behind a search step, they are NOT reachable — the deferred index holds
-listed tools only. If a tool-search for one returns nothing, do NOT retry: use a
-listed verb, or start the server with --toolset=full.
+listed tools only. ⚠ BUT A FAILED SEARCH IS USUALLY A NAME ERROR, NOT AN ABSENCE: select: needs the
+FULL name mcp__aify-project-graph__<verb>, so a bare select:graph_callers gets back
+"No matching deferred tools found". Retry with keyword "graph" first, then --toolset=full.
 
 DESCRIPTIONS ARE DELIBERATELY SHORT: what a verb is for, and when to doubt it. Parameter detail,
 output schema and examples live in the SKILLS — aify-project-graph (orientation + hard rules),
@@ -33,8 +34,7 @@ ORIENT FIRST (cheap, often saves 2-5 shell calls):
 - Read .aify-graph/brief.* (brief.agent.md / brief.onboard.md / brief.plan.md) to orient before grepping.
 - graph_health — run ONCE at session start; nothing else answers "can I trust what I am about to
   be told". Field-rated the highest-value call here: it caught a wrong-toolchain compile DB.
-- graph_onboard / graph_tour walk an unfamiliar repo but MAY NOT BE CALLABLE (see TOOL SURFACE);
-  if a tool-search finds neither, do not retry — graph_packet mode:orient answers the same question.
+- graph_onboard / graph_tour walk an unfamiliar repo but MAY NOT BE CALLABLE (see TOOL SURFACE) — graph_packet mode:orient answers the same question.
 
 TOOL SELECTION BY INTENT:
 - who calls X / is it safe to delete → code_intel_references or graph_callers (read the evidence banner).
