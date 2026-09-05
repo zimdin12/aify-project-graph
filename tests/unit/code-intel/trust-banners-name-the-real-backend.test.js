@@ -23,6 +23,7 @@
 import { describe, it, expect } from 'vitest';
 import { BACKENDS } from '../../../mcp/stdio/code-intel/backends.js';
 import { backendNameFor } from '../../../mcp/stdio/code-intel/provenance.js';
+import { backendForCollection } from '../../../mcp/stdio/query/lsp-evidence.js';
 import { buildHierarchyTrustLine } from '../../../mcp/stdio/query/verbs/code_intel_hierarchy.js';
 
 describe('trust banners name the backend that actually answered', () => {
@@ -90,5 +91,24 @@ describe('trust banners name the backend that actually answered', () => {
       });
       expect(line, `branch ${JSON.stringify(c)} still says clangd`).not.toContain('clangd');
     }
+  });
+
+  it('★★★ a compile DB identifies the backend when no language was recorded', () => {
+    // ⛔ THIS CLAUSE WAS UNTESTED AND I HAD JUSTIFIED IT WITH A FALSE STORY. I wrote that a test
+    // caught me removing it; the failure I was chasing came from a different line entirely, and a
+    // mutant proved it — deleting the clause broke nothing. It survives because the reasoning holds
+    // on its own: only C++ has a compile DB, so a recorded hash identifies the backend. Now checked.
+    expect(backendForCollection({ compileDbHash: 'deadbeef' })).toBe(BACKENDS.cpp.providerName);
+  });
+
+  it('★★★ and with neither a language nor a compile DB it says UNKNOWN, not clangd', () => {
+    // The original defaulted to cpp here, asserting a toolchain on a trust surface with no evidence.
+    expect(backendForCollection({})).toBe('unknown-provider');
+    expect(backendForCollection(null)).toBe('unknown-provider');
+  });
+
+  it('★★ an explicit language always wins over the compile-DB inference', () => {
+    expect(backendForCollection({ language: 'typescript', compileDbHash: 'deadbeef' }))
+      .toBe(BACKENDS.typescript.providerName);
   });
 });
