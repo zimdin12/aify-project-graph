@@ -129,6 +129,16 @@ function warmupHint(language) {
   return String(language || '').toLowerCase() === 'cpp' ? 'callers + headers' : 'callers + importers';
 }
 
+/**
+ * Auto-prewarm is implemented for C++ only — it selects sibling translation units from the compile
+ * database, which has no analogue in the other backends. Exported so a test can assert the wording
+ * rather than re-typing a literal that could drift.
+ *
+ * ⚠ It names PREWARM as the missing thing, never the language. The language is supported; this one
+ * optimisation is not built for it.
+ */
+export const PREWARM_NOT_IMPLEMENTED = 'prewarm_not_implemented_for_language';
+
 export function buildReferencesEvidence(args) {
   // ONE choke point, so the stamp cannot be missing from a branch. Fifteen return sites in the
   // inner function is exactly how a per-branch field goes absent on the one path that matters.
@@ -595,8 +605,13 @@ function planAutoPrewarm(session, queriedFile, callerWarmupFiles, prewarmCap) {
   if (session.client.workspaceWarmCount > 0) {
     return { addedFiles: [], stats: { cap: prewarmCap ?? null, skipped: false, source: 'already_warm' } };
   }
+  // ⛔ THIS SAID 'unsupported_language' ABOUT LANGUAGES THIS SERVER SUPPORTS. A Python reference
+  // answer carried `prewarmSource: "unsupported_language"` while pyright was serving that very query
+  // (provenance came back "pyright@live"). Auto-prewarm is implemented for C++ only, which is a fine
+  // feature boundary — but the word denied something else entirely, and an agent reading it learns
+  // that the tool cannot handle its language. It can.
   if (session.language !== 'cpp') {
-    return { addedFiles: [], stats: { cap: prewarmCap ?? null, skipped: false, source: 'unsupported_language' } };
+    return { addedFiles: [], stats: { cap: prewarmCap ?? null, skipped: false, source: PREWARM_NOT_IMPLEMENTED } };
   }
   const result = selectCppPrewarmFiles({
     projectRoot: session.projectRoot,
