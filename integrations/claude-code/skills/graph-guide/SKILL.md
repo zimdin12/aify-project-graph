@@ -97,9 +97,23 @@ evidence of completeness. Their `file:line` is the **caller function's declarati
 not the call site (edges are function-granular), so do not read it as a callsite
 number.
 
-For a delete/rename decision use `code_intel_references` and gate on
-`evidence.exhaustive === true`. Where a code-intel collection has verified an edge,
-the stored verbs render it as `[lsp✓]` — that marker is the difference.
+For a delete or rename decision, `code_intel_references` finds callers and `rg` proves
+there are none. ⛔ `evidence.exhaustive` is withheld on every call, so no flag licenses
+the delete. Where a code-intel collection has verified an edge, the stored verbs render
+it as `[lsp✓]`, and that marker is the difference.
+
+## A short symbol name can collect callers it never had
+
+`graph_callers` and `graph_impact` resolve heuristic edges BY NAME, so a symbol whose
+name is also a builtin method collects every unrelated call to that method. Measured on
+this repository: `join` had 755 inbound edges, `trim` 259, `has` 253, and each was
+mostly `Array.join`, `String.trim` and `Map.has`.
+
+Both verbs now say so. When the result carries `⚠ This list is NOT a floor` and names an
+overcount risk, the caller set is inflated and you should read the file:line values
+before believing any of them. The warning fires on a short name with ten or more
+heuristic callers, and stays quiet when the edges are compiler-resolved, because those
+were not resolved by name.
 
 ## Reading an answer's evidence
 
