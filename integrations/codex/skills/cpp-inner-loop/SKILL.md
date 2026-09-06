@@ -134,7 +134,7 @@ repo that reached one path: a capability claim about X lives in files that are n
 
    - Auto-prewarms a bounded set (≤15 same-dir + compile_commands siblings) when the session is cold and you didn't pass `warmupFiles[]`. Honest: this fixes the most common "no refs because clangd hadn't seen the callers yet" case without forcing you to think about warmup.
    - For deeper cross-TU coverage (cross-component, dynamic dispatch chains), pass `warmupFiles[]` explicitly — known callers, headers, vtable-bearing TUs. Caller-provided warmup wins over auto-prewarm.
-   - Only `evidence.exhaustive === true` lets you make absence claims. `referenceLocations[]` gives callsites without the declaration mixed in.
+   - ⛔ There is no flag to wait for here. `evidence.exhaustive` is withheld on every call, so it never turns true and no absence claim follows from it. Use `rg` to prove absence. `referenceLocations[]` gives callsites without the declaration mixed in.
 
 3. **Multi-level absence walk** (the dead-code / blast-radius pattern):
    For "is X reachable from anywhere alive?", walk each indirection level: refs of X → refs of each of X's callers → … Treat `evidence.exhaustive` as the per-link contract. One non-exhaustive link breaks the chain — fall back to grep for that link rather than silently propagating uncertainty.
@@ -151,7 +151,7 @@ repo that reached one path: a capability claim about X lives in files that are n
    code_intel_definitions({ file: "src/bar.cpp", line: 5, col: 12 })
    ```
 
-   Same evidence contract applies — `evidence.exhaustive === true` means "this is THE definition" (no degraded cause masking a missing one).
+   The same evidence contract applies, and so does the same limit: `evidence.exhaustive` is withheld, so it cannot tell you this is the only definition. Read `cause` to see what narrowed the answer.
 
 6. **Post-edit diagnostics** without running a build:
 
@@ -221,7 +221,7 @@ convergence. You are done when `index.filesTotal` is `0`.
 
 - `cold` — no workspace file opened in this session yet. Auto-prewarm fires before the first navigation call. Empty results in this state are NEVER exhaustive.
 - `stale` — the LSP is actively indexing right now. Wait or pass `waitForReadyMs`.
-- `fresh` — the LSP signalled ready AND we have workspace-warm evidence. Required for `evidence.exhaustive === true`.
+- `fresh` — the LSP signalled ready AND we have workspace-warm evidence. This was the freshness level `evidence.exhaustive` once required; that flag is now withheld on every call, so `fresh` buys you confidence in the callers you got, not a complete set.
 - `unknown` — older adapter can't classify. Result is usable but not exhaustive.
 
 ## Subagent needs evidence without spawning clangd

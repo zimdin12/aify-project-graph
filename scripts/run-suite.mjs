@@ -19,6 +19,7 @@ import { createWriteStream, mkdirSync, copyFileSync, appendFileSync } from 'node
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { classifyRunIntegrity } from './lib/suite-run-integrity.mjs';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DEST = join(REPO, 'docs/evidence/suite/latest.log');
@@ -57,13 +58,24 @@ const headAtStart = (() => {
 // The earlier fix stopped the log being written DURING a run. This closes the other half — the log
 // left over AFTER one. A self-inflicted red is worse than a missing check: it burns eleven minutes
 // and looks like a real defect.
-const trackedDirty = (() => {
+// ⭐ FUNCTIONS, NOT ONE-SHOTS, because the END of the run needs the same two readings. The entry
+// check below and the integrity check afterwards must ask the identical question, or they can
+// disagree about what "dirty" means and the disagreement would look like a defect in the code.
+function readTrackedDirty() {
   try {
     const unstaged = execFileSync('git', ['-C', REPO, 'diff', '--name-only'], { encoding: 'utf8' });
     const staged = execFileSync('git', ['-C', REPO, 'diff', '--cached', '--name-only'], { encoding: 'utf8' });
     return `${unstaged}${staged}`.split('\n').filter(Boolean);
-  } catch { return []; }
-})();
+  } catch { return null; }
+}
+
+function readHead() {
+  try {
+    return execFileSync('git', ['-C', REPO, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+  } catch { return 'unknown'; }
+}
+
+const trackedDirty = readTrackedDirty() ?? [];
 if (trackedDirty.length > 0) {
   console.error('REFUSED: the tree has tracked changes, so the suite would measure a dirty repo.');
   for (const f of trackedDirty) console.error(`  M ${f}`);
@@ -88,6 +100,27 @@ child.on('close', (code) => {
     appendFileSync(SCRATCH, `\nSUITE FOR COMMIT ${headAtStart}\nFINISHED ${new Date().toISOString()}\nVITEST_EXIT=${code}\n`);
     copyFileSync(SCRATCH, DEST);
     console.log(`suite exit ${code} — log copied to docs/evidence/suite/latest.log`);
+
+    // ⛔⛔ DID THE TREE HOLD STILL? The entry check refuses a dirty START and then never looks again,
+    // so a run can begin at one commit and finish against a tree three commits later while still
+    // printing a verdict for the old one. Measured 2026-09-06: that log was on its way to being
+    // committed as evidence about a commit it had never seen, and four of its five failures were
+    // artifacts of files moving underneath the run.
+    const integrity = classifyRunIntegrity({
+      headAtStart,
+      headAtEnd: readHead(),
+      dirtyAtEnd: readTrackedDirty(),
+      // The copy two lines above put this file there. Without naming it the guard would void every
+      // run, which is how a check becomes noise.
+      expectedWrites: ['docs/evidence/suite/latest.log'],
+    });
+    if (!integrity.valid) {
+      console.error(`\n⛔ VOID — ${integrity.reason}.`);
+      console.error('This run measured a moving target, so its exit code says nothing about any commit.');
+      console.error('Do not commit this log as evidence and do not push on it. Re-run on a quiet tree.');
+      process.exit(3);
+    }
+
     console.log(`verdict is for commit ${headAtStart}`);
     console.log(code === 0
       ? 'GREEN. Commit the log with the work it vouches for, then push.'

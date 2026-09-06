@@ -7,7 +7,8 @@ import { inspectReadFreshness, prefixReadWarnings, staleNotFoundCaveat } from '.
 import { loadManifest } from '../../freshness/manifest.js';
 import { computeTrustLevel } from './health.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
-import { buildTrustLine, buildAbsenceTrustLine, ABSENCE_TRUST_UNAVAILABLE, RESULTS_TRUST_UNAVAILABLE } from '../lsp-evidence.js';
+import { buildTrustLine, buildAbsenceTrustLine, hasLspVerifiedEdge, ABSENCE_TRUST_UNAVAILABLE, RESULTS_TRUST_UNAVAILABLE } from '../lsp-evidence.js';
+import { isOvercountSuspicious, describeResultCount } from '../overcount-risk.js';
 import { indexedScopePhrase } from '../miss-scope.js';
 import { IMPACT_FAMILY } from '../../storage/taxonomy.js';
 import { noMatchMessage } from '../did-you-mean.js';
@@ -18,6 +19,12 @@ import { noMatchMessage } from '../did-you-mean.js';
 // recursive reverse traversal therefore uses the family minus OVERRIDDEN_BY —
 // behavior-preserving vs the prior IMPACT_RELATIONS list.
 const IMPACT_RELATIONS = IMPACT_FAMILY.filter((r) => r !== 'OVERRIDDEN_BY');
+
+// ⛔ A CAP IS NOT A COUNT, and a bare `LIMIT 100` cannot tell a full page from a saturated one.
+// Measured 2026-09-07: graph_callers reported `100 callers` to a live agent for a symbol with 10
+// call sites, because 100 was the cap. That verb at least fetched CAP + 1 and knew; this one did
+// not, so it capped silently and no code here could detect it. Ask for one more than you keep.
+const IMPACT_FETCH_CAP = 100;
 
 export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
   if (!symbol) return 'ERROR: symbol parameter is required';
@@ -37,7 +44,9 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
     const placeholders = targetIds.map((_, index) => `$tid${index}`).join(', ');
     const params = Object.fromEntries(targetIds.map((id, index) => [`tid${index}`, id]));
 
-    const edges = db.all(
+    // `let`, not `const`: the query deliberately fetches CAP + 1 to detect saturation and the extra
+    // row is sliced off below before anything reads the list.
+    let edges = db.all(
       `WITH RECURSIVE impact(from_id, to_id, depth) AS (
          SELECT from_id, to_id, 1
          FROM edges
@@ -73,7 +82,7 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
        -- are part of it ON PURPOSE: two genuine call sites to the same target are two
        -- edges and must both survive. Only the path duplicate collapses.
        GROUP BY e.from_id, e.to_id, e.relation, e.source_file, e.source_line
-       LIMIT 100`,
+       LIMIT ${IMPACT_FETCH_CAP + 1}`,
       { ...params, depth }
     );
 
@@ -94,7 +103,7 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
        JOIN nodes n ON n.id = e.from_id
        LEFT JOIN nodes t ON t.id = e.to_id
        WHERE e.from_id IN (${placeholders}) AND e.relation = 'OVERRIDDEN_BY'
-       LIMIT 100`,
+       LIMIT ${IMPACT_FETCH_CAP + 1}`,
       params,
     );
 
@@ -114,6 +123,10 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
         freshness.warnings,
       );
     }
+
+    // Fetched CAP + 1 purely to detect saturation; the extra row is never shown.
+    const edgesTruncated = edges.length > IMPACT_FETCH_CAP;
+    if (edgesTruncated) edges = edges.slice(0, IMPACT_FETCH_CAP);
 
     const mapped = edges.map(e => ({
       from_id: e.from_id, to_id: e.to_id, relation: e.relation,
@@ -185,11 +198,15 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
       // (b) more indexed nodes labeled <symbol> than edges returned —
       //     the graph likely missed cross-file resolution.
       // Trust=strong with healthy result count stays quiet.
-      const suspicious = (trust === 'weak' && resultCount < 10)
-        || (occurrences >= 3 && resultCount < occurrences);
+      // ⭐ ONE OWNER. This predicate used to live here AND in graph_callers, byte-identical, and it
+      // had the same hole in both: it modelled AMBIGUITY and was blind to the builtin-method
+      // COLLISION. See overcount-risk.js.
+      const { suspicious } = isOvercountSuspicious({
+        trust, resultCount, occurrences, symbol, hasVerifiedEdge: hasLspVerifiedEdge(mapped),
+      });
       if (suspicious) {
         const parts = [
-          `[${resultCount} edges found`,
+          `[${describeResultCount({ resultCount, truncated: edgesTruncated }).text} edges found`,
           `trust=${trust}`,
           `${occurrences} indexed node${occurrences === 1 ? '' : 's'} labeled "${symbol}"`,
           `${trustCount} unresolved CALLS edges not attributed to any caller`,

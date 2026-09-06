@@ -10,6 +10,15 @@ import { checkRequestSize, MAX_MCP_LINE_BYTES } from './security/request-size.js
 import { findSensitivePathArg } from './security/sensitive-paths.js';
 import { SERVER_INSTRUCTIONS } from './server-instructions.js';
 import { buildSessionSeed } from './session-seed.js';
+
+// ⛔ THE HANDSHAKE SAID 0.1.0 WHILE THE PACKAGE SAID 0.8.0, across seven releases. `serverInfo.version`
+// is the one field a client reads to know WHICH BUILD it is talking to, and this project's whole
+// freshness story is about a running process holding old code — so a server that misreports its own
+// version cannot take part in it. Derived from the one place a version belongs; a literal here is a
+// defect with a release-shaped delay on it.
+const PACKAGE_VERSION = JSON.parse(
+  fs.readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
+).version;
 import { shutdownAllSessions } from './code-intel/live.js';
 import { noteDeprecatedVerbCall, noteProbeArmed } from './deprecation-probe.js';
 import { HIDDEN_FULL_TOOL_NAMES } from './hidden-tools.js';
@@ -450,7 +459,7 @@ rl.on('line', async (line) => {
       result: {
         protocolVersion: '2024-11-05',
         capabilities: { tools: {}, resources: {} },
-        serverInfo: { name: 'aify-project-graph', version: '0.1.0' },
+        serverInfo: { name: 'aify-project-graph', version: PACKAGE_VERSION },
         // P1-1 — intent-routed playbook. MCP hosts inject this into the agent
         // system prompt once/session; single source of truth in
         // server-instructions.js.

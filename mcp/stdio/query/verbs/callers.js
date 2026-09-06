@@ -8,7 +8,7 @@ import { inspectReadFreshness, prefixReadWarnings, staleNotFoundCaveat } from '.
 import { loadManifest } from '../../freshness/manifest.js';
 import { computeTrustLevel } from './health.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
-import { buildTrustLine, buildAbsenceTrustLine, ABSENCE_TRUST_UNAVAILABLE, RESULTS_TRUST_UNAVAILABLE } from '../lsp-evidence.js';
+import { buildTrustLine, buildAbsenceTrustLine, hasLspVerifiedEdge, ABSENCE_TRUST_UNAVAILABLE, RESULTS_TRUST_UNAVAILABLE } from '../lsp-evidence.js';
 import { EXECUTION_FAMILY, CALL_FAMILY } from '../../storage/taxonomy.js';
 import { normalizePathArg } from '../../util/paths.js';
 import { noMatchMessage } from '../did-you-mean.js';
@@ -16,6 +16,7 @@ import { noMatchMessage } from '../did-you-mean.js';
 // One owner: fixing one verb and pasting into the other is how the two drift apart.
 import { unsearchedRelationNote } from '../unsearched-scope.js';
 import { indexedScopePhrase } from '../miss-scope.js';
+import { isOvercountSuspicious, describeResultCount } from '../overcount-risk.js';
 
 const EXECUTION_RELATIONS = EXECUTION_FAMILY;
 
@@ -164,8 +165,12 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
       const resultCount = mapped.length;
       // Same trigger as graph_impact: only fire when result actually
       // looks suspicious. Trust=strong with healthy count stays quiet.
-      const suspicious = (trust === 'weak' && resultCount < 10)
-        || (occurrences >= 3 && resultCount < occurrences);
+      // ⭐ ONE OWNER. This predicate used to live here AND in the other verb, byte-identical, and
+      // it had the same hole in both: it modelled AMBIGUITY and was blind to the builtin-method
+      // COLLISION that `graph_callers("has")` produces. See overcount-risk.js.
+      const { suspicious } = isOvercountSuspicious({
+        trust, resultCount, occurrences, symbol, hasVerifiedEdge: hasLspVerifiedEdge(mapped),
+      });
       if (suspicious) {
         // ⛔ THE LEAN THIS BLOCK USED TO CARRY, TWO LINES BELOW THE SENTENCE THAT WITHDREW IT.
         //
@@ -186,7 +191,12 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
         // and a floor licenses acting on what IS shown — that is the whole value of a floor." So it
         // did not merely omit the overcount; it named the direction that makes a list SAFE TO USE.
         const overcountRisk = occurrences >= 2 || symbol.length <= 8;
-        confidenceFooter = `\nCONFIDENCE: ${resultCount} callers · trust=${trust} · ${occurrences} indexed nodes labeled "${symbol}" · ${trustCount} unresolved CALLS edges not attributed to any caller.`
+        // ⛔ A CAP IS NOT A COUNT. `resultCount` saturates at EDGE_FETCH_CAP, and printing it bare
+        // told a live agent "100 callers" for a symbol with 10 call sites in one function. The
+        // truncation flag already existed and reached the trust banner while never reaching the
+        // line that prints the number — computed and not consumed.
+        const counted = describeResultCount({ resultCount, truncated: edgesTruncated });
+        confidenceFooter = `\nCONFIDENCE: ${counted.text} callers · trust=${trust} · ${occurrences} indexed nodes labeled "${symbol}" · ${trustCount} unresolved CALLS edges not attributed to any caller.`
           + `\n  ⚠ This list is NOT a floor. On a weak-trust graph it can UNDERCOUNT (C++ cross-file`
           + ` dispatch, PHP traits/Eloquent, dynamic dispatch) and, because heuristic edges resolve`
           + ` calls BY NAME, it can also OVERCOUNT with unrelated same-named calls`
