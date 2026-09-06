@@ -55,3 +55,55 @@ result.
 ⛔ It says nothing about the ~700 short-name edges, which remain presumed collisions and unmeasured.
 ⛔ One repository, one language pair (`.js`/`.mjs`). Not a rate for anyone else's code.
 ⛔ It does not establish that any shipped verb's answer changes. That is still untested.
+
+---
+
+## ⛔ RESULT, 2026-09-06 — 86% of distinctive-name recovered edges are REAL
+
+Qualifying population: **315** of the 1,411 have a target leaf name of 8+ characters. Systematic
+sample of **30** (every 10th of the sorted keys).
+
+| grade | n | examples |
+|---|---|---|
+| **REAL** | **25** | `callers.js → inspectReadFreshness`, `health.js → classifyPublication`, `nestjs.js → tryReadFile`, `packet-overlay.js → clampList` (8 call sites), `orchestrator.test.js → ensureFresh` (21) |
+| **COLLISION** | **4** | `collect-ledger.js → complete` (target is a TEST file, and the source references it **0** times), `mutate.mjs → original` (same shape), `measure-callee-classes.mjs → readLine` (a LOCAL `const readLine = lineReader(...)`), `explore.js → notFound` (defined locally, 0 calls) |
+| **UNDECIDABLE** | **1** | `auto-sync.js → ensureFresh` — see below |
+
+**Decided: 29. REAL share: 25/29 = 86.2%** ⇒ **≥ 70%, so by the preregistered rule a genuine
+recovery effect exists among distinctive names.** The abandon rule (>1/3 undecidable) did not fire:
+1 of 30.
+
+⚠ **Four of the graded edges were only readable because the first pass was wrong.** A single-line
+import regex reported "no import" for `codeIntelDefinitions`, `containedInRoot`, `symbolList` and one
+`ensureFresh` — all four are real, reached by a MULTI-LINE import, a namespace import
+(`import * as L`), or a dynamic `await import(...)`. Grading them from the regex's silence would have
+produced four false COLLISIONs and dragged the result from 86% to 72%. **An instrument's silence is
+not evidence until you have watched it speak.**
+
+### The UNDECIDABLE one, and my rule did not anticipate it
+
+`sync/auto-sync.js` never imports the orchestrator. It takes `ensureFresh` as an **injected
+parameter** (`@param {Function} opts.ensureFresh — the freshness orchestrator entrypoint`) and calls
+it. At runtime that IS `orchestrator.ensureFresh`; statically the file references nothing in that
+module. It is neither a real static edge nor a name collision, and the preregistered grades have no
+box for dependency injection. **Recorded as undecidable rather than forced into the box that suits
+the conclusion.**
+
+## ⇒ THE CORRECTED PICTURE, and it is neither of my two earlier stories
+
+```
+1411 edges present only in the forced rebuild
+  ~712  target leaf name <= 3 chars   presumed COLLISION (unmeasured)
+   315  target leaf name >= 8 chars   86% REAL  =>  ~271 genuine recoveries
+  ~384  in between                    UNMEASURED
+```
+
+- **The inherited graph WAS missing real edges.** `graph_callers.js → inspectReadFreshness` and
+  `health.js → classifyPublication` are ordinary production call edges, and they were absent.
+- **The forced rebuild ALSO manufactures collisions**, concentrated on short names.
+- ⇒ **A forced rebuild trades precision for recall.** Not an upgrade, not a downgrade — a trade, and
+  the first of my three framings that the evidence actually supports.
+
+⛔ Still untested: whether any shipped verb's answer changes for a user. `graph_callers` reads these
+edges, so both the recovery and the collisions would reach it, and their net effect on an answer is
+unmeasured.
