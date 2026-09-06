@@ -7,6 +7,39 @@ Dates are ISO 8601 (YYYY-MM-DD).
 
 ## [Unreleased]
 
+## [0.8.1] — 2026-09-07
+
+A patch release for six defects found after v0.8.0 was tagged. The first one was not found by a
+test. Four agents were asked the same question with and without the graph, and one of them wrote
+back that the headline number the verb printed was wrong by a factor of a hundred. Nothing here
+changes an interface. Every fix narrows a claim the previous release made too strongly.
+
+### Fixed
+
+- **A cap is not a count.** `graph_callers` reported `CONFIDENCE: 100 callers` for a symbol with ten
+  real call sites. 100 was never a count. `EDGE_FETCH_CAP` is 100 and the query saturated there,
+  and the verb already knew: `edgesTruncated` is computed from a deliberate `LIMIT CAP + 1` and it
+  reached the trust banner while never reaching the line that printed the number. A saturated
+  result now reads *at least N (the fetch cap was reached, so this is a floor, not a total)*, and an
+  untruncated one still reads as a plain number, because a qualifier on every answer is decoration.
+- **`graph_impact` could not detect its own cap.** It used `LIMIT 100` with no `+ 1`, so a full page
+  and a truncated page were indistinguishable to it. It now fetches one more than it keeps.
+- **The overcount warning could not fire on the case it was built from.** Asked for the callers of a
+  four-character name that is also a builtin method, the verb returned 25 heuristic rows with no
+  warning at all: the old trigger wanted *fewer* than ten results, and the collision shape produces
+  many. The predicate now models both shapes, has one owner instead of two byte-identical copies,
+  and exempts compiler-resolved results, which were resolved by a compiler rather than by a name.
+- **The server did not report its own version.** `serverInfo` carried a hardcoded string, so a
+  client could not tell which build answered it. It now derives from `package.json`.
+- **A suite guarded its entry and not its duration.** `run-suite` refused to start on a dirty tree
+  and then never looked again, so a run could begin at one commit and print a verdict for it while
+  finishing against a tree three commits later. That happened, and four of the five failures in the
+  resulting log were artifacts of files moving underneath the run. Head and dirty state are now read
+  at both ends, and a run that measured a moving target exits 3 as VOID instead of returning a
+  number that looks like a result.
+- **Two skill files documented parameters that do not exist**, and `graph-guide` said nothing about
+  reading a caller count that might be a cap. Corrected and synced across the four runtime trees.
+
 ## [0.8.0] — 2026-09-06
 
 **692 commits, 937 files, 2026-08-25 to 2026-09-06.** A minor bump rather than a major one because
