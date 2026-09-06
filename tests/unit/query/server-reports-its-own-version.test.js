@@ -16,14 +16,28 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
 const read = (rel) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
 describe('the server reports the version it actually is', () => {
   it('★★★ the handshake version is DERIVED from package.json, not a literal', () => {
     const src = read('../../../mcp/stdio/server.js');
-    // The old shape: a hardcoded semver in the handshake.
-    expect(src, 'serverInfo must not carry a literal version').not.toMatch(/version: *'\d+\.\d+\.\d+'/);
+    // ⛔ expectAbsentWithLiveMatcher, NOT a bare not.toMatch. I wrote the bare form here and the
+    // ratchet caught it in the very next suite run — the sixth time, against a rule of my own. A
+    // negative assertion whose matcher nobody proved can pass because the pattern is wrong, which is
+    // the one failure mode that looks exactly like success. The helper carries the proof with the
+    // assertion: `forbidden` is the old shape the matcher MUST still match, `allowed` is the new one
+    // it must not.
+    expectAbsentWithLiveMatcher(
+      /version: *'\d+\.\d+\.\d+'/,
+      {
+        forbidden: "serverInfo: { name: 'aify-project-graph', version: '0.1.0' },",
+        allowed: "serverInfo: { name: 'aify-project-graph', version: PACKAGE_VERSION },",
+      },
+      src,
+      'the handshake must not carry a literal semver',
+    );
     expect(src, 'it must read the real one').toContain('PACKAGE_VERSION');
   });
 
