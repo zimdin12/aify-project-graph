@@ -170,3 +170,27 @@ not more counting.
 ⛔ One repository, two rebuilds, one observation. If H1 holds this is a reproduction target, not a
 measured rate. ⛔ And 30 edges of 5,382 is 0.56%; the significance is the DIRECTION (silent loss),
 never the magnitude.
+
+---
+
+## PREREGISTERED, follow-up 2 — does incremental DROP edges, or does a deficit ACCUMULATE?
+
+**Written before the run.** The graph is currently at the forced-rebuild state (6,625 edges). Touch
+one source file, let an ORDINARY (non-forced) index run, and capture again.
+
+| | Explanation | Prediction |
+|---|---|---|
+| **A** | An incremental rebuild actively drops edges it did not re-extract | count falls back toward **~5,400** |
+| **B** | The deficit ACCUMULATES over many incremental builds; one does little | count stays **≥ 6,500** |
+
+**Decision rule, fixed now:**
+
+- **≤ 5,800** ⇒ A. One incremental pass destroys most of the gain, which makes this urgent and
+  reproducible on demand.
+- **≥ 6,500** ⇒ B. The deficit is historical drift, and the remedy is periodic forced rebuilds plus
+  a freshness disclosure, not an extraction fix.
+- **5,800–6,500** ⇒ partial loss; report the number and do not force it into either box.
+
+⚠ The edit must be a REAL source change, because a no-op edit may be cosmetically skipped and would
+measure nothing. A comment-only change to a file with many outgoing edges is the cheapest edit that
+still forces re-extraction of that file.
