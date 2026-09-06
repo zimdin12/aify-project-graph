@@ -83,7 +83,7 @@
     .nav-back-btn:hover { border-color:var(--accent); color:var(--text); }
     #node-tip { position:absolute; z-index:8; pointer-events:none; background:#161b22; border:1px solid var(--border); color:var(--text); padding:4px 8px; border-radius:6px; font-size:11px; max-width:280px; line-height:1.5; box-shadow:0 2px 8px rgba(0,0,0,0.4); }
     /* File-tree explorer */
-    #files-btn, #diff-btn { background:var(--bg); border:1px solid var(--border); color:var(--text); border-radius:6px; padding:2px 8px; cursor:pointer; font-size:12px; }
+    #files-btn, #diff-btn, #shape-btn { background:var(--bg); border:1px solid var(--border); color:var(--text); border-radius:6px; padding:2px 8px; cursor:pointer; font-size:12px; }
     #diff-btn.active { background:#3d1d1d; border-color:#ff7b72; color:#ffb3ad; }
     #files-panel { border:1px solid var(--border); border-radius:8px; padding:8px; margin:8px 0; background:var(--bg); max-height:340px; overflow:auto; }
     .ftree-row { display:flex; align-items:center; gap:3px; font-size:12px; padding:1px 2px; cursor:pointer; white-space:nowrap; border-radius:4px; }
@@ -168,6 +168,7 @@
         <button id="tour-btn" type="button" title="Guided tour of this codebase">🧭 Tour</button>
         <button id="files-btn" type="button" title="Browse files (folder tree)">📁 Files</button>
         <button id="diff-btn" type="button" title="Highlight files changed in git (uncommitted + untracked)">◆ Changes</button>
+        <button id="shape-btn" type="button" title="What moved STRUCTURALLY between indexed commits, not the same as uncommitted changes">◷ Shape</button>
         <a id="mode-link" href="/3d">open 3D</a>
         <button id="sidebar-toggle" type="button">hide</button>
       </div>
@@ -986,6 +987,58 @@
     }
 
     // ───────────────────────── pathfinder ─────────────────────────
+    // WHAT MOVED (structural delta).
+    //
+    // Distinct from "Changes", and the distinction is the point. Changes shows files git calls dirty
+    // right now. This shows how the SHAPE moved between two indexed commits: symbols gained and
+    // lost, fan-in that grew or shrank, and edges that newly cross an architecture layer.
+    //
+    // A dirty file tells you where you were typing. A new cross-layer edge tells you the design
+    // moved, and nothing else in this tool ever said so.
+    async function showShapeDelta() {
+      const btn = $('shape-btn');
+      const detail = $('node-detail');
+      const res = await fetch('/api/delta').then(r => r.json()).catch(() => null);
+      if (!res) { btn.textContent = '◷ Shape (error)'; return; }
+
+      // A REFUSAL IS RENDERED AS A REFUSAL. An empty delta and an absent one look identical on a
+      // page, and only one of them means the code held still.
+      if (!res.available) {
+        detail.innerHTML = '<h3>What moved</h3><div class="detail-card">'
+          + '<div class="field">No structural comparison available.</div>'
+          + '<div class="field"><span class="field-label">Why:</span> ' + tourEsc(res.reason || 'unknown') + '</div>'
+          + '<div class="field subtle">A delta needs two indexed commits. Re-index after a commit to build history.</div>'
+          + '</div>';
+        return;
+      }
+
+      const d = res.delta;
+      const moved = (d.fanInMoved || []).slice(0, 12).map(function (m) {
+        return '<div class="field"><code>' + tourEsc(m.qname) + '</code> callers ' + m.from + ' → ' + m.to + ' (' + tourEsc(m.direction) + ')</div>';
+      }).join('');
+      const crossing = (d.newCrossLayerEdges || []).map(function (e) {
+        return '<div class="field"><code>' + tourEsc(e.from) + '</code> [' + tourEsc(e.fromLayer) + '] → <code>' + tourEsc(e.to) + '</code> [' + tourEsc(e.toLayer) + ']</div>';
+      }).join('');
+
+      detail.innerHTML = '<h3>What moved</h3><div class="detail-card">'
+        + '<div class="field"><span class="field-label">Range:</span> ' + tourEsc(res.fromCommit.slice(0, 7)) + ' → ' + tourEsc(res.toCommit.slice(0, 7)) + '</div>'
+        + (res.note ? '<div class="field subtle">⚠ ' + tourEsc(res.note) + '</div>' : '')
+        + '<div class="field"><span class="field-label">Symbols:</span> +' + d.symbolsAdded.length + ' / -' + d.symbolsRemoved.length
+        + ' &nbsp;<span class="field-label">Edges:</span> +' + d.edgesAdded.length + ' / -' + d.edgesRemoved.length + '</div>'
+        + (crossing
+          ? '<div class="field"><span class="field-label">New cross-layer edges:</span></div>' + crossing
+            + '<div class="field subtle">These are the changes with no local error signal: nothing fails now, and the cost lands months later in a different task.</div>'
+          : '')
+        + (moved ? '<div class="field"><span class="field-label">Fan-in moved:</span></div>' + moved : '')
+        + (!crossing && !moved ? '<div class="field">No structural movement between these two commits.</div>' : '')
+        + (res.diffOverlay
+          ? '<div class="field subtle">diff overlay ' + tourEsc(String(res.diffOverlay.range || '')) + ': '
+            + (res.diffOverlay.changedNodeIds || []).length + ' changed, '
+            + (res.diffOverlay.affectedNodeIds || []).length + ' affected</div>'
+          : '')
+        + '</div>';
+    }
+
     async function runPathfinder(fromQuery, toQuery) {
       const resolveId = async (q) => { if (!q) return null; const hits = await fetch(`/api/search?q=${encodeURIComponent(q)}`).then(r => r.json()).catch(() => []); return (hits && hits.length) ? hits[0].id : q; };
       const fromId = await resolveId(fromQuery), toId = await resolveId(toQuery);
@@ -1269,6 +1322,7 @@
       // Git-diff overlay is cytoscape-only (paints via blast classes) — hide in 3D.
       if (is3DMode) $('diff-btn').style.display = 'none';
       else $('diff-btn').addEventListener('click', toggleDiffOverlay);
+      $('shape-btn').addEventListener('click', showShapeDelta);
 
       const searchEl = $('search');
       searchEl.addEventListener('input', (e) => {

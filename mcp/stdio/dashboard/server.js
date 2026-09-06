@@ -1,11 +1,13 @@
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, appendFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join, extname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadIntelligenceOverlays, summarizeArchitectureLayers } from '../intelligence/overlays.js';
 import { searchNodesFts } from '../storage/nodes.js';
+import { deltaFromPrevious } from '../storage/delta-between.js';
+import { listDigestCommits } from '../storage/structural-digest-store.js';
 import { buildTour } from '../query/verbs/tour.js';
 import {
   computeOverview,
@@ -19,6 +21,14 @@ const DASHBOARD_NODE_LIMIT = 25000;
 const DASHBOARD_EDGE_LIMIT = 120000;
 
 // Load a JSON overlay file from .aify-graph/, tolerating missing files.
+// HEAD of the repository being shown, or null when it is not a git checkout. Null is fine: the
+// delta reader falls back to the newest stored digest and SAYS it substituted.
+function headOf(repoRoot) {
+  try {
+    return execFileSync('git', ['-C', repoRoot, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+  } catch { return null; }
+}
+
 function loadOverlayJson(repoRoot, name) {
   const p = join(repoRoot, '.aify-graph', name);
   if (!existsSync(p)) return null;
@@ -453,6 +463,35 @@ export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
     }
 
     // Lightweight overlay-only endpoint — for filter panels / trust summaries.
+    // ⭐ D3 — WHAT CHANGED, not only what is there. Until this the dashboard had no time dimension
+    // at all: verified with a positive control, its only "history" was a navigation back-stack.
+    //
+    // ⛔ AND IT CLOSES AN UNWIRED CLAIM. `graph_explain_diff` has been writing
+    // `.aify-graph/diff-overlay.json` "for the dashboard blast-radius highlight" while nothing read
+    // it — producer proven, consumer absent, claim shipped. This is the consumer.
+    if (req.url?.startsWith('/api/delta')) {
+      // ⛔ THE ABANDON RULE IS INSTRUMENTED BY THE THING ITSELF. Preregistered: fewer than three
+      // opens in the fourteen days after this ships and it gets no further investment. Measuring
+      // that by memory would not be measuring it, and asking would replace it with a recollection.
+      try {
+        appendFileSync(join(repoRoot, '.aify-graph', 'delta-views.log'), `${new Date().toISOString()}\n`);
+      } catch { /* an unwritable log must never cost the reader their answer */ }
+
+      // ⭐ THE SUBSTITUTION HAPPENS HERE, NOT INSIDE THE READER. `deltaFromPrevious` refuses a
+      // missing commit on purpose — a caller that forgot to pass one must not be answered silently.
+      // A dashboard pointed at a non-git checkout is a different case: it genuinely cannot name a
+      // commit, so it asks for the newest stored one EXPLICITLY and the response still reports which
+      // pair was compared.
+      const asked = new URL(req.url, 'http://localhost').searchParams.get('to');
+      const requested = asked || headOf(repoRoot) || listDigestCommits(db)[0] || null;
+      const result = deltaFromPrevious(db, { toCommit: requested });
+
+      // Absent is null, never an empty object. On a page an empty overlay and a missing one look
+      // the same, and only one of them means "nobody measured".
+      writeJson({ ...result, diffOverlay: loadOverlayJson(repoRoot, 'diff-overlay.json') });
+      return;
+    }
+
     if (req.url === '/api/overlay') {
       const functionality = loadOverlayJson(repoRoot, 'functionality.json');
       const tasks = loadOverlayJson(repoRoot, 'tasks.json');
