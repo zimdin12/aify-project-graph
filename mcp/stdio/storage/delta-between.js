@@ -17,7 +17,9 @@ const short = (sha) => String(sha ?? '').slice(0, 7);
 
 /** A refusal carries no delta. Handing back numbers beside "I cannot compare these" invites their use. */
 function unavailable(reason, fromCommit = null, toCommit = null) {
-  return { available: false, reason, fromCommit, toCommit, delta: null };
+  return {
+    available: false, reason, fromCommit, toCommit, requestedCommit: toCommit, note: null, delta: null,
+  };
 }
 
 /**
@@ -43,7 +45,9 @@ export function deltaBetween(db, { fromCommit, toCommit } = {}) {
   // into `available` so a renderer cannot show movement the computation declined to attribute.
   if (!delta.comparable) return unavailable(delta.refusal, fromCommit, toCommit);
 
-  return { available: true, reason: null, fromCommit, toCommit, delta };
+  return {
+    available: true, reason: null, fromCommit, toCommit, requestedCommit: toCommit, note: null, delta,
+  };
 }
 
 /**
@@ -56,8 +60,27 @@ export function deltaFromPrevious(db, { toCommit } = {}) {
   if (!toCommit) return unavailable('deltaFromPrevious needs a toCommit');
 
   const commits = listDigestCommits(db); // newest first
-  const at = commits.indexOf(toCommit);
-  if (at === -1) return unavailable(`no digest stored for ${short(toCommit)}`, null, toCommit);
+
+  // ⛔⛔ HEAD USUALLY HAS NO DIGEST, AND THAT IS THE COMMON CASE — measured live one hour after the
+  // capture shipped. `captureStructuralDigest` runs inside the rebuild transaction, so an index that
+  // finds the graph already fresh returns early and writes nothing: an ordinary index reported
+  // `"indexed": true` and produced no row. Refusing here would make the feature answer "no digest
+  // stored" on the exact question the morning view exists to ask.
+  //
+  // ⇒ Fall back to the newest stored pair, and make the substitution VISIBLE. `toCommit` reports the
+  // commit actually compared and `note` says what was asked for instead. A SILENT fallback would
+  // answer a different question than the one asked, which is the stand-in this project keeps
+  // recording — the point is to be useful without quietly changing the subject.
+  let target = toCommit;
+  let note = null;
+  if (!commits.includes(toCommit)) {
+    if (commits.length === 0) return unavailable('no digests are stored yet', null, toCommit);
+    target = commits[0];
+    note = `no digest stored for ${short(toCommit)}; showing the newest stored comparison instead, `
+      + `which ends at ${short(target)}`;
+  }
+
+  const at = commits.indexOf(target);
 
   // ⛔ ONE DIGEST IS NOT A HISTORY. Comparing a digest to itself yields a perfectly clean delta, and
   // on a repository indexed once that would render "nothing changed" forever — indistinguishable
@@ -65,11 +88,14 @@ export function deltaFromPrevious(db, { toCommit } = {}) {
   const previous = commits[at + 1];
   if (!previous) {
     return unavailable(
-      `only one digest is stored (${short(toCommit)}), so there is no earlier structure to compare against`,
+      `only one digest is stored (${short(target)}), so there is no earlier structure to compare against`,
       null,
       toCommit,
     );
   }
 
-  return deltaBetween(db, { fromCommit: previous, toCommit });
+  const result = deltaBetween(db, { fromCommit: previous, toCommit: target });
+  // `requestedCommit` is always what the CALLER asked for, even when the pair compared is a
+  // substitute, so a renderer can show both without re-deriving either.
+  return { ...result, requestedCommit: toCommit, note: result.available ? note : result.note };
 }

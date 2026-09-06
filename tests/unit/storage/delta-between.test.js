@@ -100,9 +100,57 @@ describe('joining two stored digests into a delta', () => {
     db.close();
   });
 
-  it('★★ an unknown target commit is refused by name', () => {
+  it('★★★ THE REAL CASE: HEAD usually has NO digest, so it falls back and SAYS SO', () => {
+    // ⛔ MEASURED LIVE, ONE HOUR AFTER SHIPPING THE CAPTURE. `captureStructuralDigest` sits inside
+    // the rebuild transaction, so an index that finds the graph already fresh returns early and
+    // writes nothing. An ordinary index at bd9c90fe reported `"indexed": true` and produced NO row.
+    // So the morning view asks about HEAD and HEAD has no digest — the feature answering "no digest
+    // stored" on the one question it exists for.
+    //
+    // ⇒ Fall back to the newest stored pair, and make the substitution VISIBLE. A silent fallback
+    // would answer a different question than the one asked, which is the stand-in this project keeps
+    // recording.
+    const db = dbWith([
+      [digestFor(SHA('a')), '2026-09-01T00:00:00.000Z'],
+      [digestFor(SHA('b'), { extra: [{ qname: 'log', file: 'util/log.js', layer: 'util' }] }), '2026-09-02T00:00:00.000Z'],
+    ]);
+    const r = deltaFromPrevious(db, { toCommit: SHA('z') });
+    expect(r.available, 'the newest stored pair still answers a useful question').toBe(true);
+    expect(r.toCommit, 'it must report the commit it ACTUALLY compared').toBe(SHA('b'));
+    expect(r.fromCommit).toBe(SHA('a'));
+    expect(r.requestedCommit, 'and what was asked for').toBe(SHA('z'));
+    expect(r.note, 'the substitution must be stated, never silent').toMatch(/no digest stored for/i);
+    expect(r.delta.symbolsAdded).toEqual(['log']);
+    db.close();
+  });
+
+  it('★★★ a substitution is NOT offered when the requested commit HAS a digest', () => {
+    // Otherwise `note` would be decoration, and a reader who learns to ignore it would also ignore
+    // the case where it matters.
+    const db = dbWith([
+      [digestFor(SHA('a')), '2026-09-01T00:00:00.000Z'],
+      [digestFor(SHA('b')), '2026-09-02T00:00:00.000Z'],
+    ]);
+    const r = deltaFromPrevious(db, { toCommit: SHA('b') });
+    expect(r.note).toBeNull();
+    expect(r.requestedCommit).toBe(SHA('b'));
+    db.close();
+  });
+
+  it('★★★ with only ONE digest stored, the fallback still refuses rather than inventing a pair', () => {
+    // The fallback must not turn "no history" into a comparison of a digest with itself.
     const db = dbWith([[digestFor(SHA('a')), '2026-09-01T00:00:00.000Z']]);
-    expect(deltaFromPrevious(db, { toCommit: SHA('z') }).available).toBe(false);
+    const r = deltaFromPrevious(db, { toCommit: SHA('z') });
+    expect(r.available).toBe(false);
+    expect(r.delta).toBeNull();
+    db.close();
+  });
+
+  it('★★ an empty store refuses without pretending anything was compared', () => {
+    const db = dbWith([]);
+    const r = deltaFromPrevious(db, { toCommit: SHA('z') });
+    expect(r.available).toBe(false);
+    expect(r.delta).toBeNull();
     db.close();
   });
 });
