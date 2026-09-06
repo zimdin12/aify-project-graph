@@ -1,3 +1,4 @@
+// Touched 2026-09-06 to force re-extraction for the incremental-vs-forced edge measurement.
 // Shared analytics module (P2a / P2-9 — "end the dashboard-is-an-island").
 //
 // ONE place that computes the dashboard's analytic value:
