@@ -14,6 +14,7 @@ import {
   readStructuralFingerprints, replaceStructuralFingerprints,
 } from '../storage/unresolved-refs.js';
 import { bumpGraphGeneration } from '../storage/publication-schema.js';
+import { captureStructuralDigest } from '../storage/structural-digest-store.js';
 import {
   readLegacyUnresolvedSidecar, readManifestAsMigrationSource, chooseCarryForwardSource,
 } from './legacy-unresolved-bridge.js';
@@ -1075,6 +1076,24 @@ export async function ensureFresh({
       // sync because there is nothing separate to sync.
       replaceUnresolvedRefs(db, resolved.unresolved);
       replaceStructuralFingerprints(db, nextFingerprints);
+      // ⭐ THE ONLY HISTORY THIS DATABASE KEEPS. Every other structural table is
+      // replace-on-write, so nothing here could answer "how did the shape change since commit X".
+      // One digest per indexed commit closes that, and it is written INSIDE this transaction so it
+      // is published by the same COMMIT as the graph it describes — written after, a rollback would
+      // leave a digest describing a graph that was never published.
+      //
+      // ⚠ A CHECKOUT WITH NO COMMIT GETS NO DIGEST, rather than one keyed by a placeholder. A
+      // digest nobody can place against a revision cannot be compared to anything later.
+      if (commit) {
+        try {
+          captureStructuralDigest(db, { commit, extractorVersion: EXTRACTOR_VERSION });
+        } catch (err) {
+          // ⛔ NEVER BLOCKS THE REBUILD. The digest is an observation ABOUT the graph, not part of
+          // it, and a graph that refused to publish because its history row failed would trade a
+          // working index for a reporting feature. Recorded, not swallowed silently.
+          console.warn(`[aify-project-graph] structural digest not captured for ${String(commit).slice(0, 7)}: ${err.message}`);
+        }
+      }
       // ⭐ THE AGGREGATES ARE PUBLISHED BY THE SAME COMMIT AS THE ROWS THEY COUNT.
       // The manifest keeps a copy below and ten call sites read it, three of them with no
       // attestation gate at all — so the copy cannot be the authority. This row is, and it is

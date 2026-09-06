@@ -1,3 +1,4 @@
+import { STRUCTURAL_DIGEST_TABLE_SQL } from './structural-digest-store.js';
 // THE PUBLICATION TABLES — state that used to live in files beside the database.
 //
 // ⛔ WHY THESE MOVED. A rebuild committed the graph, then wrote its sidecars best-effort, then wrote
@@ -133,6 +134,10 @@ export function ensurePublicationTables(db) {
   db.exec(UNRESOLVED_REFS_TABLE_SQL);
   db.exec(STRUCTURAL_FINGERPRINTS_TABLE_SQL);
   db.exec(GRAPH_GENERATION_TABLE_SQL);
+  // Registered here rather than created by its own writer: a table that only exists on
+  // machines which happened to write one gives every other reader "no such table"
+  // instead of "no digest yet", and only one of those is recoverable.
+  db.exec(STRUCTURAL_DIGEST_TABLE_SQL);
   ensureGenerationAggregateColumns(db);
 }
 
