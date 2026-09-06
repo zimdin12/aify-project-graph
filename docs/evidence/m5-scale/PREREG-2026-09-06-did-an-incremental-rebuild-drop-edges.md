@@ -126,6 +126,45 @@ several thousand times smaller than the one where the divergence appears.
 ⇒ **Follow-up, ranked:** (1) name the missing edges by relation and file, (2) reproduce on a second
 repository, (3) then decide whether the guard's fixture or the rebuild path is what needs to change.
 
+---
+
+## ✅ FOLLOW-UP 1 DONE — the missing edges are NAMED, and the LSP suspect is dead for good
+
+Both digests were stored, so the two edge sets were diffed directly rather than reasoned about.
+
+```
+ordinary build  4bd6dc86 : 5370 edges
+forced  build   fca4ab53 : 6625 edges
+MISSING from the ordinary build : 1411        (net +1255, so 156 also went the other way)
+distinct source files            : 435
+by extension                     : .js 1060, .mjs 351
+top sources: analytics.js 28 · graph-shape.js 27 · packet-lists.js 25 · pull.js 21 ·
+             packet-overlay.js 19 · find.js 18 · linkage-scope-runner.mjs 17
+```
+
+⚠ **1,411 against the rebuild log's "salvaged 1401 LSP-verified edge(s)" is a near match, and it is
+noise.** I had already ruled the spine out on aggregates; because a nearly-matching number is the
+strongest invitation to the wrong noun, it was re-checked per edge instead of trusted. Every one of
+the 1,411 missing pairs was looked up in the forced graph:
+
+```
+their provenance in the FORCED graph:
+    1405  EXTRACTED
+       6  LSP_VERIFIED
+```
+
+⇒ **The missing edges are ordinary extracted call edges. The trust spine accounts for six of them.**
+The coincidence is dead, twice over, and by two independent measurements.
+
+### What this narrows the mechanism to
+
+The loss is **broad, not localised**: 435 distinct source files, no subsystem dominating, the largest
+single file contributing 28 of 1,411. That shape argues for a systematic difference in how references
+are resolved between the two rebuild paths, rather than a bug in one extractor or one file type.
+
+⛔ Still NOT established: which resolution step differs. Naming it needs the two paths instrumented,
+not more counting.
+
 ## Claim ceiling
 
 ⛔ One repository, two rebuilds, one observation. If H1 holds this is a reproduction target, not a
