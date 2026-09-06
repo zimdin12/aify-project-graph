@@ -238,3 +238,52 @@ for HEAD"* — on the exact question the morning view exists to ask.
 
 ⇒ Same shape as every other defect this session: correct on the path it was tested on, absent on the
 path a user actually takes. Found within an hour of shipping it, and only by driving the real thing.
+
+---
+
+## ⛔⛔⛔ RETRACTION, same day — "THE GRAPH UNDER-REPORTS, FAIL-OPEN" IS NOT SUPPORTED
+
+I called the 1,411-edge gap **fail-open** — fewer callers reported than exist — and that framing is
+withdrawn. It attached a direction to a raw COUNT without asking what the edges WERE.
+
+Leaf name of the TARGET of each recovered edge:
+
+```
+ 198 has (3)    130 dir (3)    100 a (1)     90 lines (5)   81 rows (4)
+  63 f (1)       54 v (1)       42 b (1)     37 repo (4)    26 c (1)
+  26 inspectReadFreshness (20)  25 fn (2)    24 head (4)    23 prefixReadWarnings (18)
+
+edges whose target leaf name is <= 3 chars : 712 of 1411  (50.5%)
+```
+
+⇒ **Over half the "recovered" edges point at single- or three-character names.** That is the
+name-collision overcount signature this repository has already documented by name: `graph_callers("has")`
+once returned 100 callers that were nearly all `Map.has()`. A forced rebuild re-resolves every
+reference by name, so it manufactures MORE of these, and `fanIn` for `collect_code_intel.has` went
+**55 → 254** while `ScratchRepo.dir` went **1 → 131**.
+
+**What survives:** some recovered edges have distinctive names — `inspectReadFreshness` (26),
+`prefixReadWarnings` (23) — and those are plausibly genuine. So both effects are present in the gap
+and neither has been separated from the other.
+
+### The corrected statement
+
+- ✅ The two rebuild paths produce **materially different graphs** (5,370 vs 6,625, reproducible).
+- ✅ Ordinary operation **maintains** whichever state it inherits (result B stands).
+- ⛔ **The DIRECTION of correctness is UNRESOLVED.** The bigger graph is not the better one. It may
+  hold more real edges AND more false ones, and this measurement cannot tell them apart.
+- ⛔ **"Under-reports callers" is withdrawn.** So is the claim that this is fail-open. The clean
+  fail-open story required the extra edges to be real, and half of them are name collisions.
+
+### Why I got it wrong, recorded because it is the recurring shape
+
+I checked the recovered edges' PROVENANCE (1,405 `EXTRACTED`) and read `EXTRACTED` as "legitimate".
+It means only *the extractor emitted it*, never *it is correct*. Same arithmetic, wrong noun —
+and this time the wrong noun was inside a finding I had already written up twice and put in memory.
+
+⭐ **A COUNT HAS NO DIRECTION UNTIL YOU KNOW WHAT IT COUNTED.** "More edges" is not "more correct",
+and I spent two commits treating it as though it were.
+
+⇒ **What would actually settle it:** sample ~30 recovered edges with distinctive target names, read
+the source, and grade them by hand. That separates real recovery from collision noise, and nothing
+short of reading the code does.
