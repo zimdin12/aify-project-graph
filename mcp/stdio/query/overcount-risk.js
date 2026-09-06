@@ -32,6 +32,28 @@ const SHORT_NAME_MAX = 4;
 const OVERCOUNT_MIN_RESULTS = 10;
 
 /**
+ * How to say a result count out loud.
+ *
+ * ⛔ A CAP IS NOT A COUNT, measured by an A/B on 2026-09-07. `graph_callers("has")` told two agents
+ * `CONFIDENCE: 100 callers`. The true answer is 10 call sites in one function, and 100 was never a
+ * count at all — it is `EDGE_FETCH_CAP`, which the query saturated. One agent wrote back unprompted:
+ * *"the headline number the verb prints is still 100 callers, and 100 is wrong by a factor of 100."*
+ *
+ * The verb already knew. `edgesTruncated` is computed from a deliberate `LIMIT CAP + 1` and reached
+ * the trust banner while never reaching the line that printed the number.
+ *
+ * ⚠ ONLY WHEN IT ACTUALLY SATURATED. A qualifier on every answer is decoration, and this repository
+ * has had to tear out an always-on caveat before.
+ */
+export function describeResultCount({ resultCount = 0, truncated = false } = {}) {
+  if (!truncated) return { text: String(resultCount), isFloor: false };
+  return {
+    text: `at least ${resultCount} (the fetch cap was reached, so this is a floor, not a total)`,
+    isFloor: true,
+  };
+}
+
+/**
  * The last segment of a qualified name.
  *
  * ⛔ THE LEAF, NEVER THE QUALIFIED NAME. `mcp.stdio.query.verbs.collect_code_intel.has` is 40+

@@ -16,7 +16,7 @@ import { noMatchMessage } from '../did-you-mean.js';
 // One owner: fixing one verb and pasting into the other is how the two drift apart.
 import { unsearchedRelationNote } from '../unsearched-scope.js';
 import { indexedScopePhrase } from '../miss-scope.js';
-import { isOvercountSuspicious } from '../overcount-risk.js';
+import { isOvercountSuspicious, describeResultCount } from '../overcount-risk.js';
 
 const EXECUTION_RELATIONS = EXECUTION_FAMILY;
 
@@ -191,7 +191,12 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
         // and a floor licenses acting on what IS shown — that is the whole value of a floor." So it
         // did not merely omit the overcount; it named the direction that makes a list SAFE TO USE.
         const overcountRisk = occurrences >= 2 || symbol.length <= 8;
-        confidenceFooter = `\nCONFIDENCE: ${resultCount} callers · trust=${trust} · ${occurrences} indexed nodes labeled "${symbol}" · ${trustCount} unresolved CALLS edges not attributed to any caller.`
+        // ⛔ A CAP IS NOT A COUNT. `resultCount` saturates at EDGE_FETCH_CAP, and printing it bare
+        // told a live agent "100 callers" for a symbol with 10 call sites in one function. The
+        // truncation flag already existed and reached the trust banner while never reaching the
+        // line that prints the number — computed and not consumed.
+        const counted = describeResultCount({ resultCount, truncated: edgesTruncated });
+        confidenceFooter = `\nCONFIDENCE: ${counted.text} callers · trust=${trust} · ${occurrences} indexed nodes labeled "${symbol}" · ${trustCount} unresolved CALLS edges not attributed to any caller.`
           + `\n  ⚠ This list is NOT a floor. On a weak-trust graph it can UNDERCOUNT (C++ cross-file`
           + ` dispatch, PHP traits/Eloquent, dynamic dispatch) and, because heuristic edges resolve`
           + ` calls BY NAME, it can also OVERCOUNT with unrelated same-named calls`
