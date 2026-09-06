@@ -9,6 +9,7 @@ import { searchNodesFts } from '../storage/nodes.js';
 import { deltaFromPrevious } from '../storage/delta-between.js';
 import { listDigestCommits } from '../storage/structural-digest-store.js';
 import { buildTour } from '../query/verbs/tour.js';
+import { graphExplainDiff } from '../query/verbs/explain_diff.js';
 import {
   computeOverview,
   computeHotspots,
@@ -489,6 +490,39 @@ export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
       // Absent is null, never an empty object. On a page an empty overlay and a missing one look
       // the same, and only one of them means "nobody measured".
       writeJson({ ...result, diffOverlay: loadOverlayJson(repoRoot, 'diff-overlay.json') });
+      return;
+    }
+
+    // ⭐ D4 — THE DASHBOARD CAN NOW PRODUCE THE OVERLAY IT WAS TAUGHT TO READ.
+    //
+    // ⛔ A GAP I CREATED IN D3. Teaching the page to read `.aify-graph/diff-overlay.json` closed a
+    // claim that had shipped with no consumer — but only `graph_explain_diff` writes that file, and
+    // that verb is delisted from the default tool surface. A human on this page could see an overlay
+    // and had no way to cause one to exist. Consumer present, producer unreachable: the same unwired
+    // shape, mirrored.
+    //
+    // ⚠ IT ANSWERS A DIFFERENT QUESTION FROM /api/delta, which is why both exist. The delta compares
+    // two INDEXED COMMITS and says how the shape moved. This takes a GIT RANGE and says what the
+    // diff TOUCHES — it maps changed files onto CURRENT symbols and never sees the previous graph.
+    if (req.url?.startsWith('/api/explain-diff')) {
+      const q = new URL(req.url, 'http://localhost').searchParams;
+      try {
+        const result = await graphExplainDiff({
+          repoRoot,
+          range: q.get('range') || undefined,
+          staged: q.get('staged') === '1',
+          // overlay:true is the whole point of the route. Without it the verb answers and writes
+          // nothing, leaving the reader added in D3 with nothing to read.
+          overlay: true,
+          top_k: 30,
+        });
+        writeJson(typeof result === 'string' ? { text: result } : result);
+      } catch (err) {
+        // A dashboard on a non-git checkout, or with no graph yet, is the COMMON case rather than an
+        // exceptional one. Answering with a named failure keeps the route reachable; throwing would
+        // make it die exactly where a new user meets it.
+        writeJson({ error: 'explain_diff_failed', detail: String(err?.message ?? err) });
+      }
       return;
     }
 
