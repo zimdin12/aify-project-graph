@@ -72,3 +72,90 @@ this experiment contaminated the gated measurement and that gets reported, not b
 ⛔ Four agents, one task, one repository. This can show that a warning is or is not reaching a
 conclusion. It cannot produce a rate, and it says nothing about productivity.
 ⛔ Arm A agents are TOLD the tools exist, so nothing here speaks to organic adoption.
+
+---
+
+## ⛔ RESULT, 2026-09-07 — the warning REACHED the conclusion in both arm-A agents
+
+All four agents replied. Every factual claim below was re-verified against source before being
+accepted, because a reviewer's claim is a pointer to check, not a substitute for checking.
+
+| agent | arm | CALLER_COUNT | RENAME_SAFE |
+|---|---|---|---|
+| `ab-graph-1` | A (graph) | **1** caller function / 10 call sites — "NOT the 100 the graph reported" | YES |
+| `ab-graph-2` | A (graph) | **10** — "NOT the 100 the graph reported" | YES |
+| `ab-grep-1` | B (source) | **10** | YES |
+| `ab-grep-2` | B (source) | **10** | YES |
+
+**Verified independently:** the definition is at `collect_code_intel.js:131`, and receiver-unqualified
+`has(` occurs exactly **10** times on lines 133 (1), 135 (2), 136 (6), 137 (1). The quoted caveats are
+real strings in `callers.js` and `lsp-evidence.js`.
+
+### Against the preregistered rule ⇒ ✅ the warning reaches the conclusion
+
+Both arm-A agents received `CONFIDENCE: 100 callers` and **neither reported it as fact.** Both quoted
+the overcount caveat verbatim and both said, unprompted, that it is what redirected them:
+
+> "the caveat text did its job here — it named `has` by name as an overcounting shape, which is what
+> sent me to verify rather than report 100." — `ab-graph-1`
+>
+> "The verb's own caveat is what stopped that — the caveat did its job here." — `ab-graph-2`
+
+⚠ **n = 2. This is weak evidence and is reported as weak.** It shows the warning CAN change a
+conclusion; it is not a rate, and both agents were told the tools existed.
+
+### ⛔ AND THE HEADLINE IS STILL WRONG — the finding that matters for the open decision
+
+`ab-graph-1`, unprompted: "the headline number the verb prints is still 100 callers, and 100 is wrong
+by a factor of 100." The caveat rescued the conclusion; it did not fix the number a hurried reader
+takes. ⇒ **This is the evidence for the open question of whether collisions should be FILTERED rather
+than warned about.** Warning demonstrably works on a careful agent. It leaves a false headline for an
+incautious one.
+
+### ⛔ MY OWN GROUND TRUTH WAS WRONG, and the agents corrected it
+
+The preregistration above says the honest answer is a refusal. **It is not.** There IS a user-defined
+`has` — a function-local `const has = (rel) => ...` inside `detectRepoLanguage`. I had checked
+`communities.js` and `doc-links.js`, found no definition, and generalised from two files to the whole
+repository. Four agents found it independently and I confirmed it in the source.
+
+⇒ The experiment survives because the graded property was *does the stated conclusion change*, not
+*is the answer a refusal*. But the ground truth I wrote into a preregistration was a hasty
+generalisation, and it is corrected here rather than quietly left standing.
+
+### ⭐⭐⭐ TWO AGENTS INDEPENDENTLY REPRODUCED THIS PROJECT'S OWN LESSON
+
+Neither was asked to check their instruments. Both did, and both caught a FALSE ZERO:
+
+- `ab-graph-2`: "My first positive control FAILED and I nearly did not notice. I grepped for
+  `collectCodeIntel` … the export is `graphCollectCodeIntel`."
+- `ab-grep-2`: a look-behind probe returned empty because ripgrep needs `--pcre2`, and the error was
+  invisible because stderr was suppressed. "the false zero agreed with a plausible expectation and
+  produced no collision to prompt a recheck."
+
+That is **an instrument's silence is not evidence until you have watched it speak**, arrived at twice,
+independently, by agents who had never read the ledger. The failure mode is not idiosyncratic to me.
+
+### ⚠ CONFOUNDS, stated rather than buried
+
+1. **The repository contains the answer.** `ab-grep-1` cited
+   `PREREG-2026-09-06-does-the-trade-change-a-users-answer.md` — my own write-up of this exact symbol
+   and this exact guard failure. Arm B's independence is therefore compromised for that agent. The
+   arm-A results are not: both quoted LIVE tool output rather than the docs. ⇒ **A task whose answer
+   is written down in the repository under test is a badly chosen task**, and I chose it.
+2. **The question was ambiguous and the agents split on the noun.** `ab-graph-1` answered **1**
+   (calling functions); the other three answered **10** (call sites). Both readings are correct and
+   they agree on the substance. My question said "how many callers" without saying which. Another
+   wrong-noun instance, this one authored by me in the prompt.
+3. Arm B is not a productivity control and nothing here speaks to productivity.
+
+### Side evidence: yesterday's fixes observed working on independent agents
+
+Both arm-A agents quoted, verbatim and unprompted, `"absenceAuthority": false, "reason":
+"collection_partial"` and the staleness disclosure naming the collection commit against HEAD. Those
+are surfaces changed yesterday, seen doing their job by agents with no knowledge of that work.
+
+### Contamination check ⇒ CLEAN
+
+`n` was **5** before the spawn and **5** after, controls unchanged (positive 255, negative 0,
+instructed-excluded 0). The gated adoption measurement was not disturbed.
