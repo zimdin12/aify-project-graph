@@ -194,3 +194,47 @@ one source file, let an ORDINARY (non-forced) index run, and capture again.
 ⚠ The edit must be a REAL source change, because a no-op edit may be cosmetically skipped and would
 measure nothing. A comment-only change to a file with many outgoing edges is the cheapest edit that
 still forces re-extraction of that file.
+
+---
+
+## ⛔ RESULT, follow-up 2 — **B**, and the run exposed a defect in the instrument itself
+
+**The planned run produced no data.** An ordinary index at `bd9c90fe` reported `"indexed": true` and
+wrote **NO DIGEST ROW**. When the graph is already fresh the rebuild block never executes, and
+`captureStructuralDigest` lives inside it. That is finding 2 below.
+
+**The question still resolved, from rows nobody planned.** Digests written *after* the forced rebuild,
+by ordinary operation rather than by `force:true`:
+
+| commit | when | edges |
+|---|---|---|
+| `4bd6dc86` | before the force | 5370 |
+| **`fca4ab53`** | **forced** | **6625** |
+| `5c51a033` | after, ordinary | 6625 |
+| `c43b0a05` | after, ordinary | 6625 |
+| `7b621d9d` | after, ordinary | 6625 |
+
+⇒ **≥ 6,500, so B by the preregistered rule.** Once a forced rebuild repairs the graph, ordinary
+operation MAINTAINS 6,625. Nothing re-drops the edges on the next build.
+
+**What that changes.** The deficit is **accumulated historical drift**, not active per-build
+destruction. The remedy is a periodic forced rebuild plus a freshness disclosure, NOT an extraction
+fix — and it is much less urgent than "every build silently loses edges" would have been. ⚠ It is
+also still real: a long-lived graph drifts ~19% below what a rebuild finds, in the fail-open
+direction, and nothing currently tells anyone.
+
+⚠ **And this retires my own earlier wording.** I wrote that the ordinary-operation rebuilds were
+possibly incremental and that the honest phrasing was "whatever the normal path does". Since digests
+are only written by the rebuild block, all seven rows came from that same path — so the comparison
+was never incremental-versus-full. It was **a graph carrying accumulated drift versus the same graph
+after repair.** The direction and the magnitude stand; the label I nearly attached to them does not.
+
+## ⛔ FINDING 2 — SOME INDEX PATHS WRITE NO DIGEST, so the delta has no data on them
+
+`captureStructuralDigest` sits inside the rebuild transaction, which is correct for atomicity and
+wrong for coverage: an index that finds the graph already fresh returns early and writes nothing. A
+new commit therefore often has NO digest, and `deltaFromPrevious(HEAD)` answers *"no digest stored
+for HEAD"* — on the exact question the morning view exists to ask.
+
+⇒ Same shape as every other defect this session: correct on the path it was tested on, absent on the
+path a user actually takes. Found within an hour of shipping it, and only by driving the real thing.
