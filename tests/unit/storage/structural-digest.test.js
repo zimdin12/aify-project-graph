@@ -42,7 +42,12 @@ describe('a structural digest is the before that the database does not keep', ()
       symbols: [...BASE.symbols].reverse(),
       edges: [...BASE.edges].reverse(),
     });
-    expect(shuffled).toEqual(digestOf());
+    // ⛔ SERIALIZED, NOT toEqual. Mutation caught this: `toEqual` compares objects structurally and
+    // IGNORES KEY ORDER, so it passed happily with the key sort removed. A digest is persisted and
+    // compared as bytes, so byte-stability is the property that actually matters and the assertion
+    // has to be made on the bytes.
+    expect(JSON.stringify(shuffled)).toBe(JSON.stringify(digestOf()));
+    expect(Object.keys(shuffled.symbols)).toEqual(['load', 'parse', 'render']);
     expect(digestOf().digestVersion).toBe(DIGEST_VERSION);
   });
 
@@ -98,7 +103,14 @@ describe('computeDelta reports how the shape moved, and refuses when it cannot a
     const d = computeDelta(digestOf(), after);
     expect(d.symbolsAdded).toEqual(['log']);
     const moved = d.fanInMoved.find((m) => m.qname === 'log');
-    expect(moved).toMatchObject({ from: 0, to: 2, direction: 'grew' });
+    expect(moved).toMatchObject({ from: 0, to: 2, delta: 2, direction: 'grew' });
+
+    // ⛔ BOTH DIRECTIONS, OR THE FIELD IS UNTESTED. Mutation caught this: hardcoding
+    // `direction: 'grew'` survived, because every case here grew. A shrinking fan-in is also the
+    // more interesting signal — something stopped depending on this.
+    const shrunk = computeDelta(after, digestOf());
+    const lost = shrunk.fanInMoved.find((m) => m.qname === 'log');
+    expect(lost).toMatchObject({ from: 2, to: 0, delta: -2, direction: 'shrank' });
   });
 
   it('★★★ A NEW CROSS-LAYER EDGE IS THE SHAPE SIGNAL — it has no local error signal today', () => {
