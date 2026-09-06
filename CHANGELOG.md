@@ -7,6 +7,74 @@ Dates are ISO 8601 (YYYY-MM-DD).
 
 ## [Unreleased]
 
+## [0.9.0] — 2026-09-06
+
+**34 commits.** The graph gains a memory of its own past, and the dashboard gains a way to ask what
+changed. A minor bump because nothing was removed, but two shipped claims were withdrawn and one
+guard was found unable to fire on the case it was written for.
+
+### Added — the structural delta
+
+The database keeps exactly one snapshot: `structural_fingerprints` is keyed by `file_path` and
+re-extracting replaces the row, `graph_generation` is `CHECK (id = 1)`. So "how did the shape change
+between these commits" was unanswerable, and that is what this release makes answerable.
+
+- **A digest per indexed commit** (`structural_digest`), written inside the rebuild transaction so it
+  is published by the same commit as the graph it describes. Retention is bounded at 50
+  (`APG_DIGEST_RETENTION`), a policy choice made deliberately after measuring **961 KB** for the first live
+  digest — roughly a gigabyte per thousand commits, which no test would have caught.
+- **`computeDelta`**, pure: symbols added and removed, edges added and removed, fan-in movement with
+  its **direction**, and new cross-layer edges. A snapshot cannot say whether fan-in 200 is a problem;
+  "12 to 200" is the thing nothing else holds.
+- ⛔ **A delta across an extractor-version boundary REFUSES and returns no numbers.** Change the
+  extractor and every structural number moves at once; reporting that as the code changing is the
+  coupling that already made one shipped feature inert on every existing graph.
+- **`/api/delta` and a `Shape` button** in the dashboard, deliberately distinct from `Changes`.
+  Changes shows files git calls dirty now; Shape shows how the shape moved between two indexed
+  commits. A refusal renders as a refusal: "no history" is stated with its reason rather than drawn
+  as "nothing changed", because on a page those look identical and only one means the code held still.
+- **`/api/explain-diff`**, so the dashboard can produce the `diff-overlay.json` it was taught to read.
+
+### Fixed
+
+- ⛔ **The overcount guard could not fire on the case it was written for.** `graph_callers("has")`
+  returned 25 caller rows at `conf=0.90`, all collisions (`groups.has(rawId)` on a Map), with no
+  warning at all. The trigger tested for AMBIGUITY — many same-named symbols, few results — while the
+  real failure is the mirror image: one symbol absorbing spurious inbound edges from a builtin method
+  name. Exactly **one** node in the graph is labelled `has`, so the clause was dead.
+  Population measured before the threshold was chosen: leaf name ≤ 4 characters and fan-in ≥ 10 is
+  **42 of 2,578 symbols (1.6%)**, and that set reads `join:755 trim:259 has:253 Set:182 all:159
+  Map:119` — every one a JavaScript builtin. The predicate also lived byte-identically in two verbs,
+  so the hole existed twice; it now has one owner.
+- **A suite verdict is void unless the tree held still for the whole run.** `run-suite` refused to
+  start on a dirty tree and then never looked again, so a run could begin at one commit and finish
+  against a tree three commits later while still printing a verdict for the old one. It now reads
+  HEAD and the tracked-dirty set at both ends and exits 3 rather than printing a verdict.
+- **The server reported version `0.1.0` while shipping `0.8.0`**, a literal that survived nine
+  tagged releases. It is the one field a client reads to know which build it is talking to, on a project
+  whose whole freshness story is about processes holding old code. Now derived from `package.json`.
+- **Skills told agents to wait for a gate that can never open.** `cpp-inner-loop` carried withdrawal
+  notes near the top and still instructed gating on `evidence.exhaustive === true` further down;
+  `graph-guide` framed it as *the* delete gate. Both corrected, and the short-name overcount is now
+  documented where an agent will meet it.
+
+### ⛔ What is still not true
+
+- **The delta only has data when the graph is REINDEXED.** "What changed while you were dispatching"
+  therefore depends on reindex cadence, which is a live decision about whether the post-commit hook
+  should cycle the MCP children. This is a dependency, not a shipped guarantee.
+- **A bigger graph is not a better one.** A forced rebuild holds ~1,411 symbol-to-symbol edges an
+  inherited graph lacks. Hand-graded on the distinctive-name subpopulation: **25 REAL, 4 COLLISION,
+  1 UNDECIDABLE of 30**, so about 271 of those are genuine recoveries — while roughly 712 target a
+  name of three characters or fewer and are presumed collisions. **A rebuild trades precision for
+  recall, and both halves reach the user.** Two earlier readings of this gap were published and
+  retracted in place; neither should be cited.
+- **The scale A/B has still never been run.** Unchanged from 0.8.0.
+- **`evidence.exhaustive` can never become true on this architecture**, and `absenceAuthority` is no
+  longer grantable for the same reason. Absence claims need `rg`.
+- **Two tests fail without a defect behind them**, now recorded in `docs/FLAKY-TESTS.md` with what
+  would actually close each rather than a tally.
+
 ## [0.8.0] — 2026-09-06
 
 **692 commits, 937 files, 2026-08-25 to 2026-09-06.** A minor bump rather than a major one because
