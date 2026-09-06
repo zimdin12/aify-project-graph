@@ -7,6 +7,100 @@ Dates are ISO 8601 (YYYY-MM-DD).
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-09-06
+
+**692 commits, 937 files, 2026-08-25 to 2026-09-06.** A minor bump rather than a major one because
+no public interface was removed, but read the second and third sections before upgrading: this
+release withdraws more claims than it adds features, and that is the point of it.
+
+⚠ **Read the commit composition honestly.** 204 `evidence`, 157 `fix`, 76 `test`, 75 `docs`, 42
+`feat`, 21 `preregister`, 21 `finding`. A large share of the `fix` commits repair *measuring
+instruments*, not the product. That work was necessary — each one caught a wrong claim before it
+shipped — but a commit count is not progress, and reporting it as such would be the exact error this
+project keeps recording.
+
+### Added
+
+- **The rebuild is one transaction.** A graph is never observed half-built: the whole rebuild commits
+  or none of it does, with savepoints for chunks. Torn reads that previously returned counts like
+  `[8306, 0, 30, 1594]` mid-rebuild are gone.
+- **Publication attestation.** The database carries a generation row written inside the rebuild
+  transaction; a reader that finds the manifest disagreeing with it is looking at a half-published
+  state and refuses instead of answering. An unattested graph cannot support the claim that deletes
+  code.
+- **A rebuild serves the previous snapshot** rather than refusing outright, so an in-flight index no
+  longer blocks every read.
+- **Symbol identity repair.** A declaration and its definition no longer fork into two symbols, and
+  overloads split by normalized parameter list. Caller sets for same-named symbols in different
+  namespaces no longer merge. ⚠ Blast radius measured at 3 of 6,272 groups (0.048%) **on a JavaScript
+  repository** — the evidence says explicitly that this is not a prediction for C++, where overload
+  sets are the norm rather than the exception
+  (`docs/evidence/m1b-overloads/FINDING-param-list-key.md`).
+- **Absence answers name their own scope.** An empty result states what was searched — the spine that
+  covered it, its measured file coverage, and what the analysis structurally cannot see for that
+  language — instead of a bare "no callers".
+- **Discovery reaches the document layer.** The founding question of this project returned no results
+  with 230 documents indexed, because `kind` defaulted to code. Fixed; 3-4 of 10 to 6 of 10 correct
+  documents on the pinned corpus.
+- **A negotiated evidence contract (v2).** Consumers prove they understand the new shape before
+  receiving it; an unsupported version is refused, never quietly downgraded.
+- **One admission door for every External-bound edge**, replacing scattered per-call-site rules.
+- **A deletion-guard hook** with a re-derivable fire rate, so enabling it is an informed choice.
+
+### Changed, and these are withdrawals
+
+- ⛔ **`capabilities.absenceAuthority` is no longer grantable.** It could return `true`, and
+  `graph_health` presents it as the field that answers the question that deletes code — while every
+  answer path says "NOT exhaustive" unconditionally. It was a licence nothing in the product could
+  cash. The gate now also requires that the language server attested *which files it indexed*, which
+  the compile DB never reports. Named as a clause rather than hardcoded, so a future workspace-symbol
+  round-trip can satisfy it.
+- ⛔ **"Safe to delete" is out of the pitch.** The README sold the trust spine as knowing when an
+  agent *can* make a confident absence claim, while the top of the same file said absence claims are
+  not available. The claim is withdrawn rather than fixed: it is our weakest surface, it is where
+  `rg` is strongest, and it is where being wrong is most expensive.
+- ⛔ **The four integration skills no longer say "branch on `exhaustive === true`."** That flag is
+  withheld on every verb, so the instruction asked agents to branch on something that can never be
+  true.
+- ⛔ **`graph_explain_diff`'s overlay no longer claims a consumer.** It wrote a file "for the
+  dashboard blast-radius highlight"; nothing read it.
+- **Doc-reference rule 3 was deleted** at 0.9311 held-out precision (98 edges to 35). The surviving
+  rules all anchor their evidence adjacent to the token.
+- **An earlier edge-creation guard was reverted** — it deleted real edges, because `.catch()` is a
+  member call. Refusing to create a node is recoverable; refusing an edge destroys evidence.
+
+### ⛔ What is still not true, stated because a release note that omits this is marketing
+
+- **The scale A/B has never been run.** Every file under `docs/evidence/m5-scale/runs/` is a mock.
+  The harness is built and preflighted; the runs are unspent.
+- **`evidence.exhaustive` can never become true on this architecture.** The compile DB selects which
+  translation units clangd *may* index and never reports which it *did*. Absence claims need `rg`.
+  This is a structural limit, not a pending fix.
+- **Organic adoption is 0 of 973.** No subagent on the development machine has ever reached for these
+  tools without being told they exist. A re-measurement is running under a preregistration and is
+  gated until n = 100; it currently reads 5.
+- **Recall is unmeasurable here.** Refusals outnumber admissions 138:1, so a 0.7% miss rate halves
+  recall and no feasible sample excludes it.
+- **There is no structural delta.** The database holds exactly one snapshot, so "how did the shape
+  change between these commits" cannot be answered today. `graph_explain_diff` answers what a diff
+  *touches* by mapping changed files onto current symbols; it never sees the previous graph.
+- **Whether a Hermes `delegate_task` child inherits MCP tools is unverified.**
+
+### Fixed
+
+Selected from 157, chosen because each was a wrong claim rather than a crash:
+
+- `graph_health` counted code-intel records across nine collections and offered the total as the
+  extent of verified evidence, which lives on 31 files.
+- A second clangd argument list bypassed the preamble bound and left 41 GB of preambles on a 1.9 TB
+  volume that reached 0 bytes free
+  (`docs/evidence/ops/FINDING-41GB-of-clangd-preambles-and-a-full-volume.md`).
+- The gitignore evaluator ignored negations, so a tracked modified file rendered `dirty=0` — a dirty
+  count reading low is the fail-open direction.
+- `absenceAuthority` was granted on a spine that had decayed 46% since collection.
+- A shipped feature was inert on every graph built before it, because it was coupled to the extractor
+  version — the failure mode the delta work is designed against up front.
+
 ## [0.7.0] — 2026-08-25
 
 **A minor bump, not a patch, because BEHAVIOUR CHANGED for anyone reading the evidence
