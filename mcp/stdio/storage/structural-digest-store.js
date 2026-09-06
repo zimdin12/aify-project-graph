@@ -28,6 +28,21 @@ export const STRUCTURAL_DIGEST_TABLE_SQL = `
 `;
 
 /**
+ * How many digests to keep.
+ *
+ * ⛔ MEASURED, NOT GUESSED. The first live digest on this repository held 3,220 symbols and 5,382
+ * edges in 961 KB. One row per indexed commit at that size is roughly a gigabyte per thousand
+ * commits, on a table written by every rebuild — unbounded growth is a defect with a delay on it,
+ * and it was invisible until the real thing was measured rather than reviewed.
+ *
+ * ⚠ PRUNING IS ONLY SAFE BECAUSE A DIGEST IS DERIVED. Re-indexing that commit reproduces it byte for
+ * byte — that is what determinism buys. This policy would be wrong for anything unrecomputable.
+ *
+ * Configuration, because the right depth varies by how often a repository is indexed.
+ */
+export const DIGEST_RETENTION = Number(process.env.APG_DIGEST_RETENTION ?? 50);
+
+/**
  * Persist one digest. Idempotent per commit.
  *
  * @param {object} db      an open database (raw better-sqlite3 or the db.js wrapper)
@@ -54,6 +69,17 @@ export function writeStructuralDigest(db, digest, { createdAt = new Date().toISO
   };
   if (typeof db.run === 'function') db.run(sql, params);
   else db.prepare(sql).run(params);
+
+  // ⭐ THE NEWEST SURVIVE. Ordered exactly like listDigestCommits, so what the reader sees and what
+  // the pruner keeps can never disagree. Dropping the newest would leave a history that cannot
+  // answer "what changed since yesterday", which is the only question this table exists for.
+  const prune = `DELETE FROM structural_digest WHERE commit_sha NOT IN (
+      SELECT commit_sha FROM structural_digest
+      ORDER BY created_at DESC, commit_sha DESC
+      LIMIT $keep)`;
+  if (typeof db.run === 'function') db.run(prune, { keep: DIGEST_RETENTION });
+  else db.prepare(prune).run({ keep: DIGEST_RETENTION });
+
   return digest.commit;
 }
 

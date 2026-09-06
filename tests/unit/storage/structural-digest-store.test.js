@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
 import { ensurePublicationTables } from '../../../mcp/stdio/storage/publication-schema.js';
 import {
-  writeStructuralDigest, readStructuralDigest, listDigestCommits,
+  writeStructuralDigest, readStructuralDigest, listDigestCommits, DIGEST_RETENTION,
 } from '../../../mcp/stdio/storage/structural-digest-store.js';
 import { buildDigest } from '../../../mcp/stdio/storage/structural-digest.mjs';
 
@@ -80,6 +80,30 @@ describe('digests are stored per commit, append-only', () => {
     writeStructuralDigest(db, digestFor('1'.repeat(40)), { createdAt: '2026-09-01T00:00:00.000Z' });
     writeStructuralDigest(db, digestFor('2'.repeat(40)), { createdAt: '2026-09-02T00:00:00.000Z' });
     expect(listDigestCommits(db)).toEqual(['2'.repeat(40), '1'.repeat(40)]);
+    db.close();
+  });
+
+  it('★★★ RETENTION IS BOUNDED — measured at 961 KB per digest on this repository', () => {
+    // ⛔ FOUND BY MEASURING THE REAL THING, not by review. The first live digest on this repo held
+    // 3,220 symbols and 5,382 edges in 961 KB. One row per indexed commit at that size is roughly a
+    // gigabyte per thousand commits, on a table whose whole job is to be written on every rebuild.
+    // Unbounded growth is a defect with a delay on it.
+    //
+    // ⚠ PRUNING IS SAFE HERE ONLY BECAUSE A DIGEST IS DERIVED. Re-indexing that commit reproduces it
+    // exactly — that is what the determinism test is for. This would not be an acceptable policy for
+    // anything that could not be recomputed.
+    const db = freshDb();
+    for (let i = 0; i < DIGEST_RETENTION + 3; i += 1) {
+      writeStructuralDigest(db, digestFor(String(i).padStart(40, '0')), {
+        createdAt: `2026-09-${String((i % 28) + 1).padStart(2, '0')}T00:00:00.000Z`,
+      });
+    }
+    const kept = listDigestCommits(db);
+    expect(kept.length).toBe(DIGEST_RETENTION);
+    // The NEWEST survive. Dropping the newest would leave a history that can never answer
+    // "what changed since yesterday", which is the only question this table exists for.
+    expect(kept).toContain(String(DIGEST_RETENTION + 2).padStart(40, '0'));
+    expect(kept).not.toContain('0'.repeat(40));
     db.close();
   });
 
