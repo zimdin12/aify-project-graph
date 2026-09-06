@@ -7,7 +7,8 @@ import { inspectReadFreshness, prefixReadWarnings, staleNotFoundCaveat } from '.
 import { loadManifest } from '../../freshness/manifest.js';
 import { computeTrustLevel } from './health.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
-import { buildTrustLine, buildAbsenceTrustLine, ABSENCE_TRUST_UNAVAILABLE, RESULTS_TRUST_UNAVAILABLE } from '../lsp-evidence.js';
+import { buildTrustLine, buildAbsenceTrustLine, hasLspVerifiedEdge, ABSENCE_TRUST_UNAVAILABLE, RESULTS_TRUST_UNAVAILABLE } from '../lsp-evidence.js';
+import { isOvercountSuspicious } from '../overcount-risk.js';
 import { indexedScopePhrase } from '../miss-scope.js';
 import { IMPACT_FAMILY } from '../../storage/taxonomy.js';
 import { noMatchMessage } from '../did-you-mean.js';
@@ -185,8 +186,12 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
       // (b) more indexed nodes labeled <symbol> than edges returned —
       //     the graph likely missed cross-file resolution.
       // Trust=strong with healthy result count stays quiet.
-      const suspicious = (trust === 'weak' && resultCount < 10)
-        || (occurrences >= 3 && resultCount < occurrences);
+      // ⭐ ONE OWNER. This predicate used to live here AND in graph_callers, byte-identical, and it
+      // had the same hole in both: it modelled AMBIGUITY and was blind to the builtin-method
+      // COLLISION. See overcount-risk.js.
+      const { suspicious } = isOvercountSuspicious({
+        trust, resultCount, occurrences, symbol, hasVerifiedEdge: hasLspVerifiedEdge(mapped),
+      });
       if (suspicious) {
         const parts = [
           `[${resultCount} edges found`,

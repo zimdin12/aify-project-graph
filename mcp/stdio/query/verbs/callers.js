@@ -8,7 +8,7 @@ import { inspectReadFreshness, prefixReadWarnings, staleNotFoundCaveat } from '.
 import { loadManifest } from '../../freshness/manifest.js';
 import { computeTrustLevel } from './health.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
-import { buildTrustLine, buildAbsenceTrustLine, ABSENCE_TRUST_UNAVAILABLE, RESULTS_TRUST_UNAVAILABLE } from '../lsp-evidence.js';
+import { buildTrustLine, buildAbsenceTrustLine, hasLspVerifiedEdge, ABSENCE_TRUST_UNAVAILABLE, RESULTS_TRUST_UNAVAILABLE } from '../lsp-evidence.js';
 import { EXECUTION_FAMILY, CALL_FAMILY } from '../../storage/taxonomy.js';
 import { normalizePathArg } from '../../util/paths.js';
 import { noMatchMessage } from '../did-you-mean.js';
@@ -16,6 +16,7 @@ import { noMatchMessage } from '../did-you-mean.js';
 // One owner: fixing one verb and pasting into the other is how the two drift apart.
 import { unsearchedRelationNote } from '../unsearched-scope.js';
 import { indexedScopePhrase } from '../miss-scope.js';
+import { isOvercountSuspicious } from '../overcount-risk.js';
 
 const EXECUTION_RELATIONS = EXECUTION_FAMILY;
 
@@ -164,8 +165,12 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
       const resultCount = mapped.length;
       // Same trigger as graph_impact: only fire when result actually
       // looks suspicious. Trust=strong with healthy count stays quiet.
-      const suspicious = (trust === 'weak' && resultCount < 10)
-        || (occurrences >= 3 && resultCount < occurrences);
+      // ⭐ ONE OWNER. This predicate used to live here AND in the other verb, byte-identical, and
+      // it had the same hole in both: it modelled AMBIGUITY and was blind to the builtin-method
+      // COLLISION that `graph_callers("has")` produces. See overcount-risk.js.
+      const { suspicious } = isOvercountSuspicious({
+        trust, resultCount, occurrences, symbol, hasVerifiedEdge: hasLspVerifiedEdge(mapped),
+      });
       if (suspicious) {
         // ⛔ THE LEAN THIS BLOCK USED TO CARRY, TWO LINES BELOW THE SENTENCE THAT WITHDREW IT.
         //
