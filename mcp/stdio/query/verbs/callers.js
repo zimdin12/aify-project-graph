@@ -53,14 +53,30 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
     // edges were never fetched, so raising top_k cannot reveal them and the trust
     // banner must not claim an exhaustive caller set. Fetch one extra row purely
     // to detect that we hit it.
+    //
+    // ⛔ AND THE SCOPE HAS TO BE APPLIED BEFORE THAT CEILING, NOT AFTER IT. Filtering in JS after
+    // the cap means the cap chooses which callers are eligible for the filter, so a caller that IS
+    // in the requested directory can be discarded by a LIMIT that never looked at directories —
+    // and the verb then answers NO CALLERS from "<dir>", its own most dangerous output. Prefix
+    // comparison rather than LIKE, because a path may legitimately contain % or _.
+    const fileScopeSql = file ? 'AND substr(n.file_path, 1, $fileLen) = $filePrefix' : '';
+    const recursiveFileScopeSql = file ? 'WHERE substr(n.file_path, 1, $fileLen) = $filePrefix' : '';
+    const fileScopeParams = file ? { filePrefix: file, fileLen: file.length } : {};
     let edges;
     if (depth <= 1) {
       edges = db.all(
         `SELECT e.*, n.label AS from_label, n.type AS from_type, n.file_path AS from_file, n.start_line AS from_line
          FROM edges e JOIN nodes n ON n.id = e.from_id
          WHERE e.to_id IN (${placeholders}) AND e.relation IN (${EXECUTION_RELATIONS.map((relation) => `'${relation}'`).join(',')})
+         ${fileScopeSql}
+         -- Mirror rankCallers so the SQL cut and the final ranking agree: a verified edge late in
+         -- the table must not be dropped by LIMIT in favour of a heuristic one early in it. With no
+         -- ORDER BY at all this LIMIT truncated arbitrarily, and the arbitrary cut then decided
+         -- whether the verb claimed NO CALLERS. Same repair as callees.js.
+         ORDER BY CASE WHEN e.provenance = 'LSP_VERIFIED' THEN 0 ELSE 1 END,
+                  e.confidence DESC, n.label
          LIMIT ${EDGE_FETCH_CAP + 1}`,
-        params
+        { ...params, ...fileScopeParams }
       );
     } else {
       edges = db.all(
@@ -81,8 +97,11 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
           AND e.to_id = c.to_id
           AND e.relation IN (${EXECUTION_RELATIONS.map((relation) => `'${relation}'`).join(',')})
          JOIN nodes n ON n.id = e.from_id
+         ${recursiveFileScopeSql}
+         ORDER BY CASE WHEN e.provenance = 'LSP_VERIFIED' THEN 0 ELSE 1 END,
+                  c.depth, e.confidence DESC, n.label
          LIMIT ${EDGE_FETCH_CAP + 1}`,
-        { ...params, depth }
+        { ...params, ...fileScopeParams, depth }
       );
     }
 
@@ -121,7 +140,15 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
       return prefixReadWarnings(msg + line + scope, freshness.warnings);
     };
 
-    if (edges.length === 0) return absence(`NO CALLERS for "${symbol}"${indexedScopePhrase(db)}. Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`);
+    // ⛔ ONE DEFINITION, BECAUSE THERE ARE TWO EXITS. An absence headline must name the population it
+    // is about — a scoped question answered with an unscoped "NO CALLERS for X" tells the reader the
+    // symbol has no callers anywhere, which is a different and much stronger claim than the one the
+    // query established. Moving the scope filter into SQL made the empty-scope case leave through
+    // THIS exit instead of the one below, and two copies of the sentence is how that went unnoticed.
+    const noCallers = () => (file
+      ? `NO CALLERS from "${file}"${indexedScopePhrase(db)}`
+      : `NO CALLERS for "${symbol}"${indexedScopePhrase(db)}. Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`);
+    if (edges.length === 0) return absence(noCallers());
 
     // NOTE (P0-4): `source_file`/`source_line` here carry the CALLER's
     // DECLARATION location, not the call site. That is deliberate — edges are
@@ -144,7 +171,7 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
     if (rolledUp) mapped = collapseCallerEdges(mapped, symbol);
     // File scope filter: only show callers from a specific directory
     if (file) mapped = mapped.filter(e => e.source_file && e.source_file.startsWith(file));
-    if (mapped.length === 0) return absence(file ? `NO CALLERS from "${file}"${indexedScopePhrase(db)}` : `NO CALLERS for "${symbol}"${indexedScopePhrase(db)}. Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`);
+    if (mapped.length === 0) return absence(noCallers());
     const ranked = rankCallers(mapped);
     const { kept, dropped } = enforceBudget(ranked, top_k);
     const body = renderCompact({ nodes: [], edges: kept, truncated: dropped, suggestion: `top_k=${top_k + 10}`, truncatedIsFloor: edgesTruncated });
