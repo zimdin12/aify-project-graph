@@ -240,8 +240,25 @@ by memory, and not by asking him.
    0 of ~21 running servers carry HEAD. **HOLD THE SPEND.** ⚠ Note `v0.8.0` changes this: after the
    tag there is a version worth measuring, which is the first time that has been true.
 2. **Should the post-commit hook cycle the MCP children.**
-3. **Adoption re-measurement** — gated at `n = 100`, currently 5, roughly 30 days out at the observed
-   rate (an order of magnitude, not a date; five events cannot fix a rate).
+3. **Adoption re-measurement** — gated at `n = 100`, **currently 14** (2026-09-07T00:29Z, controls
+   753 / 0, same instrument SHA).
+
+   ⛔ **THERE WAS NO OBSERVED RATE WHEN THIS LINE FIRST CLAIMED ONE.** It said "roughly 30 days out at
+   the observed rate", and `N-LEDGER.tsv` held exactly ONE row. One reading cannot produce a rate.
+   My own working notes meanwhile carried "~8 days", which had no source at all and disagreed with
+   this file fourfold, in the direction that made the gate look nearly over. ⭐ A FIGURE IN A
+   CARRIED-FORWARD PROMPT IS NOT EVIDENCE; IT IS A COPY WITH NO PROVENANCE.
+
+   ⇒ **A second reading now exists, so a rate is computable for the first time:** 5 → 14 over 1.66
+   days is **5.44/day**, which puts the remaining 86 events **~16 days** out.
+
+   ⚠ **AND THAT INTERVAL IS NOT REPRESENTATIVE, MEASURED RATHER THAN SUSPECTED.** The positive
+   control — every Bash/Read/Grep in the measured population — went **255 → 753** across the same
+   window. Roughly three times the usual activity, because that window contains a four-agent A/B, two
+   reviewers, and a release. The count of qualifying events rose in a window where *everything* rose.
+   ⇒ Treat 5.44/day as an **upper bound on the rate** and ~16 days as a **lower bound on the wait**,
+   and do not write either as a date. A third reading taken after a quiet interval is what would
+   settle it, and it costs one command.
 
 ⚠ Do NOT re-raise "should `graph_health` report code age" — it already ships.
 ⚠ Decision material for the above exists twice already. Do not write a third copy.
