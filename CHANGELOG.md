@@ -9,7 +9,7 @@ Dates are ISO 8601 (YYYY-MM-DD).
 
 ## [0.9.0] — 2026-09-07
 
-**39 commits.** The graph gains a memory of its own past, and the dashboard gains a way to ask what
+**41 commits** (`v0.8.0..v0.9.0`). The graph gains a memory of its own past, and the dashboard gains a way to ask what
 changed. A minor bump because nothing was removed, but two shipped claims were withdrawn and one
 guard was found unable to fire on the case it was written for.
 
