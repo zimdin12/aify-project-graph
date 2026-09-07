@@ -62,6 +62,10 @@ function instrumentSha() {
 }
 
 const dryRun = process.argv.includes('--dry-run');
+// ⛔ A DELIBERATE READING RECORDS EVEN WHEN NOTHING MOVED — that zero is the interval's result, and
+// without it every rate computed from this file is an overestimate. Use it when taking a reading to
+// establish an interval; omit it for the per-cycle poll, which must leave the tree clean.
+const deliberate = process.argv.includes('--deliberate');
 const reading = measureN(transcriptsRoot());
 const previous = existsSync(LEDGER) ? lastRecordedN(readFileSync(LEDGER, 'utf8')) : null;
 const verdict = classifyReading(previous, reading.n);
@@ -84,7 +88,7 @@ const row = {
 
 // A read that found nothing new writes nothing: this runs every loop cycle, and a modified file in
 // the working tree makes run-suite.mjs refuse.
-const wrote = !dryRun && shouldAppendRow(verdict.movement);
+const wrote = !dryRun && shouldAppendRow(verdict.movement, { deliberate });
 if (wrote) {
   if (!existsSync(LEDGER)) appendFileSync(LEDGER, HEADER, 'utf8');
   appendFileSync(LEDGER, formatRow(row), 'utf8');

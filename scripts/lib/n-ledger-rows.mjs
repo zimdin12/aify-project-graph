@@ -27,8 +27,27 @@ export const HEADER = `${COLUMNS.join('\t')}\n`;
  * ⭐ AND `shrank` ALWAYS WRITES. A drop is the one movement that must survive in the file even
  * though it is the one a tidy-minded filter would be most tempted to treat as noise.
  */
-export function shouldAppendRow(movement) {
-  return movement !== 'unchanged';
+/**
+ * Should this reading become a row?
+ *
+ * ⛔ AN UNCHANGED READING IS STILL A MEASUREMENT, and dropping it silently makes every rate computed
+ * from this file an OVERESTIMATE. Measured 2026-09-07: two rows said 5 -> 14 over 1.66 days, so
+ * 5.44/day, and that number reached a plan document. A reading 9.9 hours later found n unchanged at
+ * 14 with the positive control also unchanged at 753 — nothing in the measured population had moved
+ * at all. The true series was "9 events in 1.66 busy days, then 0 in 0.41 quiet ones", and the
+ * ledger could only show the first half.
+ *
+ * ⭐ SO THE FILE COULD NOT DISTINGUISH "WE HAVE NOT LOOKED" FROM "WE LOOKED AND NOTHING MOVED" —
+ * the silence-versus-dead-instrument shape, in the instrument built to keep me honest about n.
+ *
+ * ⚠ THE DEFAULT STAYS. Skipping unchanged rows is correct for the per-loop-cycle check, and the
+ * reason is operational rather than cosmetic: this runs every cycle, and a modified tracked file
+ * makes `run-suite.mjs` refuse to start. A `deliberate` reading — one taken to establish an
+ * interval rather than to poll — records either way, and is the only kind a rate may be computed
+ * from.
+ */
+export function shouldAppendRow(movement, { deliberate = false } = {}) {
+  return deliberate || movement !== 'unchanged';
 }
 
 /** One row, in column order. Every column is written, so a short row is a corrupt row. */

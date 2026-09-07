@@ -144,10 +144,37 @@ describe('the gate condition n is recorded, not remembered', () => {
     expect(shouldAppendRow('shrank'), 'a DROP must always reach the file').toBe(true);
   });
 
+  it('★★★ A DELIBERATE READING RECORDS EVEN WHEN NOTHING MOVED — the zero is the result', () => {
+    // ⛔ THE RULE ABOVE MADE EVERY RATE FROM THIS FILE AN OVERESTIMATE. Measured 2026-09-07: two
+    // rows read 5 -> 14 over 1.66 days, so 5.44/day, and that number reached a plan document. A
+    // reading 9.9 hours later found n unchanged at 14 with the positive control ALSO unchanged at
+    // 753 — nothing in the measured population had moved at all. The true series was "9 events in
+    // 1.66 busy days, then 0 in 0.41 quiet ones", and only the first half could ever be written.
+    //
+    // ⭐ SO THE FILE COULD NOT SEPARATE "we have not looked" FROM "we looked and nothing moved" —
+    // a silence that cannot be told from a dead instrument, inside the instrument built to keep the
+    // gate honest.
+    expect(shouldAppendRow('unchanged', { deliberate: true }),
+      'an interval that produced no movement is a measurement, and it is the one a rate needs')
+      .toBe(true);
+    // ⚠ AND THE DEFAULT MUST NOT MOVE. The per-cycle poll still writes nothing on an idle read,
+    // because a modified tracked file makes run-suite.mjs refuse — the operational reason the skip
+    // exists at all. Deleting that would trade a wrong rate for a blocked suite.
+    expect(shouldAppendRow('unchanged', {}), 'the per-cycle poll is unchanged').toBe(false);
+    expect(shouldAppendRow('unchanged'), 'and omitting the options entirely is the poll').toBe(false);
+    // Movement is recorded either way; the flag only ever adds rows, never removes them.
+    expect(shouldAppendRow('grew', { deliberate: true })).toBe(true);
+    expect(shouldAppendRow('shrank', { deliberate: true })).toBe(true);
+  });
+
   it('★★★ the entry point gates the append on that rule, not on its own inline condition', () => {
     // The pure function is only worth having if the writer actually consults it.
     const src = read('../../../scripts/n-ledger.mjs');
-    expect(src).toMatch(/shouldAppendRow\(verdict\.movement\)/);
+    // ⚠ Matches the CALL, not its full argument list: the options object gained a `deliberate`
+    // flag and this assertion went red for a correct change. Pinning an exact argument list makes
+    // the test a spelling check, which this repository has spent a night removing. What must hold
+    // is that the entry point asks the pure function about `verdict.movement` at all.
+    expect(src).toMatch(/shouldAppendRow\(verdict\.movement[,)]/);
     expect(src, 'the append must be guarded, not unconditional').toMatch(/if \(wrote\) \{/);
   });
 

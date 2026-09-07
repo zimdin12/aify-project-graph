@@ -260,6 +260,37 @@ by memory, and not by asking him.
    and do not write either as a date. A third reading taken after a quiet interval is what would
    settle it, and it costs one command.
 
+   ## ⛔⛔ THE THIRD READING SETTLED IT, AND IT KILLS THE ESTIMATE RATHER THAN REFINING IT
+
+   Taken 2026-09-07T10:25Z, after 9.9 hours in which this session did nothing:
+
+   | interval | elapsed | Δn | rate | positive control |
+   |---|---|---|---|---|
+   | 1 | 1.66 d | 9 | 5.44 / day | 255 → 753 (**+498**) |
+   | 2 | 0.41 d | **0** | **0.00 / day** | 753 → **753** (**+0**) |
+
+   **Nothing moved at all.** Not `n`, not the population, not the control. So the quiet interval did
+   not produce a smaller rate — it produced *no events and no activity*, and the two facts arrive
+   together.
+
+   ⇒ ⭐ **`n` IS NOT A CLOCK. IT IS A USAGE COUNTER.** It advanced exactly when the positive control
+   advanced, and the control counts every Bash/Read/Grep in the measured population. The 5.44/day
+   figure was measuring *a session*, not a trend — and the session it measured was largely my own.
+
+   ⇒ **THEREFORE NO "N DAYS" ESTIMATE IS SUPPORTABLE IN EITHER DIRECTION**, and the earlier ~8 / ~30
+   / ~16 figures were all answering a question the data cannot address. The gate is reached when the
+   machine does enough qualifying work. Nothing observed so far predicts when that happens, and a
+   fourth reading over another idle stretch would only reproduce this row.
+
+   ⚠ **AND THE LEDGER COULD NOT HAVE SHOWN THIS UNTIL TODAY.** `shouldAppendRow` skipped unchanged
+   readings — for a sound operational reason, since it runs every loop cycle and a modified tracked
+   file makes `run-suite.mjs` refuse — so **only increases were ever recorded, and every rate derived
+   from the file was systematically an overestimate.** The zero-growth intervals were invisible.
+   ⭐ The instrument could not separate *we have not looked* from *we looked and nothing moved*, which
+   is the silence-versus-dead-instrument shape inside the instrument built to keep this gate honest.
+   Fixed: `n-ledger.mjs --deliberate` records either way, and only a deliberate reading may be used to
+   compute a rate. The per-cycle poll is unchanged and still leaves the tree clean.
+
 ⚠ Do NOT re-raise "should `graph_health` report code age" — it already ships.
 ⚠ Decision material for the above exists twice already. Do not write a third copy.
 
