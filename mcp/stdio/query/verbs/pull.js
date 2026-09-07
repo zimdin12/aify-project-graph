@@ -286,7 +286,10 @@ function docRelationsPresent(db) {
 //                   transitive_{dependencies,dependents} + {upstream,downstream}_files
 //                   Separated from relations per dev review: truncation-prone,
 //                   trust-sensitive, different tuning.
-// Every capped list carries { items, total, truncated, limit } metadata.
+// Every capped list carries { items, total, truncated, limit } — and where a SQL page saturated,
+// `total` is a real COUNT over that same query rather than the page length. A list whose population
+// could not be established omits `total` entirely and carries `totalAtLeast`, so a reader that finds
+// `total` can trust it and one that does not finds nothing to misread.
 // `code_intel` is opt-in only — keeps token budget controlled. Plan #3.
 const ALL_LAYERS = ['code', 'functionality', 'tasks', 'docs', 'activity', 'relations', 'transitive', 'code_intel'];
 // ⛔ `docs` JOINED THE DEFAULT, AND ITS ABSENCE EXPLAINS "ZERO CONSUMERS".
@@ -440,24 +443,89 @@ function detectNodeKind(db, node) {
  * may be more', always." The principle was written down twice, adjacent, and the helper did not
  * implement it. A comment is not an instrument.
  *
- * ⇒ Pass `fetchCap` when `items` came from a query that asked for `fetchCap + 1` rows. More than
- * `fetchCap` back means the population is larger than anything this query can see: the probe row is
- * dropped and `totalIsFloor` says the number is a floor. Omit it for an in-memory collection, where
- * `total` really is the population — 26 of the 30 call sites here are that, and asking them to
- * answer a question they cannot get wrong would be noise.
+ * ⇒ THIS HELPER IS NOW FOR IN-MEMORY COLLECTIONS ONLY, where the array IS the population — 26 of the
+ * 30 call sites here. Anything filled by a query goes through `cappedFromQuery`, which counts.
  *
- * @param {number} [fetchCap] the query's cap, when `items` came from a `LIMIT fetchCap + 1` query
+ * ⚠ An earlier version of this fix took a `fetchCap` and disclosed a floor via `totalIsFloor`. That
+ * was the honest version of the wrong answer: both sibling verbs in this directory compute a real
+ * total, so a floor here was a caveat standing in for a number that was one query away. The flag is
+ * gone rather than kept beside its replacement — it had no reader, and a redundant field with no
+ * consumer is the thing not to ship.
  */
 /** The cap on every SQL-fed list here. Each such query asks for one MORE, purely to detect
  * saturation, and that probe row is never returned to the caller. */
 const PULL_FETCH_CAP = 100;
 
-function capped(items, limit, fetchCap) {
-  const saturated = typeof fetchCap === 'number' && items.length > fetchCap;
-  const visible = saturated ? items.slice(0, fetchCap) : items;
-  const total = visible.length;
-  const truncated = total > limit || saturated;
-  return { items: visible.slice(0, limit), total, truncated, limit, totalIsFloor: saturated };
+function capped(items, limit) {
+  const total = items.length;
+  return { items: items.slice(0, limit), total, truncated: total > limit, limit };
+}
+
+/**
+ * A capped list whose rows came from SQL — the only kind where `items.length` is not the population.
+ *
+ * ⭐ THE COUNT IS THE PAGE QUERY, WRAPPED. Both siblings in this directory compute a real total
+ * (`symbol_lookup.js` pays for a COUNT only on a full page; `graph_consequences` counts uncapped),
+ * so disclosing a floor here would be the honest version of the wrong answer. But they each write
+ * the COUNT as a SECOND, hand-written query, and that is a hazard: this page is a
+ * `SELECT DISTINCT` over six columns, while the natural `COUNT(*) FROM edges` counts EDGES. Two
+ * nodes sharing (label, type, file_path, start_line) collapse to one row and count as two — a
+ * decl/def fork or a template instantiation, which is C++, which is this project's main target.
+ *
+ * ⛔ AND THAT DIVERGENCE IS INVISIBLE HERE. Measured across the 300 highest fan-in symbols in this
+ * repository's own graph: ZERO divergence, partly because `idx_edges_unique(from_id, to_id,
+ * relation)` has already removed the common duplication route. A hand-written COUNT over the wrong
+ * noun would pass every test on this repo and be wrong on someone else's.
+ *
+ * ⇒ So there is ONE SQL fragment and the COUNT is derived from it by wrapping. The two cannot
+ * describe different populations, because there is only one description. Derive, do not restate.
+ *
+ * ⚠ COST, measured on the query actually shipped rather than a simpler one: the page plan is
+ * CO-ROUTINE + idx_edges_to + autoindex on nodes + TEMP B-TREE FOR DISTINCT — 6 ms for the largest
+ * fan-in symbol in this graph (761 rows / 23,704 edges). An earlier note claiming 0 ms described a
+ * bare covering-index edge count, which is not this query.
+ */
+function cappedFromQuery(db, pageSql, params, limit, mapRow = (r) => r) {
+  // ⛔ THE PAGE AND ITS COUNT MUST SEE ONE SNAPSHOT, and back-to-back statements do not.
+  //
+  // `db.js` states the hazard directly: publication being one transaction "guarantees each read is
+  // internally whole — it does NOT stop a commit landing BETWEEN them." Two statements on a WAL
+  // connection are two snapshots, so a reindex landing between the page and the count would make
+  // `total` describe a different population from `items`. That is not exotic here: the post-commit
+  // hook runs a reindex against the same database this server reads.
+  //
+  // ⭐ THE ALTERNATIVE WAS A RUNTIME GUARD asserting `total >= items.length`, and it would have been
+  // a tautology — `rows` is a subset of what the wrapped COUNT counts, so it cannot fail EXCEPT via
+  // this window. Guarding the window detects it; one transaction removes it. Remove the thing that
+  // moves rather than checking whether it moved.
+  //
+  // ⚠ SYNCHRONOUS ONLY, deliberately. `db.js` warns that holding a WAL read transaction across an
+  // async await is how a reader pins a stale snapshot for the length of a git or LSP call. Both
+  // statements here are synchronous and nothing awaits between them.
+  const read = db.transaction(() => {
+    const page = db.all(`${pageSql} LIMIT ${PULL_FETCH_CAP + 1}`, params);
+    const full = page.length > PULL_FETCH_CAP;
+    return { page, count: full ? db.get(`SELECT COUNT(*) AS n FROM (${pageSql})`, params)?.n : null };
+  });
+  const { page: rows, count } = read();
+  const saturated = rows.length > PULL_FETCH_CAP;
+  const visible = (saturated ? rows.slice(0, PULL_FETCH_CAP) : rows).map(mapRow);
+
+  // A short page is its own total; only a full one fails to establish the population, so only that
+  // case pays for the COUNT.
+  if (!saturated) {
+    return { items: visible.slice(0, limit), total: visible.length, truncated: visible.length > limit, limit };
+  }
+
+  const counted = count;
+  if (typeof counted !== 'number') {
+    // ⛔ FAIL CLOSED. The COUNT did not run, so the population is unknown — all that is known is
+    // that it exceeds the fetch cap. Emitting `total` here would put a cap back in a field named
+    // total, which is the entire defect. No `total` key at all: absent reads as absent, where a
+    // number reads as truth.
+    return { items: visible.slice(0, limit), totalAtLeast: PULL_FETCH_CAP, truncated: true, limit };
+  }
+  return { items: visible.slice(0, limit), total: counted, truncated: counted > limit, limit };
 }
 
 function loadTasksSafe(repoRoot) {
@@ -482,25 +550,25 @@ function recentCommitsForFile(repoRoot, filePath, limit = 5) {
 
 // Symbol-level direct neighbors: callers + callees resolved by id (precision,
 // not just label — matches the dev-review fix applied to code layer in f8feb6c).
-function relationsForSymbol(db, sym, limit = 10) {
-  const callersRaw = db.all(
-    `SELECT DISTINCT fn.label, fn.type, fn.file_path, fn.start_line, e.relation, e.provenance
+export const CALLERS_PAGE_SQL =
+  `SELECT DISTINCT fn.label, fn.type, fn.file_path, fn.start_line, e.relation, e.provenance
      FROM edges e
      JOIN nodes fn ON fn.id = e.from_id
-     WHERE e.to_id = $id
-       AND e.relation IN (${PULL_TOUCH_SQL_LIST})
-     LIMIT ${PULL_FETCH_CAP + 1}`, { id: sym.id });
-  const calleesRaw = db.all(
-    `SELECT DISTINCT tn.label, tn.type, tn.file_path, tn.start_line, e.relation, e.provenance
+    WHERE e.to_id = $id
+      AND e.relation IN (${PULL_TOUCH_SQL_LIST})`;
+
+const CALLEES_PAGE_SQL =
+  `SELECT DISTINCT tn.label, tn.type, tn.file_path, tn.start_line, e.relation, e.provenance
      FROM edges e
      JOIN nodes tn ON tn.id = e.to_id
-     WHERE e.from_id = $id
-       AND e.relation IN (${PULL_TOUCH_SQL_LIST})
-     LIMIT ${PULL_FETCH_CAP + 1}`, { id: sym.id });
+    WHERE e.from_id = $id
+      AND e.relation IN (${PULL_TOUCH_SQL_LIST})`;
+
+function relationsForSymbol(db, sym, limit = 10) {
   const withProv = (r) => ({ ...r, provenance: r.provenance ?? 'EXTRACTED' });
   return {
-    callers: capped(callersRaw.map(withProv), limit, PULL_FETCH_CAP),
-    callees: capped(calleesRaw.map(withProv), limit, PULL_FETCH_CAP),
+    callers: cappedFromQuery(db, CALLERS_PAGE_SQL, { id: sym.id }, limit, withProv),
+    callees: cappedFromQuery(db, CALLEES_PAGE_SQL, { id: sym.id }, limit, withProv),
   };
 }
 
@@ -799,7 +867,14 @@ function filesForFeatures(db, features, featureIds, cap) {
     }
   }
   const files = capped([...allFiles], cap);
-  return filesAreFloor ? { ...files, totalIsFloor: true, truncated: true } : files;
+  if (!filesAreFloor) return files;
+  // ⛔ THE ONE LIST THAT CANNOT REPORT A TRUE TOTAL, and it says so by shape rather than by flag.
+  // A DISTINCT count across an arbitrary set of globs is not one query, and inventing one to make
+  // the contract uniform would be tidying at the cost of honesty. So `total` is REMOVED — a reader
+  // finds no number rather than a number that is really a ceiling — and `totalAtLeast` carries what
+  // is actually known: at least this many, possibly more.
+  const { total, ...rest } = files;
+  return { ...rest, totalAtLeast: total, truncated: true };
 }
 
 // Transitive relations for features only. Direction can be 'downstream',
@@ -1028,10 +1103,18 @@ function pullFile({ db, filePath, features, allTasks, repoRoot, layers, receiptM
   // fields survive without the overlay, and disagreement between them is itself
   // the signal.
   const rel = out.layers.relations;
-  // `capped()` returns {items,total,truncated} — and a capped LIST is a floor in
-  // exactly the way the closure cap is. Reading `.items` and ignoring `.truncated`
-  // would put a silently-shortened list under an exhaustive receipt, which is the
-  // same laundering this file already committed once inside `terminated`.
+  // A capped list is a shortened VIEW of a population, in exactly the way the closure cap is.
+  // Reading `.items` and ignoring `.truncated` would put a silently-shortened list under an
+  // exhaustive receipt, which is the same laundering this file already committed once inside
+  // `terminated`.
+  //
+  // ⚠ `.total` IS NOW TRUSTWORTHY AND `.items` STILL IS NOT. A SQL-fed list counts its real
+  // population (`cappedFromQuery`), so `total` no longer holds a cap — but `items` is still the
+  // page, so `truncated` remains the field that decides whether the list may be treated as
+  // complete. ⛔ THIS COMMENT WAS QUOTED HOURS AGO AS PROOF THE FILE ALREADY KNEW BETTER, WHICH IS
+  // EXACTLY WHY IT NEARLY WENT STALE: a line you have just cited as correct is the line you stop
+  // reading. It was found by a reviewer, not by me, in the commit that changed the shape it
+  // described.
   const importedBy = rel?.imported_by ?? {};
   const docsLayer = out.layers.docs ?? {};
   const listTruncated = Boolean(importedBy.truncated) || Boolean(docsLayer.truncated);
@@ -1205,13 +1288,18 @@ function pullSymbol({ db, sym, features, allTasks, repoRoot, layers }) {
   if (layers.has('code')) {
     // Dev review: use resolved symbol id directly, not label. Same-named
     // methods across files would otherwise all match.
-    const callersRaw = db.all(
+    // ⚠ A NARROWER PROJECTION THAN CALLERS_PAGE_SQL, and deliberately its own fragment rather than
+    // a shared one: this layer shows three columns, so its DISTINCT collapses a different set of
+    // rows. Reusing the six-column fragment would count a population this list does not render.
+    const codeCallersSql =
       `SELECT DISTINCT fn.label, fn.file_path, fn.start_line
-       FROM edges e JOIN nodes fn ON fn.id = e.from_id
-       WHERE e.to_id = $id
-         AND e.relation IN (${PULL_TOUCH_SQL_LIST})
-       LIMIT ${PULL_FETCH_CAP + 1}`, { id: sym.id });
-    out.layers.code = { callers: capped(callersRaw, 8, PULL_FETCH_CAP), file: sym.file_path };
+         FROM edges e JOIN nodes fn ON fn.id = e.from_id
+        WHERE e.to_id = $id
+          AND e.relation IN (${PULL_TOUCH_SQL_LIST})`;
+    out.layers.code = {
+      callers: cappedFromQuery(db, codeCallersSql, { id: sym.id }, 8),
+      file: sym.file_path,
+    };
   }
 
   if (layers.has('functionality')) {
