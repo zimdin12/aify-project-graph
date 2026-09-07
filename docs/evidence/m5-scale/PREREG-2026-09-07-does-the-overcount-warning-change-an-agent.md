@@ -75,6 +75,10 @@ conclusion. It cannot produce a rate, and it says nothing about productivity.
 
 ---
 
+⭐ **THE RAW REPLIES ARE NOW IN THE REPOSITORY:** [`RAW-REPLIES-2026-09-07-overcount-ab.md`](RAW-REPLIES-2026-09-07-overcount-ab.md).
+Every quotation below is a selection made by the person whose intervention was under test. The raw
+file is not, and it is what a reviewer used to find the correction that follows.
+
 ## ⛔⛔ CORRECTION, 2026-09-07 — THE HEADING BELOW OVERSTATED WHAT THIS EXPERIMENT SHOWS
 
 The result section was headed *"the warning REACHED the conclusion in both arm-A agents"* and closed
