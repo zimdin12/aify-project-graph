@@ -520,10 +520,24 @@ function cappedFromQuery(db, pageSql, params, limit, mapRow = (r) => r) {
   const counted = count;
   if (typeof counted !== 'number') {
     // ⛔ FAIL CLOSED. The COUNT did not run, so the population is unknown — all that is known is
-    // that it exceeds the fetch cap. Emitting `total` here would put a cap back in a field named
-    // total, which is the entire defect. No `total` key at all: absent reads as absent, where a
-    // number reads as truth.
-    return { items: visible.slice(0, limit), totalAtLeast: PULL_FETCH_CAP, truncated: true, limit };
+    // what was actually fetched. Emitting `total` here would put a cap back in a field named total,
+    // which is the entire defect. No `total` key at all: absent reads as absent, where a number
+    // reads as truth.
+    //
+    // ⛔ AND THE FLOOR IS `rows.length`, NOT THE CAP. This branch is only reached when `saturated`,
+    // and the LIMIT is `CAP + 1`, so `rows.length` is exactly CAP + 1 rows that were OBSERVED. The
+    // first version said `PULL_FETCH_CAP` — reaching for the constant with the observation in hand,
+    // inside the branch written to fail closed against precisely that reflex.
+    //
+    // ⭐ DO NOT "TIDY" THIS BACK TO THE CONSTANT. A floor derived from a constant moves when the
+    // CONSTANT moves: raise the cap to 200 and this reports 200 for a population nothing new was
+    // learned about. A floor derived from the rows moves only when the DATA does.
+    //
+    // ⚠ `db.get` on a COUNT(*) returns a row essentially always, so this branch is close to
+    // unreachable and no test will ever run it. That is why it must state an OBSERVATION rather
+    // than a value: an unexercised branch that emits a fabricated number is a claim with no
+    // witness, and it stays green forever. A defensive branch should refuse, not guess.
+    return { items: visible.slice(0, limit), totalAtLeast: rows.length, truncated: true, limit };
   }
   return { items: visible.slice(0, limit), total: counted, truncated: counted > limit, limit };
 }
