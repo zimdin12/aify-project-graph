@@ -77,7 +77,8 @@ function refuse(reason) {
     refusal: reason,
     symbolsAdded: [], symbolsRemoved: [],
     edgesAdded: [], edgesRemoved: [],
-    fanInMoved: [], newCrossLayerEdges: [],
+    fanInMoved: [], newCrossLayerEdges: null,
+    crossLayer: { available: false, symbolsWithLayer: null, symbolsTotal: null },
   };
 }
 
@@ -125,6 +126,19 @@ export function computeDelta(before, after) {
   // ⭐ THE SHAPE SIGNAL. A new edge that crosses a layer boundary is the class of change with no
   // local error signal: it fails months later, in someone else's task, unattributed. Reported only
   // for edges that are NEW and DO cross — a signal that fires on every edge is decoration.
+  // ⛔ AND THE ANSWER IS WITHHELD ENTIRELY WHEN NOTHING CARRIES A LAYER. `layerOf` is optional and
+  // defaults to null, so a digest built without an overlay labels nothing — and the loop below then
+  // skips every pair and produces an empty list that reads as "we looked, there were none". That is
+  // the dead-code shape this repository already names: a claim whose only witness is structurally
+  // excluded. Undecidable is not zero, so it is reported as no answer rather than as an answer.
+  const afterSymbols = Object.values(after.symbols);
+  const symbolsWithLayer = afterSymbols.filter((s) => s.layer !== null && s.layer !== undefined).length;
+  const crossLayer = {
+    available: symbolsWithLayer > 0,
+    symbolsWithLayer,
+    symbolsTotal: afterSymbols.length,
+  };
+
   const newCrossLayerEdges = [];
   for (const key of after.edgeKeys) {
     if (beforeEdges.has(key)) continue;
@@ -145,6 +159,7 @@ export function computeDelta(before, after) {
     edgesAdded: after.edgeKeys.filter((k) => !beforeEdges.has(k)),
     edgesRemoved: before.edgeKeys.filter((k) => !afterEdges.has(k)),
     fanInMoved,
-    newCrossLayerEdges,
+    newCrossLayerEdges: crossLayer.available ? newCrossLayerEdges : null,
+    crossLayer,
   };
 }

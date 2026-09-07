@@ -1016,9 +1016,18 @@
       const moved = (d.fanInMoved || []).slice(0, 12).map(function (m) {
         return '<div class="field"><code>' + tourEsc(m.qname) + '</code> callers ' + m.from + ' → ' + m.to + ' (' + tourEsc(m.direction) + ')</div>';
       }).join('');
-      const crossing = (d.newCrossLayerEdges || []).map(function (e) {
+      // ⛔ null is NOT an empty list here. computeDelta returns null when no symbol carries a layer,
+      // which means the crossing question was never answerable — and on a page "none found" and
+      // "could not look" render identically unless one of them says so.
+      const layersUnavailable = !d.crossLayer || d.crossLayer.available === false;
+      const crossing = (layersUnavailable ? [] : (d.newCrossLayerEdges || [])).map(function (e) {
         return '<div class="field"><code>' + tourEsc(e.from) + '</code> [' + tourEsc(e.fromLayer) + '] → <code>' + tourEsc(e.to) + '</code> [' + tourEsc(e.toLayer) + ']</div>';
       }).join('');
+      // Movement is whatever actually moved. Reading it off the two decorated sections alone made
+      // an edge rewire render "Edges: +1 / -1" and "No structural movement" in the same card.
+      const movedCount = (d.symbolsAdded || []).length + (d.symbolsRemoved || []).length
+        + (d.edgesAdded || []).length + (d.edgesRemoved || []).length + (d.fanInMoved || []).length
+        + (layersUnavailable ? 0 : (d.newCrossLayerEdges || []).length);
 
       detail.innerHTML = '<h3>What moved</h3><div class="detail-card">'
         + '<div class="field"><span class="field-label">Range:</span> ' + tourEsc(res.fromCommit.slice(0, 7)) + ' → ' + tourEsc(res.toCommit.slice(0, 7)) + '</div>'
@@ -1029,8 +1038,13 @@
           ? '<div class="field"><span class="field-label">New cross-layer edges:</span></div>' + crossing
             + '<div class="field subtle">These are the changes with no local error signal: nothing fails now, and the cost lands months later in a different task.</div>'
           : '')
+        + (layersUnavailable
+          ? '<div class="field subtle">⚠ Cross-layer edges: NOT ANSWERED. No symbol in this graph carries a'
+            + ' layer, so whether anything newly crossed a boundary could not be determined — this is'
+            + ' missing information, not a clean result.</div>'
+          : '')
         + (moved ? '<div class="field"><span class="field-label">Fan-in moved:</span></div>' + moved : '')
-        + (!crossing && !moved ? '<div class="field">No structural movement between these two commits.</div>' : '')
+        + (movedCount === 0 ? '<div class="field">No structural movement between these two commits.</div>' : '')
         + (res.diffOverlay
           ? '<div class="field subtle">diff overlay ' + tourEsc(String(res.diffOverlay.range || '')) + ': '
             + (res.diffOverlay.changedNodeIds || []).length + ' changed, '

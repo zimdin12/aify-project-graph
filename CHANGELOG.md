@@ -7,6 +7,32 @@ Dates are ISO 8601 (YYYY-MM-DD).
 
 ## [Unreleased]
 
+### Withdrawn
+
+- ⛔ **v0.9.0's cross-layer edge signal never fired on a real graph, and reported that as "none".**
+  `captureStructuralDigest` takes an optional `layerOf` and defaults it to `() => null`. There was
+  exactly one production call site and it passed no `layerOf`, so every symbol in every real digest
+  carried `layer: null` — and `computeDelta`, which correctly skips pairs with an unknown layer, then
+  returned an empty list that the dashboard rendered as a clean result. The digest's own node query
+  also selects only code-layer types, so even a wired producer would have found one layer and no
+  crossings. Two independent reasons the claim could not be true, and neither was visible from a test
+  suite whose fixtures all carry layers.
+
+  `computeDelta` now returns `newCrossLayerEdges: null` with a `crossLayer` coverage record when no
+  symbol carries a layer, and the dashboard says the question was not answered instead of drawing a
+  clean card. **The signal is not repaired, it is withdrawn**: it stays unanswerable until the digest
+  preserves symbol identity, because wiring layers into a digest that collapses two same-named
+  symbols to the first one would manufacture crossings rather than find them.
+
+### Fixed
+
+- **`graph_callers` let an arbitrary `LIMIT` decide whether callers existed.** The fetch ran with no
+  `ORDER BY`, was sliced to the cap, and only then had the `file` scope and evidence ranking applied —
+  so a verified caller inside the requested directory could be discarded before either ran, and the
+  verb answered `NO CALLERS from "<dir>"`, the output its own source calls the most dangerous one it
+  produces. Scope and evidence priority now run in SQL, before the cap. The sibling verb `graph_callees`
+  already carried this exact repair, with a comment describing the exact failure.
+
 ## [0.9.0] — 2026-09-07
 
 **41 commits** (`v0.8.0..v0.9.0`). The graph gains a memory of its own past, and the dashboard gains a way to ask what
