@@ -147,7 +147,7 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
     if (mapped.length === 0) return absence(file ? `NO CALLERS from "${file}"${indexedScopePhrase(db)}` : `NO CALLERS for "${symbol}"${indexedScopePhrase(db)}. Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`);
     const ranked = rankCallers(mapped);
     const { kept, dropped } = enforceBudget(ranked, top_k);
-    const body = renderCompact({ nodes: [], edges: kept, truncated: dropped, suggestion: `top_k=${top_k + 10}` });
+    const body = renderCompact({ nodes: [], edges: kept, truncated: dropped, suggestion: `top_k=${top_k + 10}`, truncatedIsFloor: edgesTruncated });
 
     // CONFIDENCE footer — same pattern as graph_impact (added 2026-04-27).
     // Echoes IMPACT bench showed graph_impact silently undercounting C++

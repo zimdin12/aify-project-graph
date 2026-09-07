@@ -70,13 +70,53 @@ export function renderEdgeLine(e, opts) {
   return useCompact(opts) ? renderEdgeCompact(e) : renderEdgeVerbose(e);
 }
 
-export function renderCompact({ nodes = [], edges = [], truncated = 0, suggestion = '' }, opts) {
+/**
+ * ⛔ THE REMAINDER IS ONLY A NUMBER IF THE SET IT WAS SUBTRACTED FROM WAS COMPLETE.
+ *
+ * `truncated` is display budget: how many rows the renderer dropped to fit `top_k`. It is computed
+ * as (rows the verb held) − (rows shown). When the verb's own FETCH saturated at a cap, the rows it
+ * held are themselves a floor, so the remainder is a floor too and "TRUNCATED 70 more" states a
+ * total the query never established.
+ *
+ * ⭐ FOUND 2026-09-07 BY DRIVING THE REAL VERB, not by reading it. `graph_impact` on a fan-in of
+ * 101 printed 30 rows and "TRUNCATED 70 more" — implying exactly 100 — with no confidence line at
+ * all, because the floor language shipped that morning sits behind `if (suspicious)` and this
+ * symbol was not suspicious. The fix went into the line that sometimes prints and not the line that
+ * always does. `graph_callers` had the identical hole; one owner, so it is repaired once.
+ *
+ * ⛔⛔ AND THE FLAG IS REQUIRED, NOT DEFAULTED — because the first version of this fix defaulted it
+ * to `false` and an outside reviewer named that as the defect wearing the shape of a fix. A default
+ * makes the repair OPT-IN PER VERB: seven verbs call this, and the two I had in mind when I wrote
+ * "both verbs" were the two I happened to be editing. `callees` and `neighbors` would have kept the
+ * old behaviour silently, and `callees` is the direct mirror of the verb I had just fixed.
+ *
+ * ⭐ DERIVE ALLOWED VALUES, NEVER LIST THEM — and where a value cannot be derived here, refuse
+ * instead of guessing. A remainder is only a number if the set it was subtracted from was complete,
+ * so a caller that reports a remainder must state whether that set was. Callers that report no
+ * remainder never have to answer, which is why this does not become noise at the other five sites.
+ *
+ * @param {boolean} truncatedIsFloor  did the verb's fetch saturate, making the remainder a floor.
+ *                                    REQUIRED whenever `truncated > 0`.
+ */
+export function renderCompact(
+  { nodes = [], edges = [], truncated = 0, suggestion = '', truncatedIsFloor },
+  opts,
+) {
   const lines = [];
   for (const n of nodes) lines.push(renderNodeLine(n));
   for (const e of edges) lines.push(renderEdgeLine(e, opts));
   if (truncated > 0) {
+    if (typeof truncatedIsFloor !== 'boolean') {
+      throw new TypeError(
+        'renderCompact: reporting a remainder of ' + truncated + ' requires truncatedIsFloor. '
+        + 'A remainder is only a number if the fetch that produced it did not saturate — pass '
+        + 'true when the query hit its cap, false when it did not. Guessing here is how a cap '
+        + 'gets printed as a total.',
+      );
+    }
     const hint = suggestion ? ` (use ${suggestion})` : '';
-    const marker = useCompact(opts) ? `+${truncated} more` : `TRUNCATED ${truncated} more`;
+    const count = truncatedIsFloor ? `at least ${truncated}` : `${truncated}`;
+    const marker = useCompact(opts) ? `+${count} more` : `TRUNCATED ${count} more`;
     lines.push(`${marker}${hint}`);
   }
   return lines.join('\n');

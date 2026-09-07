@@ -332,12 +332,20 @@ export async function graphSearch({ repoRoot, query, type, file, kind: kindArg, 
     }
     const clauses = [matchClause, ...baseClauses];
     const where = clauses.join(' AND ');
-    const hits = db.all(
+    // ⛔ ONE MORE THAN WE KEEP. `LIMIT SQL_CANDIDATE_CAP` with `hits.length >= SQL_CANDIDATE_CAP`
+    // as the saturation test cannot tell a set of exactly 200 from a set of 200-and-more, so a
+    // COMPLETE result of exactly 200 was announced as a floor. That is the false-caveat direction,
+    // and a false caveat costs the reader as much as a missing one — the asymmetry this repository
+    // measured and then broke by fixing only the side that hurt. Fetch the probe row and the
+    // question becomes decidable instead of guessed.
+    let hits = db.all(
       `SELECT * FROM nodes WHERE ${where}
         ORDER BY CASE WHEN type IN (${codeTypeList}) THEN 0 ELSE 1 END
-        LIMIT ${SQL_CANDIDATE_CAP}`,
+        LIMIT ${SQL_CANDIDATE_CAP + 1}`,
       params,
     );
+    const hitsTruncated = hits.length > SQL_CANDIDATE_CAP;
+    if (hitsTruncated) hits = hits.slice(0, SQL_CANDIDATE_CAP);
 
     // ⛔ `kind:"all"` IS THE CALLER EXPLICITLY ASKING FOR DOCS, AND THEY WERE UNREACHABLE.
     // Measured on this repo: `graph_search("plan", kind:"all")` ranked the eleven docs/*plan*.md
@@ -509,18 +517,23 @@ export async function graphSearch({ repoRoot, query, type, file, kind: kindArg, 
         edges: [],
         truncated: dropped,
         suggestion: dropped > 0 ? `limit=${enough}` : undefined,
+        // ⭐ SAME EXPRESSION AS `sqlCapNote` BELOW, deliberately, rather than a second opinion about
+        // the same fact. When the SQL candidate cap saturated, `ranked` is itself a floor, so the
+        // remainder subtracted from it is a floor too — and this verb already says so in prose a
+        // few lines down. The marker now agrees with the note instead of contradicting it.
+        truncatedIsFloor: hitsTruncated,
       }),
       scored,
     );
     // The SQL cap is a separate, harder ceiling: past it, candidates were never
     // scored at all, so raising `limit` alone cannot reveal them.
-    const sqlCapNote = hits.length >= SQL_CANDIDATE_CAP
+    const sqlCapNote = hitsTruncated
       ? `\n⚠ candidate cap: matched at least ${SQL_CANDIDATE_CAP} nodes and only the first ${SQL_CANDIDATE_CAP} were ranked`
         + ' — results are a FLOOR, not a complete match set. Narrow with type= / file= to bring the'
         + ' set under the cap.'
       : '';
     const shownNote = dropped > 0 || sqlCapNote
-      ? `\nSHOWING ${scored.length} of ${hits.length}${hits.length >= SQL_CANDIDATE_CAP ? '+' : ''} matches.`
+      ? `\nSHOWING ${scored.length} of ${hits.length}${hitsTruncated ? '+' : ''} matches.`
       : '';
     // Widening silently would trade one dishonesty for another: the reader must know the population
     // they got is not the population the verb defaults to, and what its recall floor is.

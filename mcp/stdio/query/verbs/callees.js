@@ -18,6 +18,13 @@ import { unsearchedRelationNote } from '../unsearched-scope.js';
 
 const EXECUTION_RELATIONS = EXECUTION_FAMILY;
 
+// ⛔ A CAP IS NOT A COUNT, and this verb had THREE bare `LIMIT 100`s — the exact defect written up
+// as "worse" about graph_impact, in the direct mirror of graph_callers. Ask who calls X and the
+// answer said "at least N"; ask what X calls and it capped silently. Found by an outside reviewer
+// enumerating renderCompact's callers after I fixed two of seven and wrote "both verbs".
+// Each query asks for one MORE than is kept, purely so saturation is detectable.
+const CALLEE_FETCH_CAP = 100;
+
 // ⛔ DERIVED BY SUBTRACTION, never listed — a relation joining CALL_FAMILY is covered with no edit.
 // Measured on click: 71 of 88 "NO CALLEES" answers (81%) had unsearched OUTGOING edges.
 const UNSEARCHED_RELATIONS = Object.freeze(CALL_FAMILY.filter((r) => !EXECUTION_FAMILY.includes(r)));
@@ -61,7 +68,7 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
          -- LIMIT truncated arbitrarily.
          ORDER BY CASE WHEN e.provenance = 'LSP_VERIFIED' THEN 0 ELSE 1 END,
                   e.source_line, n.label
-         LIMIT 100`,
+         LIMIT ${CALLEE_FETCH_CAP + 1}`,
         params
       );
     } else {
@@ -86,7 +93,7 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
          JOIN nodes n ON n.id = e.to_id
          ORDER BY CASE WHEN e.provenance = 'LSP_VERIFIED' THEN 0 ELSE 1 END,
                   c.depth, e.source_line, n.label
-         LIMIT 100`,
+         LIMIT ${CALLEE_FETCH_CAP + 1}`,
         { sid, depth }
       );
     }
@@ -100,13 +107,26 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
     // derived classes; their same-named methods are the overrides). NOTE: passing
     // the METHOD to kind=subtypes resolves to the method's return type, not its
     // overrides — validated against real clangd on echoes ISimDomain.
-    const overrideEdges = db.all(
+    let overrideEdges = db.all(
       `SELECT e.*, n.label AS to_label, n.type AS to_type, n.file_path AS to_file, n.start_line AS to_line
        FROM edges e JOIN nodes n ON n.id = e.to_id
        WHERE e.from_id = $sid AND e.relation = 'OVERRIDDEN_BY'
-       LIMIT 100`,
+       LIMIT ${CALLEE_FETCH_CAP + 1}`,
       { sid: root.id },
     );
+
+    // Either fetch saturating makes the rendered remainder a floor rather than a total. Both are
+    // consulted because both feed the same rendered list, and a floor in one half is a floor.
+    //
+    // ⚠ AND BOTH MUST BE SLICED BACK. The extra row is fetched ONLY to detect saturation and is
+    // never shown — `overrideMapped` bypasses `enforceBudget` and renders in full, so leaving the
+    // probe row in would display one override more than the cap allows. I introduced exactly that
+    // off-by-one here by changing the LIMIT and not the slice, which is the shape of every
+    // "computed and not consumed" defect in this file's history, running the other way.
+    const edgesTruncated = edges.length > CALLEE_FETCH_CAP
+      || overrideEdges.length > CALLEE_FETCH_CAP;
+    if (edges.length > CALLEE_FETCH_CAP) edges = edges.slice(0, CALLEE_FETCH_CAP);
+    if (overrideEdges.length > CALLEE_FETCH_CAP) overrideEdges = overrideEdges.slice(0, CALLEE_FETCH_CAP);
 
     // I1 — gate the absence claim on exhaustive evidence (see callers.js).
     const absence = async (msg) => {
@@ -166,7 +186,7 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
     if (mapped.length === 0 && overrideCount === 0) return absence(file ? `NO CALLEES in "${file}"${indexedScopePhrase(db)}` : `NO CALLEES for "${symbol}"${indexedScopePhrase(db)}. Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`);
     const ranked = rankCallees(mapped);
     const { kept, dropped } = enforceBudget(ranked, top_k);
-    let body = renderCompact({ nodes: [], edges: [...kept, ...overrideMapped], truncated: dropped, suggestion: `top_k=${top_k + 10}` });
+    let body = renderCompact({ nodes: [], edges: [...kept, ...overrideMapped], truncated: dropped, suggestion: `top_k=${top_k + 10}`, truncatedIsFloor: edgesTruncated });
 
     // P0-5 cross-reference: flag the INFERRED override callees and point at the
     // clangd-verified hierarchy verb. IMPORTANT (validated on real clangd):

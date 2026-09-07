@@ -15,6 +15,9 @@ import { NEIGHBOR_FAMILY } from '../../storage/taxonomy.js';
 // arbitrary relations; the allowlist was the only thing blocking them.
 const ALL_RELATIONS = NEIGHBOR_FAMILY;
 
+/** How many edges the query fetches. One MORE than this is asked for, to detect saturation. */
+const NEIGHBOR_FETCH_CAP = 100;
+
 export async function graphNeighbors({ repoRoot, symbol, edge_types = [], depth = 1, top_k = 20 }) {
   if (!symbol) return 'ERROR: symbol parameter is required';
   const freshness = await inspectReadFreshness({ repoRoot, verbName: 'graph_neighbors' });
@@ -32,14 +35,19 @@ export async function graphNeighbors({ repoRoot, symbol, edge_types = [], depth 
     const relFilter = safeTypes.map(t => `'${t}'`).join(',');
     const nodeId = selectBestRoot(targets).id;
 
-    const edges = db.all(
+    // ⛔ A CAP IS NOT A COUNT. A bare `LIMIT 100` cannot tell a full page from a saturated one, so
+    // the remainder this verb prints ("TRUNCATED N more") would be computed from a set that had
+    // silently hit its ceiling. Fetch one more than we keep, purely to detect that.
+    let edges = db.all(
       `SELECT e.*, n.label AS neighbor_label, n.file_path AS neighbor_file, n.start_line AS neighbor_line
        FROM edges e JOIN nodes n ON (n.id = e.to_id OR n.id = e.from_id)
        WHERE (e.from_id = $id OR e.to_id = $id) AND e.relation IN (${relFilter})
        AND n.id != $id
-       LIMIT 100`,
+       LIMIT ${NEIGHBOR_FETCH_CAP + 1}`,
       { id: nodeId }
     );
+    const edgesTruncated = edges.length > NEIGHBOR_FETCH_CAP;
+    if (edgesTruncated) edges = edges.slice(0, NEIGHBOR_FETCH_CAP);
 
     // I1 — gate the absence claim on exhaustive evidence (see callers.js).
     if (edges.length === 0) {
@@ -61,7 +69,7 @@ export async function graphNeighbors({ repoRoot, symbol, edge_types = [], depth 
       depth: 1, from_type: 'Function', fan_in: 1,
     }));
     const { kept, dropped } = enforceBudget(mapped, top_k);
-    const body = renderCompact({ nodes: [], edges: kept, truncated: dropped, suggestion: `top_k=${top_k + 20}` });
+    const body = renderCompact({ nodes: [], edges: kept, truncated: dropped, suggestion: `top_k=${top_k + 20}`, truncatedIsFloor: edgesTruncated });
 
     // TRUST banner (Code-Intel v2 / L2b). One line, shared helper — marks an
     // lsp-verified neighborhood as clangd ground truth, or keeps the

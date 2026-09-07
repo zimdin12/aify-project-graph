@@ -155,7 +155,7 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
       overrideCount += 1;
     }
     const { kept, dropped } = enforceBudget(mapped, top_k);
-    let body = renderCompact({ nodes: [], edges: kept, truncated: dropped, suggestion: `depth=${depth + 1}` });
+    let body = renderCompact({ nodes: [], edges: kept, truncated: dropped, suggestion: `depth=${depth + 1}`, truncatedIsFloor: edgesTruncated });
 
     // P0-5 cross-reference: when INFERRED virtual-override edges actually
     // survived the budget, point the agent at the clangd-verified hierarchy

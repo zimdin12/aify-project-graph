@@ -51,6 +51,11 @@ describe('renderer', () => {
       ],
       truncated: 3,
       suggestion: 'top_k=10',
+      // Required whenever a remainder is reported. This case is the PLAIN one — nothing saturated,
+      // so 3 is a total and says so. ⭐ This assertion is how the new guard was first observed
+      // firing, in CI rather than in front of a user: it renders a remainder and, before this line
+      // existed, declined to say whether the set it came from was complete.
+      truncatedIsFloor: false,
     });
     expect(out).toContain('NODE a function a x.py:1');
     expect(out).toContain('EDGE c→a CALLS y.py:2 conf=0.90');
