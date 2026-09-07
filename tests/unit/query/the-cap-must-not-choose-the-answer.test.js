@@ -22,6 +22,7 @@ import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { graphCallers } from '../../../mcp/stdio/query/verbs/callers.js';
 import { openDb } from '../../../mcp/stdio/storage/db.js';
+import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
 // Written down rather than imported, so the fixture and the subject can DISAGREE. Importing the
 // constant would make this test agree with any cap the subject happens to hold.
@@ -73,8 +74,15 @@ describe('the fetch cap must not choose the answer', () => {
     repoRoot = await repoWithABuriedVerifiedCaller(CAP + 20);
     const out = String(await graphCallers({ repoRoot, symbol: 'target', file: 'src/wanted' }));
 
-    // The failure this catches is a FALSE ABSENCE, so assert the absence headline is gone by name.
-    expect(out).not.toMatch(/NO CALLERS from/);
+    // The failure this catches is a FALSE ABSENCE. The matcher is proved live first: a bare
+    // negative passes both when the output is clean AND when the regex could never fire, and
+    // nothing in a green run separates those.
+    expectAbsentWithLiveMatcher(
+      /NO CALLERS from/,
+      { forbidden: 'NO CALLERS from "src/wanted"', allowed: 'NO CALLERS for "target"' },
+      out,
+      'a verified caller inside the requested scope must not be reported as an empty scope',
+    );
     expect(out).toMatch(/wantedCaller/);
   });
 
@@ -85,7 +93,12 @@ describe('the fetch cap must not choose the answer', () => {
     const out = String(await graphCallers({ repoRoot, symbol: 'target', file: 'src/nowhere' }));
 
     expect(out).toMatch(/NO CALLERS from/);
-    expect(out).not.toMatch(/wantedCaller/);
+    expectAbsentWithLiveMatcher(
+      /wantedCaller/,
+      { forbidden: 'EDGE wantedCaller->target CALLS', allowed: 'EDGE noise0->target CALLS' },
+      out,
+      'a caller outside the requested scope must not leak into it',
+    );
   });
 
   it('★★ the verified caller outranks the heuristic noise even with no file filter', async () => {
@@ -103,6 +116,11 @@ describe('the fetch cap must not choose the answer', () => {
     const out = String(await graphCallers({ repoRoot, symbol: 'target', file: 'src/wanted' }));
 
     expect(out).toMatch(/wantedCaller/);
-    expect(out).not.toMatch(/NO CALLERS/);
+    expectAbsentWithLiveMatcher(
+      /NO CALLERS/,
+      { forbidden: 'NO CALLERS from "src/wanted"', allowed: 'CALLERS (1) for target' },
+      out,
+      'an under-cap graph must still find the caller it has',
+    );
   });
 });
