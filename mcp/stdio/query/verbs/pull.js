@@ -426,12 +426,38 @@ function detectNodeKind(db, node) {
   return { kind: 'unknown', value: node };
 }
 
-// Helper: attach { total, truncated, limit } metadata to a capped collection
-// so callers know when they're seeing a summary vs complete results.
-function capped(items, limit) {
-  const total = items.length;
-  const truncated = total > limit;
-  return { items: items.slice(0, limit), total, truncated, limit };
+/**
+ * Attach { total, truncated, limit } metadata to a capped collection so callers know when they are
+ * seeing a summary rather than complete results.
+ *
+ * ⛔ `total` WAS A CAP WHENEVER THE QUERY THAT FILLED `items` HAD ONE. Measured 2026-09-07 by driving
+ * the real verb: a symbol with 150 callers came back as `total: 100, truncated: true`. 100 is
+ * `LIMIT 100`, not a population, and `truncated` only ever described the DISPLAY cut — so an agent
+ * reading this JSON was told the total was 100 by a field named `total`.
+ *
+ * ⭐ AND THIS FILE ALREADY KNEW. Line ~996: "a capped LIST is a floor in exactly the way the closure
+ * cap is", and line ~549 gets it right for the transitive walk — "A full page of rows means 'there
+ * may be more', always." The principle was written down twice, adjacent, and the helper did not
+ * implement it. A comment is not an instrument.
+ *
+ * ⇒ Pass `fetchCap` when `items` came from a query that asked for `fetchCap + 1` rows. More than
+ * `fetchCap` back means the population is larger than anything this query can see: the probe row is
+ * dropped and `totalIsFloor` says the number is a floor. Omit it for an in-memory collection, where
+ * `total` really is the population — 26 of the 30 call sites here are that, and asking them to
+ * answer a question they cannot get wrong would be noise.
+ *
+ * @param {number} [fetchCap] the query's cap, when `items` came from a `LIMIT fetchCap + 1` query
+ */
+/** The cap on every SQL-fed list here. Each such query asks for one MORE, purely to detect
+ * saturation, and that probe row is never returned to the caller. */
+const PULL_FETCH_CAP = 100;
+
+function capped(items, limit, fetchCap) {
+  const saturated = typeof fetchCap === 'number' && items.length > fetchCap;
+  const visible = saturated ? items.slice(0, fetchCap) : items;
+  const total = visible.length;
+  const truncated = total > limit || saturated;
+  return { items: visible.slice(0, limit), total, truncated, limit, totalIsFloor: saturated };
 }
 
 function loadTasksSafe(repoRoot) {
@@ -463,18 +489,18 @@ function relationsForSymbol(db, sym, limit = 10) {
      JOIN nodes fn ON fn.id = e.from_id
      WHERE e.to_id = $id
        AND e.relation IN (${PULL_TOUCH_SQL_LIST})
-     LIMIT 100`, { id: sym.id });
+     LIMIT ${PULL_FETCH_CAP + 1}`, { id: sym.id });
   const calleesRaw = db.all(
     `SELECT DISTINCT tn.label, tn.type, tn.file_path, tn.start_line, e.relation, e.provenance
      FROM edges e
      JOIN nodes tn ON tn.id = e.to_id
      WHERE e.from_id = $id
        AND e.relation IN (${PULL_TOUCH_SQL_LIST})
-     LIMIT 100`, { id: sym.id });
+     LIMIT ${PULL_FETCH_CAP + 1}`, { id: sym.id });
   const withProv = (r) => ({ ...r, provenance: r.provenance ?? 'EXTRACTED' });
   return {
-    callers: capped(callersRaw.map(withProv), limit),
-    callees: capped(calleesRaw.map(withProv), limit),
+    callers: capped(callersRaw.map(withProv), limit, PULL_FETCH_CAP),
+    callees: capped(calleesRaw.map(withProv), limit, PULL_FETCH_CAP),
   };
 }
 
@@ -754,17 +780,26 @@ function filesForFeatures(db, features, featureIds, cap) {
     .map(id => features.find(f => f.id === id))
     .filter(Boolean);
   const allFiles = new Set();
+  // ⛔ TWO WAYS TO LOSE ROWS HERE, AND BOTH WERE SILENT. `fetchCap` cannot be handed to `capped()`
+  // below because this is a UNION across globs — the Set's size is not any one query's row count —
+  // so the floor is tracked explicitly instead of derived from a length.
+  let filesAreFloor = false;
   for (const f of selected) {
     for (const glob of (f.anchors.files || [])) {
       const rows = db.all(
         `SELECT file_path FROM nodes
-         WHERE type IN ('File','Directory') AND file_path GLOB $g LIMIT 100`,
+         WHERE type IN ('File','Directory') AND file_path GLOB $g LIMIT ${PULL_FETCH_CAP + 1}`,
         { g: glob });
-      for (const r of rows) allFiles.add(r.file_path);
-      if (allFiles.size >= cap * 4) break; // short-circuit if we've got way more than cap
+      // (1) this glob matched more than the query will return.
+      if (rows.length > PULL_FETCH_CAP) filesAreFloor = true;
+      for (const r of rows.slice(0, PULL_FETCH_CAP)) allFiles.add(r.file_path);
+      // (2) ⭐ THE SHORT-CIRCUIT WAS THE SECOND ONE, AND I DID NOT COUNT IT AT FIRST. Abandoning the
+      // scan mid-way is exactly the state the caller must not read as a complete set.
+      if (allFiles.size >= cap * 4) { filesAreFloor = true; break; }
     }
   }
-  return capped([...allFiles], cap);
+  const files = capped([...allFiles], cap);
+  return filesAreFloor ? { ...files, totalIsFloor: true, truncated: true } : files;
 }
 
 // Transitive relations for features only. Direction can be 'downstream',
@@ -1175,8 +1210,8 @@ function pullSymbol({ db, sym, features, allTasks, repoRoot, layers }) {
        FROM edges e JOIN nodes fn ON fn.id = e.from_id
        WHERE e.to_id = $id
          AND e.relation IN (${PULL_TOUCH_SQL_LIST})
-       LIMIT 100`, { id: sym.id });
-    out.layers.code = { callers: capped(callersRaw, 8), file: sym.file_path };
+       LIMIT ${PULL_FETCH_CAP + 1}`, { id: sym.id });
+    out.layers.code = { callers: capped(callersRaw, 8, PULL_FETCH_CAP), file: sym.file_path };
   }
 
   if (layers.has('functionality')) {
