@@ -192,6 +192,43 @@ function findMentioningTestFiles(db, repoRoot, symbols = []) {
   return [...hits];
 }
 
+/** Extensions a C/C++ implementation file's paired header can carry. */
+const HEADER_EXTS = ['.h', '.hpp', '.hh', '.hxx'];
+
+/**
+ * The headers paired with the given implementation files, by stem.
+ *
+ * ⛔ THIS USED TO SCAN EVERY HEADER IN THE GRAPH AND FILTER IN JS, under `LIMIT 5000` with NO
+ * ORDER BY — so on a repository with more than 5000 headers, WHICH 5000 came back was arbitrary and
+ * the header being looked for could simply not be among them.
+ *
+ * ⛔ AND THAT IS A FALSE-CLAIM DEFECT, NOT A RECALL ONE. It was deferred once as "recall, lower
+ * severity", and that reason was wrong: these headers feed `companionHeaderTests` ->
+ * `directUniqueTests` -> `uniqueTests`, and an empty `uniqueTests` pushes the `no_test_coverage`
+ * risk flag. A missed header therefore produces a confident claim that a symbol has no adjacent
+ * tests. This file already says so elsewhere: "ignoring it produced false `no_test_coverage` flags".
+ *
+ * ⚠ INVISIBLE ON THIS REPOSITORY. Our own graph holds SIX header paths, so the cap never bound and
+ * never would — it could only ever appear on the C++ repositories this project targets. Demonstrated
+ * on a 6001-header fixture: the old query returned nothing, this one returns the header.
+ *
+ * ⇒ ASK FOR THE PATHS WANTED RATHER THAN SCANNING AND DISCARDING. The candidate set is bounded by
+ * the implementation files themselves, so there is no cap to reach. `json_each` carries the list,
+ * matching `findImportLinkedTestFiles` rather than inventing a second way to pass paths to SQL.
+ */
+export function findCompanionHeaders(db, matchedFiles = []) {
+  const impl = matchedFiles.filter((f) => /\.(cpp|cc|cxx|c\+\+|m|mm)$/i.test(f));
+  if (impl.length === 0) return [];
+  const stems = impl.map((f) => f.replace(/\.[^.]+$/, ''));
+  const candidates = stems.flatMap((stem) => HEADER_EXTS.map((ext) => stem + ext));
+  if (candidates.length === 0) return [];
+  return db.all(
+    `SELECT DISTINCT file_path FROM nodes
+      WHERE file_path IN (SELECT value FROM json_each($paths))`,
+    { paths: JSON.stringify(candidates) },
+  ).map((r) => r.file_path);
+}
+
 function findImportLinkedTestFiles(db, matchedFiles = []) {
   if (matchedFiles.length === 0) return [];
   const rows = db.all(
@@ -797,21 +834,7 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
     // Kept as a NAMED basis rather than folded in silently: the test imports the
     // header, not this file, and a reader deciding whether coverage is real should
     // see which of those two things was established.
-    const companionHeaders = (() => {
-      const impl = [...matchedFiles].filter((f) => /\.(cpp|cc|cxx|c\+\+|m|mm)$/i.test(f));
-      if (impl.length === 0) return [];
-      const stems = impl.map((f) => f.replace(/\.[^.]+$/, ''));
-      const rows = db.all(
-        `SELECT DISTINCT file_path FROM nodes
-          WHERE file_path IS NOT NULL AND file_path != ''
-            AND (file_path LIKE '%.h' OR file_path LIKE '%.hpp' OR file_path LIKE '%.hh' OR file_path LIKE '%.hxx')
-          LIMIT 5000`,
-      );
-      const want = new Set(stems);
-      return rows
-        .map((r) => r.file_path)
-        .filter((p) => want.has(p.replace(/\.[^.]+$/, '')));
-    })();
+    const companionHeaders = findCompanionHeaders(db, [...matchedFiles]);
     const companionHeaderTests = companionHeaders.length > 0
       ? uniqueTestPaths(findImportLinkedTestFiles(db, companionHeaders))
       : [];
