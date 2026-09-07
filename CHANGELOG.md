@@ -7,9 +7,9 @@ Dates are ISO 8601 (YYYY-MM-DD).
 
 ## [Unreleased]
 
-## [0.9.0] — 2026-09-06
+## [0.9.0] — 2026-09-07
 
-**34 commits.** The graph gains a memory of its own past, and the dashboard gains a way to ask what
+**39 commits.** The graph gains a memory of its own past, and the dashboard gains a way to ask what
 changed. A minor bump because nothing was removed, but two shipped claims were withdrawn and one
 guard was found unable to fire on the case it was written for.
 
@@ -37,6 +37,25 @@ between these commits" was unanswerable, and that is what this release makes ans
 
 ### Fixed
 
+- ⛔ **A cap was still being printed as a total, on the line that always prints.** 0.8.1 put the
+  floor language into the CONFIDENCE footer, and in `graph_impact` that footer sits behind a
+  suspicion check — so for an ordinary symbol it never appeared, while the truncation marker said
+  `TRUNCATED 70 more` on a set that had already saturated at the fetch cap. Thirty rows plus seventy
+  more implies exactly one hundred, and the query never established that. **0.8.1 fixed the line
+  that sometimes prints; this fixes the line that always does.**
+- ⛔ **And it reached two verbs out of seven.** `renderCompact` has seven call sites; five of them
+  report a remainder — `graph_callers`, `graph_impact`, `graph_callees`, `graph_neighbors` and
+  `graph_search` — and the other two never do. `graph_callees` — the direct mirror of `graph_callers` — capped three queries with
+  no way to detect that it had, so asking who calls X named a floor while asking what X calls capped
+  in silence. `graph_neighbors` had one such query. `graph_search` had the same shape at a cap of
+  200: its saturation test could not tell a complete set of exactly 200 from a truncated one, so it
+  announced a floor on complete results, and a false caveat costs a reader as much as a missing one.
+  All of them now fetch one row more than they keep, and say so only when that row arrives.
+- **The renderer refuses to guess.** Reporting a remainder without stating whether the set it was
+  subtracted from was complete now throws rather than defaulting. The first version of this fix
+  defaulted to "complete", which made the repair opt-in per verb — a list somebody has to maintain,
+  which is how the previous three items happened. The check is scoped to answers that actually
+  report a remainder, so verbs that report none are never asked.
 - ⛔ **The overcount guard could not fire on the case it was written for.** `graph_callers("has")`
   returned 25 caller rows at `conf=0.90`, all collisions (`groups.has(rawId)` on a Map), with no
   warning at all. The trigger tested for AMBIGUITY — many same-named symbols, few results — while the
@@ -74,6 +93,38 @@ between these commits" was unanswerable, and that is what this release makes ans
   longer grantable for the same reason. Absence claims need `rg`.
 - **Two tests fail without a defect behind them**, now recorded in `docs/FLAKY-TESTS.md` with what
   would actually close each rather than a tally.
+
+## [0.8.1] — 2026-09-07
+
+A patch release for six defects found after v0.8.0 was tagged. Five of them were measured, and one
+of the five was measured by four agents rather than by a test. Nothing here changes an interface;
+every fix narrows a claim the previous release made too strongly.
+
+### Fixed
+
+- **A cap is not a count.** `graph_callers` reported `CONFIDENCE: 100 callers` for a symbol with ten
+  real call sites. 100 was never a count. `EDGE_FETCH_CAP` is 100 and the query saturated there,
+  and the verb already knew: `edgesTruncated` is computed from a deliberate `LIMIT CAP + 1` and it
+  reached the trust banner while never reaching the line that printed the number. A saturated
+  result now reads *at least N (the fetch cap was reached, so this is a floor, not a total)*, and an
+  untruncated one still reads as a plain number, because a qualifier on every answer is decoration.
+- **`graph_impact` could not detect its own cap.** It used `LIMIT 100` with no `+ 1`, so a full page
+  and a truncated page were indistinguishable to it. It now fetches one more than it keeps.
+- **The overcount warning could not fire on the case it was built from.** Asked for the callers of a
+  four-character name that is also a builtin method, the verb returned 25 heuristic rows with no
+  warning at all: the old trigger wanted *fewer* than ten results, and the collision shape produces
+  many. The predicate now models both shapes, has one owner instead of two byte-identical copies,
+  and exempts compiler-resolved results, which were resolved by a compiler rather than by a name.
+- **The server did not report its own version.** `serverInfo` carried a hardcoded string, so a
+  client could not tell which build answered it. It now derives from `package.json`.
+- **A suite guarded its entry and not its duration.** `run-suite` refused to start on a dirty tree
+  and then never looked again, so a run could begin at one commit and print a verdict for it while
+  finishing against a tree three commits later. That happened, and four of the five failures in the
+  resulting log were artifacts of files moving underneath the run. Head and dirty state are now read
+  at both ends, and a run that measured a moving target exits 3 as VOID instead of returning a
+  number that looks like a result.
+- **Two skill files documented parameters that do not exist**, and `graph-guide` said nothing about
+  reading a caller count that might be a cap. Corrected and synced across the four runtime trees.
 
 ## [0.8.0] — 2026-09-06
 

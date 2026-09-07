@@ -75,7 +75,61 @@ conclusion. It cannot produce a rate, and it says nothing about productivity.
 
 ---
 
-## ⛔ RESULT, 2026-09-07 — the warning REACHED the conclusion in both arm-A agents
+## ⛔⛔ CORRECTION, 2026-09-07 — THE HEADING BELOW OVERSTATED WHAT THIS EXPERIMENT SHOWS
+
+The result section was headed *"the warning REACHED the conclusion in both arm-A agents"* and closed
+with *"⇒ ✅ the warning reaches the conclusion"*. **Both arms got the right answer.** Four of four.
+The control arm reached the same structure with no graph, no warning and no tool.
+
+⇒ **The warning cannot have been NECESSARY to reach a conclusion two agents reached without it.**
+Net of the tool the arms tie, and the intervention's measured benefit is repairing a wrong number
+*the graph itself introduced*. The grep arm had no wrong number to undo.
+
+⭐ **THE COMPARISON I RAN WAS NOT THE COMPARISON I ARGUED ABOUT.** The control arm's result is in my
+own table, three rows above the verdict. I graded within arm A because that was the preregistered
+property, then reported the outcome as though it were about the tool. Nothing was hidden; I simply
+never looked across the arms, and the fact that decides the claim was sitting in my own data.
+
+### What survives, stated at the strength the evidence supports
+
+- ✅ **The MECHANISM claim.** The word "overcount" appears in both graph-armed replies and in
+  **neither prompt**. That is warning vocabulary the agents were not handed, so the warning very
+  likely did reach their reasoning. This is better support than I originally rated it, and it is not
+  mine — an outside reviewer found it while attacking the claim.
+- ⛔ **The VALUE claim does not survive.** This experiment does not show the warning was worth
+  having. It shows it can change what an agent says about a number the tool got wrong.
+- ✅ The v0.8.1 CHANGELOG entry was checked against this and makes no claim about the warning
+  changing a conclusion. Nothing in the release depends on the withdrawn half.
+
+### ⛔ AND THE GRADED QUANTITY WAS THE WRONG NOUN
+
+`has` at `collect_code_intel.js:131` is a function-local arrow, so **exactly one** function can call
+it. `graph_callers` reports caller FUNCTIONS, not call sites — measured, not assumed: the edges table
+carries a UNIQUE index on `(from_id, to_id, relation)` and `docs/known-limitations.md:8` states the
+extraction is function-granular.
+
+    TRUE ANSWER IN THE VERB'S OWN NOUN     1
+    THE GROUND TRUTH I WROTE              10   (call sites)
+    WHAT THE GRAPH REPORTED              252   (capped to 100, every one a collision)
+
+⇒ `ab-graph-1` answered `CALLER_COUNT: 1` and was **the only one of four to answer in the noun the
+verb computes.** I recorded the split as a confound — "the agents split on the noun" — without
+noticing that one side of it was simply correct, and graded against 10 it read as the outlier.
+
+⇒ The tool's real error on this task is **252 against 1**, not 100 against 10. *"Wrong by a factor of
+a hundred"* stays in this document as an accurate quotation of an agent, and it has mixed-noun
+arithmetic underneath it. It is not my number and is not used as one.
+
+⇒ The repair is one line in the prompt, not in the code: ask for caller FUNCTIONS or call SITES and
+say which. My own agents splitting on it is the cheapest possible proof the question was ambiguous,
+and I wrote the question.
+
+⚠ **The ground truth is a property of INDEXED SCOPE, not of the repository.** `git ls-files
+reference/` returns 0 and `.gitignore:19` excludes that tree, which holds more user-defined `has`.
+`git add reference/` changes the number silently.
+
+
+## RESULT, 2026-09-07 — read the correction above this line first
 
 All four agents replied. Every factual claim below was re-verified against source before being
 accepted, because a reviewer's claim is a pointer to check, not a substitute for checking.
@@ -91,7 +145,7 @@ accepted, because a reviewer's claim is a pointer to check, not a substitute for
 `has(` occurs exactly **10** times on lines 133 (1), 135 (2), 136 (6), 137 (1). The quoted caveats are
 real strings in `callers.js` and `lsp-evidence.js`.
 
-### Against the preregistered rule ⇒ ✅ the warning reaches the conclusion
+### Against the preregistered rule ⇒ ✅ the warning reaches the conclusion — ⛔ AND THAT IS A MECHANISM CLAIM ONLY, SEE THE CORRECTION ABOVE
 
 Both arm-A agents received `CONFIDENCE: 100 callers` and **neither reported it as fact.** Both quoted
 the overcount caveat verbatim and both said, unprompted, that it is what redirected them:
