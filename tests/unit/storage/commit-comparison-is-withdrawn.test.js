@@ -32,6 +32,7 @@ import { ensureFresh } from '../../../mcp/stdio/freshness/orchestrator.js';
 import { buildDigest, computeDelta, symbolKey } from '../../../mcp/stdio/storage/structural-digest.mjs';
 import { writeStructuralDigest } from '../../../mcp/stdio/storage/structural-digest-store.js';
 import { deltaBetween, deltaFromPrevious } from '../../../mcp/stdio/storage/delta-between.js';
+import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 import { ensurePublicationTables } from '../../../mcp/stdio/storage/publication-schema.js';
 
 const created = [];
@@ -89,9 +90,16 @@ describe('a commit-to-commit comparison is refused while source attribution is u
     const res = deltaBetween(db, { fromCommit: A, toCommit: B });
     db.close();
 
-    const serialized = JSON.stringify(res);
     expect(res.delta).toBeNull();
-    expect(serialized).not.toMatch(/"symbolsAdded"|"edgesAdded"|"fanInMoved"/);
+    // The matcher is proved live first: this is a prohibition over a SERIALIZED shape, so a typo in
+    // the pattern or a change to the response would make it silently unfalsifiable.
+    expectAbsentWithLiveMatcher(
+      /"symbolsAdded"|"edgesAdded"|"fanInMoved"/,
+      { forbidden: '{"available":true,"delta":{"symbolsAdded":[{"qname":"log"}]}}',
+        allowed: '{"available":false,"reason":"source attribution unavailable","delta":null}' },
+      JSON.stringify(res),
+      'no movement figures may travel beside a refusal',
+    );
   });
 
   it('★★★ THE FALLBACK STILL REFUSES — a newest-pair substitution cannot rescue it', () => {

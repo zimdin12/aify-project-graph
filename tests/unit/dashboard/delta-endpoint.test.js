@@ -24,6 +24,7 @@ import { startDashboard } from '../../../mcp/stdio/dashboard/server.js';
 import { ensurePublicationTables } from '../../../mcp/stdio/storage/publication-schema.js';
 import { writeStructuralDigest } from '../../../mcp/stdio/storage/structural-digest-store.js';
 import { buildDigest, symbolKey } from '../../../mcp/stdio/storage/structural-digest.mjs';
+import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
 const SHA = (c) => c.repeat(40);
 
@@ -79,7 +80,13 @@ describe('the dashboard can answer what changed, not only what is there', () => 
     expect(body.available).toBe(false);
     expect(body.reason).toMatch(/attribut/i);
     expect(body.delta, 'a refusal carries no delta').toBeNull();
-    expect(JSON.stringify(body)).not.toMatch(/"symbolsAdded"|"edgesAdded"|"fanInMoved"/);
+    expectAbsentWithLiveMatcher(
+      /"symbolsAdded"|"edgesAdded"|"fanInMoved"/,
+      { forbidden: '{"available":true,"delta":{"symbolsAdded":[{"qname":"log"}]}}',
+        allowed: '{"available":false,"reason":"source attribution unavailable","delta":null}' },
+      JSON.stringify(body),
+      'the dashboard must receive no movement figures beside a refusal',
+    );
   });
 
   it('★★★ NO HISTORY IS SAID PLAINLY, never rendered as "nothing changed"', async () => {
