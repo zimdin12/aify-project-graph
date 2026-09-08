@@ -59,10 +59,21 @@ const { EXECUTION_FAMILY } = await import('../mcp/stdio/storage/taxonomy.js');
 const { spineCoverage } = await import('../mcp/stdio/query/lsp-evidence.js');
 
 // ── CONTROL: can the authority flag ever be granted? ────────────────────────────────────────────
+// ⛔ THIS CONTROL SILENTLY DIED ON 2026-09-06 AND FAILED IN THE SAFE DIRECTION, WHICH IS WHY
+// NOTHING NOTICED. e2056714 added the `lspPopulationAttested` clause to the gate; this list was
+// last edited on 2026-09-03 and never gained it, so "complete inputs" stopped being complete. The
+// control then read absenceAuthority=false, `controlsOk` went false, and every run since has
+// exited 2 with "conclude nothing" — an instrument reporting itself unavailable while looking
+// like a probe you could run. The commit that last touched this file is titled "two of my
+// instruments lied"; this is the third.
+//
+// ⚠ COMPLETE MEANS EVERY CLAUSE THE GATE READS. A clause added to the subject and not to the
+// control turns a positive control into a permanent failure, and a new clause here must be added
+// in both places or this dies the same way again.
 const completeInputs = {
   indexed: true, integrity: null, attestation: 'attested', collectionAvailable: true,
   compilerVerifiedEdges: 100, coverage: { complete: true }, collectionCurrent: true,
-  languageHasServer: true,
+  languageHasServer: true, lspPopulationAttested: true,
 };
 const grant = graphCapabilities(completeInputs);
 const partial = graphCapabilities({ ...completeInputs, coverage: { complete: false } });
@@ -195,7 +206,12 @@ const answersDespiteDenial = healthDenies && Boolean(coverageCause) && !gateInCa
 say(answersDespiteDenial
   ? 'VERDICT: ⚠ THE SURFACES DISAGREE. graph_health denies absence authority for a coverage reason,\n'
     + '  and graph_callers answers anyway for symbols in the same repository at the same instant.\n'
-    + '  ⚠ That makes the coverage-floor question LIVE. It does not say where the floor is, and it\n'
-    + '  does not measure whether any agent was misled — that is the A/B, not this.'
+    + '  ⛔ THIS DISAGREEMENT WAS RULED CORRECT ON 2026-09-06 (e2056714) AND IS NOT A DEFECT.\n'
+    + '  The answer path is unconditionally non-exhaustive by design; it was the GRANT that was\n'
+    + '  wrong, and wiring the gate into graph_callers would have let it UPGRADE an absence claim\n'
+    + '  — fail-open, in the codebase whose dominant defect class is fail-open. This probe was\n'
+    + '  written 2026-09-03, before that ruling, and its original wording called the coverage-floor\n'
+    + '  question LIVE. It is not. What this run still shows is the two surfaces, side by side.\n'
+    + '  It does not say where any floor is, and it does not measure whether an agent was misled.'
   : 'VERDICT: the surfaces agree on this repository state — ef-manager\'s point does not apply here.');
 process.exitCode = 0;
