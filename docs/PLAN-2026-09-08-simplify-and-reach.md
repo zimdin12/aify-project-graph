@@ -366,6 +366,28 @@ of code may only DECREASE from 20, and 1,000 is a hard ceiling with no grandfath
 counter carries its own controls, because a counter that returned zero would report an empty
 violation list and get greener as the code got worse.
 
+### ⚠ "Split health observations from diagnosis and formatting" is HALF DONE ALREADY
+
+Checked 2026-09-08 rather than inherited. Inside `graphHealth` (`mcp/stdio/query/verbs/health.js`,
+lines 472-2070):
+
+| phase | where it lives |
+|---|---|
+| observation | **1,383 lines, inline** — manifest, worktree, census, authority, overlay, code-intel, storage, trust |
+| **diagnosis** | **already extracted** — `buildNextActions(s)`, an exported function taking a state object |
+| verdict strings | 47 lines, inline |
+| assembly | 149 lines, inline |
+
+⇒ **The diagnosis seam the review named is already split.** What remains is one very large
+OBSERVATION phase and a formatting tail. Recording it so a future reader is not sent to do work that
+exists — the same correction shape as the physical-versus-code line count above.
+
+⛔ **AND THE REMAINDER IS NOT STARTED HERE, DELIBERATELY.** Extracting 1,383 lines of interdependent
+reads is a large change to the verb every session calls first, and **no task in §3b pointed at it**.
+The sequence in §3 says step 4 refactors the seams THOSE TASKS EXPOSE; the tasks exposed a missing
+capability, not a seam in health. Doing it now would be arbitrary chunking — explicitly what the
+review warned against — and the size door above already stops it getting worse while it waits.
+
 The worst entry point is `ensureFresh` in `mcp/stdio/freshness/orchestrator.js`, which owns cache
 decisions, Git observations, rebuild selection, extraction, compiler-evidence salvage, transactions
 and publication in one function whose correctness depends on distant locals and ordering. The
