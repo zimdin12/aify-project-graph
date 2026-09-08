@@ -608,9 +608,14 @@ async function buildTrustLineBody({ edges = [], db, repoRoot, truncated = false,
   // recorded language asserted a C++ toolchain on a TRUST banner. An unknown backend now says so.
   // ⚠ AND A COMPILE DB IS EVIDENCE, NOT AN ASSUMPTION. The original wrote `|| 'cpp'`, asserting a
   // C++ toolchain for any collection with no recorded language. My first correction dropped that
-  // default entirely and a test caught it: only C++ HAS a compile DB, so a recorded compileDbHash
-  // genuinely identifies the backend. Removing the default threw away a real signal along with the
-  // unfounded one. Unknown stays unknown; evidenced stays evidenced.
+  // default entirely, which threw away a real signal along with the unfounded one: only C++ HAS a
+  // compile DB, so a recorded compileDbHash genuinely identifies the backend. Unknown stays unknown;
+  // evidenced stays evidenced. The reasoning lives with the function — see backendForCollection.
+  //
+  // ⛔ THIS USED TO SAY "and a test caught it". It did not, and the header of that function says so
+  // in as many words — a SURVIVING MUTANT caught it, because nothing exercised the clause. Two
+  // accounts of the same event stood in one file, both in the present tense, and only one was true.
+  // A file that contradicts itself about its own evidence is worse than one that says nothing.
   const backend = backendForCollection(collection, verifiedLang);
   // Only C++ has a compile DB, so the tag is gated on the C++ PROVIDER rather than on a literal.
   const provenanceTag = (backend === backendNameFor('cpp') && collection?.compileDbHash)
@@ -643,16 +648,46 @@ async function buildTrustLineBody({ edges = [], db, repoRoot, truncated = false,
   // product IS its honesty, so the file-level verdict now downgrades the banner
   // too: if the queried symbol's own TU has no compile command, the collected
   // edges for it came from an index that could not compile it.
+  // ⛔ MIXEDNESS IS COMPUTED BEFORE THE COVERAGE BRANCH, BECAUSE THAT BRANCH RETURNS. It used to be
+  // derived below, so the coverage-incomplete path answered "caller set is a FLOOR" without ever
+  // asking whether the set was mixed — and the repaired mixed branch further down was unreachable
+  // for every caller on an incompletely covered index. Python takes that path by construction.
+  const totalEdges = Array.isArray(edges) ? edges.length : 0;
+  const allVerified = totalEdges > 0 && verifiedCount === totalEdges;
+
   let coverageIncomplete = false;
   let coverageReason = '';
+  let coverageKind = '';
   try {
     const cov = computeCoverage({ language: collection?.language || 'cpp', projectRoot: repoRoot, file: file || null });
     if (cov && (cov.partial === true || cov.fileUncovered === true)) {
       coverageIncomplete = true;
       coverageReason = cov.reason || '';
+      coverageKind = cov.kind || '';
     }
   } catch { /* defensive — treat as complete */ }
+  if (coverageIncomplete && !allVerified) {
+    // ⛔ INCOMPLETE COVERAGE AND A MIXED SET ARE TWO DIFFERENT DOUBTS, AND ONLY ONE IS A FLOOR.
+    // Incomplete coverage means callers may be MISSING. A heuristic edge means a listed caller may
+    // not be one, because name resolution matches unrelated same-named calls. Together the set is
+    // bounded in neither direction, so calling it a lower bound is false in the direction that
+    // licenses action.
+    //
+    // ⚠ AND THE COVERAGE REASON IS NOT EMBEDDED VERBATIM HERE. `pythonCoverage` ends its reason with
+    // "Treat the caller set as a FLOOR" — correct advice for a compiler-resolved set, and the same
+    // false promise for this one. Quoting it would reintroduce the claim this sentence withdraws, so
+    // the KIND is named instead and the full note stays available from the code-intel verbs that
+    // report coverage in their own right.
+    const heur = totalEdges - verifiedCount;
+    return `TRUST: lsp-partial (index coverage incomplete AND the result mixes ${verifiedCount} verified + ${heur} heuristic edge${heur === 1 ? '' : 's'} — `
+      + `callers may be MISSING because the index is incomplete, and listed ones may not be callers at all because heuristic edges resolve BY NAME, `
+      + `so this set bounds the real callers in NEITHER direction; verify with code_intel_references / rg before any "no callers" / delete) `
+      + `[${dbHash}; coverage incomplete: ${coverageKind || 'unknown kind'}]`;
+  }
   if (coverageIncomplete) {
+    // All edges compiler-resolved: every one is a real caller and only completeness is open, which
+    // is exactly what FLOOR means. The coverage reason is quoted in full here because its advice is
+    // correct for this population.
     return `TRUST: lsp-partial (index coverage incomplete — caller set is a FLOOR, verify with code_intel_references / rg before any "no callers" / delete) `
       + `[${verifiedCount} verified caller${verifiedCount === 1 ? '' : 's'}, ${dbHash}; ${coverageReason}]`;
   }
@@ -681,8 +716,6 @@ async function buildTrustLineBody({ edges = [], db, repoRoot, truncated = false,
   // the set means clangd did not verify the whole caller set for this symbol, so
   // it's a FLOOR, not an exhaustive ceiling. Only an all-LSP_VERIFIED result over
   // an index-ready collection earns the exhaustive attestation.
-  const totalEdges = Array.isArray(edges) ? edges.length : 0;
-  const allVerified = totalEdges > 0 && verifiedCount === totalEdges;
 
   // P0-5 (2026-07-26): staleness must be decided BEFORE the wording is chosen.
   // It used to be appended as " — STALE, re-collect" AFTER the

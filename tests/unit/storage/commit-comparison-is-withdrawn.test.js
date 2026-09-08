@@ -30,7 +30,7 @@ import { execFileSync } from 'node:child_process';
 import { openDb } from '../../../mcp/stdio/storage/db.js';
 import { ensureFresh } from '../../../mcp/stdio/freshness/orchestrator.js';
 import { buildDigest, computeDelta, symbolKey } from '../../../mcp/stdio/storage/structural-digest.mjs';
-import { writeStructuralDigest } from '../../../mcp/stdio/storage/structural-digest-store.js';
+import { writeStructuralDigest, listDigestCommits, readStructuralDigest } from '../../../mcp/stdio/storage/structural-digest-store.js';
 import { deltaBetween, deltaFromPrevious } from '../../../mcp/stdio/storage/delta-between.js';
 import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 import { ensurePublicationTables } from '../../../mcp/stdio/storage/publication-schema.js';
@@ -128,6 +128,29 @@ describe('a commit-to-commit comparison is refused while source attribution is u
     expect(d.edgesAdded).toHaveLength(1);
   });
 
+  it('★★★ RETAINED ROWS SURVIVE A REINDEX BYTE-FOR-BYTE — preserved, not promoted', async () => {
+    // The ruling required stored rows be preserved without being promoted to authoritative history.
+    // "Not promoted" is covered by the refusals above; "preserved" is this: an index running over a
+    // database that already holds digests must leave them exactly as they were.
+    const { dir, db } = dbWithTwoDigests();
+    const before = listDigestCommits(db).map((sha) => JSON.stringify(readStructuralDigest(db, sha)));
+    db.close();
+
+    git(dir, 'init', '-q');
+    git(dir, 'config', 'user.email', 't@t.t');
+    git(dir, 'config', 'user.name', 'T');
+    mkdirSync(join(dir, 'src'), { recursive: true });
+    writeFileSync(join(dir, 'src', 'a.js'), 'export function alpha() { return 1; }\n');
+    git(dir, 'add', '-A');
+    git(dir, 'commit', '-qm', 'one');
+    await ensureFresh({ repoRoot: dir });
+
+    const db2 = openDb(join(dir, '.aify-graph', 'graph.sqlite'));
+    const after = listDigestCommits(db2).map((sha) => JSON.stringify(readStructuralDigest(db2, sha)));
+    db2.close();
+    expect(after, 'stored digests are untouched by an index that captures nothing').toEqual(before);
+  }, 60_000);
+
   it('★★★ THE SECOND POSITIVE CONTROL: ordinary indexing is untouched', async () => {
     // The other way to pass a withdrawal test dishonestly is to disable something unrelated. A real
     // repository must still index and still hold its symbols.
@@ -145,7 +168,12 @@ describe('a commit-to-commit comparison is refused while source attribution is u
 
     const db = openDb(join(repo, '.aify-graph', 'graph.sqlite'));
     const row = db.get(`SELECT COUNT(*) AS n FROM nodes WHERE label = 'alpha'`);
+    // ⛔ AND THE WITHDRAWAL'S OWN PROPERTIES ARE ASSERTED HERE, not merely believed. The reviewer's
+    // point: this case proved indexing still works and said nothing about whether the capture
+    // actually stopped, so a regression that quietly resumed writing history would pass it.
+    const captured = listDigestCommits(db);
     db.close();
     expect(row.n, 'the graph still indexes and still answers present-tense questions').toBeGreaterThan(0);
+    expect(captured, 'indexing must publish no history while the claim is withdrawn').toEqual([]);
   }, 60_000);
 });

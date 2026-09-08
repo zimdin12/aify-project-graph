@@ -25,10 +25,15 @@
 // re-added.
 export const DIGEST_VERSION = 2;
 
-// ⛔ A QNAME IS NOT AN IDENTITY. The same qname occurs in several files — an overload, a declaration
-// and its definition, the same method name in two modules — and keying on it alone merged those into
-// one symbol carrying whichever file came first, then credited every edge to it. Identity is the
-// qname AND where it lives.
+// ⛔ A QNAME IS NOT AN IDENTITY — AND NEITHER IS QNAME + FILE. Keying on the name alone merged an
+// overload, a declaration and its definition, and the same method in two modules into one symbol
+// carrying whichever file came first. Adding the file separates those, and it does NOT separate C++
+// overloads: `f(int)` and `f(double)` share both, and an edge moved between them produces no
+// movement at all. A rename or a move changes the key and reads as a removal plus an addition,
+// which describes an address moving rather than a symbol.
+//
+// ⇒ SO THIS KEY GROUPS ROWS AND IS NOT CLAIMED TO IDENTIFY SYMBOLS. Nothing may compare two of
+// these digests as authoritative history — storage/delta-between.js refuses exactly that.
 //
 // ⛔ AND THE SEPARATORS CANNOT BE CHARACTERS A NAME MAY CONTAIN. The previous edge key was
 // `${from}>${to}` and its reader did `split('>')`. This product targets C++, where
@@ -38,7 +43,7 @@ export const DIGEST_VERSION = 2;
 const KEY_SEP = '\u0000';
 const EDGE_SEP = '\u0001';
 
-/** The identity of one symbol in a digest: what it is called AND where it lives. */
+/** Groups a digest's rows by name and file. NOT a symbol identity — see the note above. */
 export const symbolKey = (qname, file) => `${qname}${KEY_SEP}${file ?? ''}`;
 
 // The relation belongs in the key. Without it a CALLS and a REFERENCES between one pair collapsed

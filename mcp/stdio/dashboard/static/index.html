@@ -1003,10 +1003,21 @@
 
       // A REFUSAL IS RENDERED AS A REFUSAL. An empty delta and an absent one look identical on a
       // page, and only one of them means the code held still.
+      // ⛔ AND THE DIFF-OVERLAY SUMMARY GOES WITH IT, WHICH IS COLLATERAL WORTH NAMING. That summary
+      // is rendered further down this same card, so returning here removes it too. It answers a
+      // DIFFERENT question — a git diff mapped onto current symbols — and it is still produced and
+      // still on the response; what is gone is this one display of it. Saying so beats leaving a
+      // reader to notice a number that used to be there, and it must NOT be shown here as a
+      // stand-in for the structural comparison that was refused.
       if (!res.available) {
         detail.innerHTML = '<h3>What moved</h3><div class="detail-card">'
           + '<div class="field">No structural comparison available.</div>'
           + '<div class="field"><span class="field-label">Why:</span> ' + tourEsc(res.reason || 'unknown') + '</div>'
+          + (res.diffOverlay
+            ? '<div class="field subtle">A diff overlay for this range exists and is NOT shown here:'
+              + ' it answers what a git diff touches, not how the shape moved, and showing it beside'
+              + ' this refusal would invite reading it as the answer that was withheld.</div>'
+            : '')
           // ⛔ NO STATIC REMEDY. This used to say "re-index after a commit to build history", which is
           // right when the only problem is a missing row and WRONG while the comparison is withdrawn
           // for want of source attribution — re-indexing cannot supply that. A fixed hint beside a

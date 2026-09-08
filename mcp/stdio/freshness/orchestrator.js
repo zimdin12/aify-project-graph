@@ -1075,14 +1075,11 @@ export async function ensureFresh({
       // sync because there is nothing separate to sync.
       replaceUnresolvedRefs(db, resolved.unresolved);
       replaceStructuralFingerprints(db, nextFingerprints);
-      // ⭐ THE ONLY HISTORY THIS DATABASE KEEPS. Every other structural table is
-      // replace-on-write, so nothing here could answer "how did the shape change since commit X".
-      // One digest per indexed commit closes that, and it is written INSIDE this transaction so it
-      // is published by the same COMMIT as the graph it describes — written after, a rollback would
-      // leave a digest describing a graph that was never published.
-      //
-      // ⚠ A CHECKOUT WITH NO COMMIT GETS NO DIGEST, rather than one keyed by a placeholder. A
-      // digest nobody can place against a revision cannot be compared to anything later.
+      // ⚠ THIS DESCRIBED A CAPTURE THAT NO LONGER HAPPENS. It said one digest per indexed commit is
+      // written inside this transaction — true when written, and contradicted by the very next
+      // paragraph since the withdrawal. Kept only as the reason the table exists at all: every other
+      // structural table is replace-on-write, so nothing else could ever answer "how did the shape
+      // change since commit X".
       // ⛔⛔ NO DIGEST IS CAPTURED WHILE THE COMMIT-COMPARISON CLAIM IS WITHDRAWN.
       //
       // The guard that stood here checked the working tree at the start and end of the run and

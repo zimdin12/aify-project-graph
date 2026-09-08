@@ -12,8 +12,11 @@
 // before this existed.
 import { buildDigest, symbolKey } from './structural-digest.mjs';
 
-// Keyed by commit: a commit names one graph state, so re-indexing it is an idempotent overwrite
-// rather than a second history entry. `digest_json` is stored verbatim because a delta compares
+// Keyed by commit — and ⛔ "A COMMIT NAMES ONE GRAPH STATE" IS FALSE HERE, which is why the
+// commit-to-commit comparison is withdrawn. The indexer parses the working tree and carries
+// unchanged rows forward, so the same sha can be re-indexed into a different graph and this key
+// would overwrite the earlier one. The table is retained for the rows already written; nothing
+// captures into it now, and storage/delta-between.js refuses to compare its contents. `digest_json` is stored verbatim because a delta compares
 // digests as BYTES — mutation testing proved that comparing them structurally hides a key-order
 // regression that would make every comparison report churn that never happened.
 export const STRUCTURAL_DIGEST_TABLE_SQL = `
