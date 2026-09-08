@@ -1,7 +1,18 @@
 
  RUN  v3.2.4 C:/Docker/aify-project-graph
 
-·····································ATTESTATION DRIFT (1): carrierDerived.duplicateMultiplicity.rowsLostToDeduplication
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+·······································ATTESTATION DRIFT (1): carrierDerived.duplicateMultiplicity.rowsLostToDeduplication
 ·ATTESTATION DRIFT (1): carrierDerived.fieldPopulation.provenance
 ·ATTESTATION DRIFT (1): carrierDerived.duplicateMultiplicity.maxMultiplicity
 ·ATTESTATION DRIFT (1): carrierDerived.carrier.bytes
@@ -11,7 +22,7 @@
 ·ATTESTATION DRIFT (1): carrierDerived.duplicateMultiplicity.maxMultiplicity
 ·ATTESTATION DRIFT (1): carrierDerived.carrier.extraClaim
 ·ATTESTATION DRIFT (1): carrierDerived.duplicateMultiplicity.rowsLostToDeduplication
-···········································································fatal: not a git repository (or any of the parent directories): .git
+··········fatal: not a git repository (or any of the parent directories): .git
 ·fatal: not a git repository (or any of the parent directories): .git
 ·fatal: not a git repository (or any of the parent directories): .git
 ·fatal: not a git repository (or any of the parent directories): .git
@@ -20,80 +31,78 @@
 ·fatal: not a git repository (or any of the parent directories): .git
 ·fatal: not a git repository (or any of the parent directories): .git
 ·fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-··04:56:19 [vite] (ssr) warning: invalid import "../../../mcp/stdio/query/verbs/${module}". A file extension must be included in the static part of the import. For example: import(`./foo/${bar}.js`).
+············································05:13:20 [vite] (ssr) warning: invalid import "../../../mcp/stdio/query/verbs/${module}". A file extension must be included in the static part of the import. For example: import(`./foo/${bar}.js`).
   Plugin: vite:dynamic-import-vars
   File: C:/Docker/aify-project-graph/tests/unit/query/empty-set-absence-names-uncommitted.test.js
-·······fatal: not a git repository (or any of the parent directories): .git
+·····························fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
 ·fatal: not a git repository (or any of the parent directories): .git
 ·fatal: not a git repository (or any of the parent directories): .git
 ·fatal: not a git repository (or any of the parent directories): .git
 ·fatal: not a git repository (or any of the parent directories): .git
 ·fatal: not a git repository (or any of the parent directories): .git
-·························fatal: not a git repository (or any of the parent directories): .git
+···································fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
 ·fatal: not a git repository (or any of the parent directories): .git
 ·fatal: not a git repository (or any of the parent directories): .git
 ·fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
-····································································04:59:13 [vite] (ssr) warning: Invalid URL
+··········································05:15:43 [vite] (ssr) warning: Invalid URL
   Plugin: vite:dynamic-import-vars
   File: C:/Docker/aify-project-graph/tests/unit/query/stale-process-not-cached.test.js
-04:59:13 [vite] (ssr) warning: Invalid URL
+05:15:43 [vite] (ssr) warning: Invalid URL
   Plugin: vite:dynamic-import-vars
   File: C:/Docker/aify-project-graph/tests/unit/query/stale-process-not-cached.test.js
-04:59:13 [vite] (ssr) warning: Invalid URL
+05:15:43 [vite] (ssr) warning: Invalid URL
   Plugin: vite:dynamic-import-vars
   File: C:/Docker/aify-project-graph/tests/unit/query/stale-process-not-cached.test.js
-····························································fatal: not a git repository (or any of the parent directories): .git
+···················stderr | tests/integration/dirty-indexing-must-not-forge-history.test.js > history is published only for a state a commit actually named > ★★★ THE REAL CASE: re-indexing with a DIRTY tree leaves the stored digest untouched
+[aify-project-graph] structural digest not captured for 91e74fe: the working tree was modified when indexing began — the graph is still usable, but this index cannot be published as that commit's history.
+
+··fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+··fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+················································stderr | tests/unit/freshness/untracked-deferral-scope.test.js > the untracked deferral is scoped to files the graph does NOT already hold > ★★★ an edit to an ALREADY-INDEXED untracked file is still picked up
+[aify-project-graph] structural digest not captured for a4ceaad: the working tree was modified when indexing began — the graph is still usable, but this index cannot be published as that commit's history.
+
+stderr | tests/unit/freshness/untracked-deferral-scope.test.js > the untracked deferral is scoped to files the graph does NOT already hold > ★★★ an edit to an ALREADY-INDEXED untracked file is still picked up
+[aify-project-graph] structural digest not captured for a4ceaad: the working tree was modified when indexing began — the graph is still usable, but this index cannot be published as that commit's history.
+
+·····················fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
 ··fatal: not a git repository (or any of the parent directories): .git
 ·fatal: not a git repository (or any of the parent directories): .git
-·······························fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-··fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-··stderr | tests/unit/freshness/orchestrator.test.js > freshness orchestrator > does a full rebuild when the manifest is missing
+····································stderr | tests/unit/freshness/orchestrator.test.js > freshness orchestrator > does a full rebuild when the manifest is missing
 [aify-project-graph] structural digest not captured for head-1: the working-tree state could not be confirmed ([vitest] No "getDirtyFileEntriesSync" export is defined on the "../../../mcp/stdio/freshness/git.js" mock. Did you forget to return it from "vi.mock"?
 If you need to partially mock a module, you can use "importOriginal" helper inside:
 ) — the graph is still usable, but this index cannot be published as that commit's history.
@@ -187,75 +196,17 @@ If you need to partially mock a module, you can use "importOriginal" helper insi
 If you need to partially mock a module, you can use "importOriginal" helper inside:
 ) — the graph is still usable, but this index cannot be published as that commit's history.
 
-·········································································05:01:13 [vite] (ssr) warning: invalid import "../../../mcp/stdio/query/verbs/${module}". A file extension must be included in the static part of the import. For example: import(`./foo/${bar}.js`).
-  Plugin: vite:dynamic-import-vars
-  File: C:/Docker/aify-project-graph/tests/unit/query/no-match-names-its-scope.test.js
-············································fatal: not a git repository (or any of the parent directories): .git
-·····················05:01:49 [vite] (ssr) warning: invalid import "../../../mcp/stdio/query/verbs/${mod}". A file extension must be included in the static part of the import. For example: import(`./foo/${bar}.js`).
-  Plugin: vite:dynamic-import-vars
-  File: C:/Docker/aify-project-graph/tests/unit/query/every-absence-names-its-scope.test.js
-···················································································05:02:03 [vite] (ssr) warning: invalid import "../../../mcp/stdio/query/verbs/${module}". A file extension must be included in the static part of the import. For example: import(`./foo/${bar}.js`).
-  Plugin: vite:dynamic-import-vars
-  File: C:/Docker/aify-project-graph/tests/unit/query/results-banner-failure-is-disclosed.test.js
-············fatal: not a git repository (or any of the parent directories): .git
-·····························································fatal: not a git repository (or any of the parent directories): .git
+······································fatal: not a git repository (or any of the parent directories): .git
+·····························································································································································································fatal: not a git repository (or any of the parent directories): .git
+···········fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
 ·fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
+··fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
-····-···············stderr | tests/unit/freshness/manifest-counts-match-the-table.test.js > the manifest counts describe the population the table holds > ⭐ dirtyEdgeCount equals the table row count — the uncapped number, not the sample
-[aify-project-graph] structural digest not captured for head-1: the working-tree state could not be confirmed ([vitest] No "getDirtyFileEntriesSync" export is defined on the "../../../mcp/stdio/freshness/git.js" mock. Did you forget to return it from "vi.mock"?
-If you need to partially mock a module, you can use "importOriginal" helper inside:
-) — the graph is still usable, but this index cannot be published as that commit's history.
-
-·stderr | tests/unit/freshness/manifest-counts-match-the-table.test.js > the manifest counts describe the population the table holds > ⭐ trustDirtyEdgeCount is the trust-relevant subset OF THOSE SAME ROWS
-[aify-project-graph] structural digest not captured for head-1: the working-tree state could not be confirmed ([vitest] No "getDirtyFileEntriesSync" export is defined on the "../../../mcp/stdio/freshness/git.js" mock. Did you forget to return it from "vi.mock"?
-If you need to partially mock a module, you can use "importOriginal" helper inside:
-) — the graph is still usable, but this index cannot be published as that commit's history.
-
-·stderr | tests/unit/freshness/manifest-counts-match-the-table.test.js > the manifest counts describe the population the table holds > POSITIVE CONTROL: a graph with nothing unresolved agrees at zero
-[aify-project-graph] structural digest not captured for head-1: the working-tree state could not be confirmed ([vitest] No "getDirtyFileEntriesSync" export is defined on the "../../../mcp/stdio/freshness/git.js" mock. Did you forget to return it from "vi.mock"?
-If you need to partially mock a module, you can use "importOriginal" helper inside:
-) — the graph is still usable, but this index cannot be published as that commit's history.
-
-·stderr | tests/unit/freshness/manifest-counts-match-the-table.test.js > the manifest counts describe the population the table holds > ⛔ the equality survives a SECOND rebuild that changes the population
-[aify-project-graph] structural digest not captured for head-1: the working-tree state could not be confirmed ([vitest] No "getDirtyFileEntriesSync" export is defined on the "../../../mcp/stdio/freshness/git.js" mock. Did you forget to return it from "vi.mock"?
-If you need to partially mock a module, you can use "importOriginal" helper inside:
-) — the graph is still usable, but this index cannot be published as that commit's history.
-
-stderr | tests/unit/freshness/manifest-counts-match-the-table.test.js > the manifest counts describe the population the table holds > ⛔ the equality survives a SECOND rebuild that changes the population
-[aify-project-graph] structural digest not captured for head-2: the working-tree state could not be confirmed ([vitest] No "getDirtyFileEntriesSync" export is defined on the "../../../mcp/stdio/freshness/git.js" mock. Did you forget to return it from "vi.mock"?
-If you need to partially mock a module, you can use "importOriginal" helper inside:
-) — the graph is still usable, but this index cannot be published as that commit's history.
-
-·stderr | tests/unit/freshness/manifest-counts-match-the-table.test.js > the copied counts are checked against the committed aggregates, not trusted > ⛔ a manifest count mutated UNDER a matching generation is detected
-[aify-project-graph] structural digest not captured for head-1: the working-tree state could not be confirmed ([vitest] No "getDirtyFileEntriesSync" export is defined on the "../../../mcp/stdio/freshness/git.js" mock. Did you forget to return it from "vi.mock"?
-If you need to partially mock a module, you can use "importOriginal" helper inside:
-) — the graph is still usable, but this index cannot be published as that commit's history.
-
-·stderr | tests/unit/freshness/manifest-counts-match-the-table.test.js > the copied counts are checked against the committed aggregates, not trusted > POSITIVE CONTROL: an untampered manifest agrees with the committed aggregate
-[aify-project-graph] structural digest not captured for head-1: the working-tree state could not be confirmed ([vitest] No "getDirtyFileEntriesSync" export is defined on the "../../../mcp/stdio/freshness/git.js" mock. Did you forget to return it from "vi.mock"?
-If you need to partially mock a module, you can use "importOriginal" helper inside:
-) — the graph is still usable, but this index cannot be published as that commit's history.
-
-·stderr | tests/unit/freshness/manifest-counts-match-the-table.test.js > the copied counts are checked against the committed aggregates, not trusted > ⭐ all three substrates agree after a rebuild: rows, DB aggregate, manifest copy
-[aify-project-graph] structural digest not captured for head-1: the working-tree state could not be confirmed ([vitest] No "getDirtyFileEntriesSync" export is defined on the "../../../mcp/stdio/freshness/git.js" mock. Did you forget to return it from "vi.mock"?
-If you need to partially mock a module, you can use "importOriginal" helper inside:
-) — the graph is still usable, but this index cannot be published as that commit's history.
-
-····················fatal: Needed a single revision
-fatal: Invalid revision range deadbeefdeadbeefdeadbeefdeadbeefdeadbeef..c597cb14dafd4e0c3239ba1ed6e7a6578f08bead
-···fatal: not a git repository (or any of the parent directories): .git
-············stderr | tests/unit/freshness/untracked-deferral-scope.test.js > the untracked deferral is scoped to files the graph does NOT already hold > ★★★ an edit to an ALREADY-INDEXED untracked file is still picked up
-[aify-project-graph] structural digest not captured for fd9dcfa: the working tree was modified when indexing began — the graph is still usable, but this index cannot be published as that commit's history.
-
-stderr | tests/unit/freshness/untracked-deferral-scope.test.js > the untracked deferral is scoped to files the graph does NOT already hold > ★★★ an edit to an ALREADY-INDEXED untracked file is still picked up
-[aify-project-graph] structural digest not captured for fd9dcfa: the working tree was modified when indexing began — the graph is still usable, but this index cannot be published as that commit's history.
-
-··stderr | tests/unit/freshness/publication-atomicity.test.js > the graph and everything describing it are published by ONE commit > POSITIVE CONTROL: a successful rebuild publishes refs, fingerprints and a generation
+fatal: not a git repository (or any of the parent directories): .git
+····-··························stderr | tests/unit/freshness/publication-atomicity.test.js > the graph and everything describing it are published by ONE commit > POSITIVE CONTROL: a successful rebuild publishes refs, fingerprints and a generation
 [aify-project-graph] structural digest not captured for head-1: the working-tree state could not be confirmed ([vitest] No "getDirtyFileEntriesSync" export is defined on the "../../../mcp/stdio/freshness/git.js" mock. Did you forget to return it from "vi.mock"?
 If you need to partially mock a module, you can use "importOriginal" helper inside:
 ) — the graph is still usable, but this index cannot be published as that commit's history.
@@ -320,12 +271,12 @@ stderr | tests/unit/freshness/publication-atomicity.test.js > the graph and ever
 If you need to partially mock a module, you can use "importOriginal" helper inside:
 ) — the graph is still usable, but this index cannot be published as that commit's history.
 
-·stderr | tests/unit/freshness/publication-atomicity.test.js > the graph and everything describing it are published by ONE commit > an unreadable legacy authority escalates to a full rebuild > ⛔ a CORRUPT unresolved table still rebuilds — the repair must not need the thing it repairs
+stderr | tests/unit/freshness/publication-atomicity.test.js > the graph and everything describing it are published by ONE commit > an unreadable legacy authority escalates to a full rebuild > ⛔ a CORRUPT unresolved table still rebuilds — the repair must not need the thing it repairs
 [aify-project-graph] structural digest not captured for head-1: the working-tree state could not be confirmed ([vitest] No "getDirtyFileEntriesSync" export is defined on the "../../../mcp/stdio/freshness/git.js" mock. Did you forget to return it from "vi.mock"?
 If you need to partially mock a module, you can use "importOriginal" helper inside:
 ) — the graph is still usable, but this index cannot be published as that commit's history.
 
-stderr | tests/unit/freshness/publication-atomicity.test.js > the graph and everything describing it are published by ONE commit > an unreadable legacy authority escalates to a full rebuild > ⛔ a CORRUPT unresolved table still rebuilds — the repair must not need the thing it repairs
+·stderr | tests/unit/freshness/publication-atomicity.test.js > the graph and everything describing it are published by ONE commit > an unreadable legacy authority escalates to a full rebuild > ⛔ a CORRUPT unresolved table still rebuilds — the repair must not need the thing it repairs
 [aify-project-graph] structural digest not captured for head-1: the working-tree state could not be confirmed ([vitest] No "getDirtyFileEntriesSync" export is defined on the "../../../mcp/stdio/freshness/git.js" mock. Did you forget to return it from "vi.mock"?
 If you need to partially mock a module, you can use "importOriginal" helper inside:
 ) — the graph is still usable, but this index cannot be published as that commit's history.
@@ -350,28 +301,80 @@ If you need to partially mock a module, you can use "importOriginal" helper insi
 If you need to partially mock a module, you can use "importOriginal" helper inside:
 ) — the graph is still usable, but this index cannot be published as that commit's history.
 
-··stderr | tests/integration/dirty-indexing-must-not-forge-history.test.js > history is published only for a state a commit actually named > ★★★ THE REAL CASE: re-indexing with a DIRTY tree leaves the stored digest untouched
-[aify-project-graph] structural digest not captured for e1dbba8: the working tree was modified when indexing began — the graph is still usable, but this index cannot be published as that commit's history.
+·05:18:56 [vite] (ssr) warning: invalid import "../../../mcp/stdio/query/verbs/${module}". A file extension must be included in the static part of the import. For example: import(`./foo/${bar}.js`).
+  Plugin: vite:dynamic-import-vars
+  File: C:/Docker/aify-project-graph/tests/unit/query/no-match-names-its-scope.test.js
+·······························05:19:08 [vite] (ssr) warning: invalid import "../../../mcp/stdio/query/verbs/${mod}". A file extension must be included in the static part of the import. For example: import(`./foo/${bar}.js`).
+  Plugin: vite:dynamic-import-vars
+  File: C:/Docker/aify-project-graph/tests/unit/query/every-absence-names-its-scope.test.js
+··················································································fatal: Needed a single revision
+fatal: Invalid revision range deadbeefdeadbeefdeadbeefdeadbeefdeadbeef..29c402e25cc3929833c7f091fe557fe561077f41
+·stderr | tests/unit/freshness/manifest-counts-match-the-table.test.js > the manifest counts describe the population the table holds > ⭐ dirtyEdgeCount equals the table row count — the uncapped number, not the sample
+[aify-project-graph] structural digest not captured for head-1: the working-tree state could not be confirmed ([vitest] No "getDirtyFileEntriesSync" export is defined on the "../../../mcp/stdio/freshness/git.js" mock. Did you forget to return it from "vi.mock"?
+If you need to partially mock a module, you can use "importOriginal" helper inside:
+) — the graph is still usable, but this index cannot be published as that commit's history.
 
-········································································05:04:24 [vite] (ssr) warning: invalid import "../../../mcp/stdio/query/verbs/${module}". A file extension must be included in the static part of the import. For example: import(`./foo/${bar}.js`).
+·stderr | tests/unit/freshness/manifest-counts-match-the-table.test.js > the manifest counts describe the population the table holds > ⭐ trustDirtyEdgeCount is the trust-relevant subset OF THOSE SAME ROWS
+[aify-project-graph] structural digest not captured for head-1: the working-tree state could not be confirmed ([vitest] No "getDirtyFileEntriesSync" export is defined on the "../../../mcp/stdio/freshness/git.js" mock. Did you forget to return it from "vi.mock"?
+If you need to partially mock a module, you can use "importOriginal" helper inside:
+) — the graph is still usable, but this index cannot be published as that commit's history.
+
+·stderr | tests/unit/freshness/manifest-counts-match-the-table.test.js > the manifest counts describe the population the table holds > POSITIVE CONTROL: a graph with nothing unresolved agrees at zero
+[aify-project-graph] structural digest not captured for head-1: the working-tree state could not be confirmed ([vitest] No "getDirtyFileEntriesSync" export is defined on the "../../../mcp/stdio/freshness/git.js" mock. Did you forget to return it from "vi.mock"?
+If you need to partially mock a module, you can use "importOriginal" helper inside:
+) — the graph is still usable, but this index cannot be published as that commit's history.
+
+stderr | tests/unit/freshness/manifest-counts-match-the-table.test.js > the manifest counts describe the population the table holds > ⛔ the equality survives a SECOND rebuild that changes the population
+[aify-project-graph] structural digest not captured for head-1: the working-tree state could not be confirmed ([vitest] No "getDirtyFileEntriesSync" export is defined on the "../../../mcp/stdio/freshness/git.js" mock. Did you forget to return it from "vi.mock"?
+If you need to partially mock a module, you can use "importOriginal" helper inside:
+) — the graph is still usable, but this index cannot be published as that commit's history.
+
+·stderr | tests/unit/freshness/manifest-counts-match-the-table.test.js > the manifest counts describe the population the table holds > ⛔ the equality survives a SECOND rebuild that changes the population
+[aify-project-graph] structural digest not captured for head-2: the working-tree state could not be confirmed ([vitest] No "getDirtyFileEntriesSync" export is defined on the "../../../mcp/stdio/freshness/git.js" mock. Did you forget to return it from "vi.mock"?
+If you need to partially mock a module, you can use "importOriginal" helper inside:
+) — the graph is still usable, but this index cannot be published as that commit's history.
+
+·stderr | tests/unit/freshness/manifest-counts-match-the-table.test.js > the copied counts are checked against the committed aggregates, not trusted > ⛔ a manifest count mutated UNDER a matching generation is detected
+[aify-project-graph] structural digest not captured for head-1: the working-tree state could not be confirmed ([vitest] No "getDirtyFileEntriesSync" export is defined on the "../../../mcp/stdio/freshness/git.js" mock. Did you forget to return it from "vi.mock"?
+If you need to partially mock a module, you can use "importOriginal" helper inside:
+) — the graph is still usable, but this index cannot be published as that commit's history.
+
+stderr | tests/unit/freshness/manifest-counts-match-the-table.test.js > the copied counts are checked against the committed aggregates, not trusted > POSITIVE CONTROL: an untampered manifest agrees with the committed aggregate
+[aify-project-graph] structural digest not captured for head-1: the working-tree state could not be confirmed ([vitest] No "getDirtyFileEntriesSync" export is defined on the "../../../mcp/stdio/freshness/git.js" mock. Did you forget to return it from "vi.mock"?
+If you need to partially mock a module, you can use "importOriginal" helper inside:
+) — the graph is still usable, but this index cannot be published as that commit's history.
+
+··stderr | tests/unit/freshness/manifest-counts-match-the-table.test.js > the copied counts are checked against the committed aggregates, not trusted > ⭐ all three substrates agree after a rebuild: rows, DB aggregate, manifest copy
+[aify-project-graph] structural digest not captured for head-1: the working-tree state could not be confirmed ([vitest] No "getDirtyFileEntriesSync" export is defined on the "../../../mcp/stdio/freshness/git.js" mock. Did you forget to return it from "vi.mock"?
+If you need to partially mock a module, you can use "importOriginal" helper inside:
+) — the graph is still usable, but this index cannot be published as that commit's history.
+
+··················05:19:45 [vite] (ssr) warning: invalid import "../../../mcp/stdio/query/verbs/${module}". A file extension must be included in the static part of the import. For example: import(`./foo/${bar}.js`).
+  Plugin: vite:dynamic-import-vars
+  File: C:/Docker/aify-project-graph/tests/unit/query/results-banner-failure-is-disclosed.test.js
+······················fatal: not a git repository (or any of the parent directories): .git
+··································································05:20:23 [vite] (ssr) warning: invalid import "../../../mcp/stdio/query/verbs/${module}". A file extension must be included in the static part of the import. For example: import(`./foo/${bar}.js`).
   Plugin: vite:dynamic-import-vars
   File: C:/Docker/aify-project-graph/tests/unit/query/contract-failure-is-disclosed.test.js
-·············································fatal: not a git repository (or any of the parent directories): .git
+············································································································································································································fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+····fatal: not a git repository (or any of the parent directories): .git
+···········································································fatal: not a git repository (or any of the parent directories): .git
+········fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
 ·fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
 ·fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
-··fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
 ·fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
 ·fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
-···········fatal: not a git repository (or any of the parent directories): .git
-···········································································································stderr | tests/unit/freshness/cosmetic-skip.test.js > P1-6 cosmetic-vs-structural change classification > classifies a body-only edit as COSMETIC and leaves nodes/edges byte-identical
+···stderr | tests/unit/freshness/cosmetic-skip.test.js > P1-6 cosmetic-vs-structural change classification > classifies a body-only edit as COSMETIC and leaves nodes/edges byte-identical
 [aify-project-graph] structural digest not captured for head-1: the working-tree state could not be confirmed ([vitest] No "getDirtyFileEntriesSync" export is defined on the "../../../mcp/stdio/freshness/git.js" mock. Did you forget to return it from "vi.mock"?
 If you need to partially mock a module, you can use "importOriginal" helper inside:
 ) — the graph is still usable, but this index cannot be published as that commit's history.
@@ -410,8 +413,21 @@ stderr | tests/unit/freshness/cosmetic-skip.test.js > P1-6 cosmetic-vs-structura
 
 ·fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
-····fatal: not a git repository (or any of the parent directories): .git
-··································fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+··fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+··················································································fatal: ambiguous argument 'nope-no-such-ref..HEAD': unknown revision or path not in the working tree.
+Use '--' to separate paths from revisions, like this:
+'git <command> [<revision>...] -- [<file>...]'
+·······error: read error while indexing .aify-graph/graph.sqlite-shm: Permission denied
+················fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
 ·fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
@@ -419,20 +435,6 @@ fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
 ··fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
-·········································································fatal: ambiguous argument 'nope-no-such-ref..HEAD': unknown revision or path not in the working tree.
-Use '--' to separate paths from revisions, like this:
-'git <command> [<revision>...] -- [<file>...]'
-·error: read error while indexing .aify-graph/graph.sqlite-shm: Permission denied
-error: read error while indexing .aify-graph/graph.sqlite-shm: Permission denied
-error: read error while indexing .aify-graph/graph.sqlite-shm: Permission denied
-error: read error while indexing .aify-graph/graph.sqlite-shm: Permission denied
-··························································fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-······················································································fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
 ·fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
 ·fatal: not a git repository (or any of the parent directories): .git
@@ -441,11 +443,42 @@ fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
 ·fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
 ·fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
-··········stderr | tests/unit/freshness/external-admission-through-reindex.test.js > external admission survives a real incremental re-index > ⛔ a refused REFERENCES terminal does not survive the re-index, and is then collected
+···················································fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+·····························fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+··fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+·······································fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+··fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+··fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+···············fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+··fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+····················stderr | tests/unit/freshness/external-admission-through-reindex.test.js > external admission survives a real incremental re-index > ⛔ a refused REFERENCES terminal does not survive the re-index, and is then collected
 [aify-project-graph] structural digest not captured for head-1: the working-tree state could not be confirmed ([vitest] No "getDirtyFileEntriesSync" export is defined on the "../../../mcp/stdio/freshness/git.js" mock. Did you forget to return it from "vi.mock"?
 If you need to partially mock a module, you can use "importOriginal" helper inside:
 ) — the graph is still usable, but this index cannot be published as that commit's history.
@@ -461,33 +494,8 @@ If you need to partially mock a module, you can use "importOriginal" helper insi
 stderr | tests/unit/freshness/external-admission-through-reindex.test.js > external admission survives a real incremental re-index > ⭐ CONTROL: an ADMITTED terminal survives the same re-index
 [aify-project-graph] structural digest not captured for head-1: the working tree was modified when indexing began — the graph is still usable, but this index cannot be published as that commit's history.
 
-·fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-···················fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
 ······fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-··fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-·····fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-········fatal: not a git repository (or any of the parent directories): .git
+··········fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
@@ -499,53 +507,40 @@ fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-············fatal: not a git repository (or any of the parent directories): .git
-·····························································fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-··································································refusing to modify C:\Users\ADMINI~1\AppData\Local\Temp\apg-vitest-41496-1788832453992\apg-hookinstall-dyWSe7\settings.json: it is not valid JSON (Expected property name or '}' in JSON at position 2 (line 1 column 3))
-······························fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-··fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-··················fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
 ··fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
-·····················································fatal: not a git repository (or any of the parent directories): .git
+·······fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+···fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+···························fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
 ·fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
-··········································fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
+···············································refusing to modify C:\Users\ADMINI~1\AppData\Local\Temp\apg-vitest-63520-1788833485468\apg-hookinstall-4Xy794\settings.json: it is not valid JSON (Expected property name or '}' in JSON at position 2 (line 1 column 3))
+··········fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+········································fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
 ·······································fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
 ·fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
-··fatal: not a git repository (or any of the parent directories): .git
 ·fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
@@ -555,14 +550,16 @@ fatal: not a git repository (or any of the parent directories): .git
 ··fatal: ambiguous argument 'HEAD': unknown revision or path not in the working tree.
 Use '--' to separate paths from revisions, like this:
 'git <command> [<revision>...] -- [<file>...]'
-·····························································································stdout | tests/unit/negative-assertions-are-controlled.test.js > negative assertions must not spread uncontrolled > ★★★ adoption is reported, so "available" is never mistaken for "adopted"
+························fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+······················································································································································stdout | tests/unit/negative-assertions-are-controlled.test.js > negative assertions must not spread uncontrolled > ★★★ adoption is reported, so "available" is never mistaken for "adopted"
 NEGATIVE ASSERTIONS — controlled: 151 · bare: 154 · 49.5% controlled
 
-···················································································································································································································-·········································································································································································································································································································-················································stderr | tests/unit/scripts/mutation-restore-cannot-eat-uncommitted-work.test.js > a mutation cycle cannot destroy uncommitted work > ★★★ withMutation restores even when the body THROWS
+·································································································-·······························································································································································································································································································································-···························stderr | tests/unit/scripts/mutation-restore-cannot-eat-uncommitted-work.test.js > a mutation cycle cannot destroy uncommitted work > ★★★ withMutation restores even when the body THROWS
 Promise returned by `expect(actual).rejects.toThrow(expected)` was not awaited. Vitest currently auto-awaits hanging assertions at the end of the test, but this will cause the test to fail in Vitest 3. Please remember to await the assertion.
     at C:/Docker/aify-project-graph/tests/unit/scripts/mutation-restore-cannot-eat-uncommitted-work.test.js:83:7
 
-·············································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································-·············································································································································································································································································································································································································stdout | tests/unit/suite-composition.test.js > suite composition — what the green headline actually covers > ★ reports the three denominators separately, so no one number stands for all of them
+·······························································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································-··········································································································································································································································································································································································································································stdout | tests/unit/suite-composition.test.js > suite composition — what the green headline actually covers > ★ reports the three denominators separately, so no one number stands for all of them
 
 SUITE COMPOSITION — quote these three, not one:
   behavioural files : 472
@@ -571,14 +568,14 @@ SUITE COMPOSITION — quote these three, not one:
   total             : 511
 
 
-·····································································································································································································································································································································
+······················································································································································································································
 
  Test Files  511 passed (511)
       Tests  4118 passed | 4 skipped (4122)
-   Start at  04:54:14
-   Duration  914.47s (transform 3.21s, setup 0ms, collect 102.26s, tests 701.93s, environment 69ms, prepare 40.84s)
+   Start at  05:11:25
+   Duration  839.59s (transform 3.18s, setup 0ms, collect 105.83s, tests 612.17s, environment 76ms, prepare 44.46s)
 
 
-SUITE FOR COMMIT 454e40970dda212c3e3f39e537677c9dde5fa839
-FINISHED 2026-09-08T02:09:29.329Z
+SUITE FOR COMMIT 7f394852af8f979235a8972208badbfc856441b4
+FINISHED 2026-09-08T02:25:26.874Z
 VITEST_EXIT=0
