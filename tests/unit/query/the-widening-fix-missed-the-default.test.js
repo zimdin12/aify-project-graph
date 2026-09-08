@@ -56,6 +56,13 @@ const seed = () => {
     `INSERT INTO nodes (id, type, label, file_path)
      VALUES ('f1', 'Function', 'overlay', 'mcp/overlay.js')`,
   );
+  // ⛔ THE SUBSTRING SIBLING. The exact branch exists to stop an exact query being diluted by
+  // broader matches, and the first attempt at this repair deleted that property along with the
+  // defect — `get_user` started returning `get_user_profile` and the integration suite caught it.
+  db.run(
+    `INSERT INTO nodes (id, type, label, file_path)
+     VALUES ('f2', 'Function', 'overlayBuilder', 'mcp/overlay-builder.js')`,
+  );
   db.close();
 };
 
@@ -80,6 +87,15 @@ describe('the exact fast path must not delete the DEFAULT widening', () => {
     expect(out, 'the code node must still be found — this is not a trade').toMatch(/mcp\/overlay\.js/);
     expect(out, 'the document reachable only by heading must survive the fast path')
       .toMatch(/rebuild-notes\.md/);
+    // ⛔ AND EXACT-MATCH PRECISION SURVIVES TOO. Reaching the document must not be bought by
+    // letting every substring sibling back in; that trade was made once and the integration
+    // suite refused it.
+    expectAbsentWithLiveMatcher(
+      /overlayBuilder/,
+      { forbidden: 'NODE mcp/overlay-builder.js overlayBuilder', allowed: 'NODE mcp/overlay.js overlay' },
+      out,
+      'an exact symbol query must not be diluted by broader substring matches',
+    );
   });
 
   it('★★★ THE SAME QUERY WITH AN EXPLICIT `all` ALREADY WORKED — so the default was the whole gap', async () => {

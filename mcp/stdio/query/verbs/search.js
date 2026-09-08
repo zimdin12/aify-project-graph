@@ -27,6 +27,13 @@ const STRUCTURE_TYPES = new Set(['File', 'Module', 'Entrypoint', 'Route', 'Schem
 // Document, Directory, Config are lowest priority
 const EXACT_SYMBOL_RE = /^[A-Za-z_][A-Za-z0-9_.$:-]*$/;
 
+// ⭐ ONE DEFINITION, USED BY BOTH DOCUMENT PATHS. A document is reached by its TITLE or its
+// HEADINGS and never by an exact label, so the exact-symbol branch and the ranked scan both need
+// these — and two copies of a matching rule is how one path silently stops matching what the other
+// does. The reasoning for title-but-not-summary, and headings-but-not-body, is at the ranked scan.
+const TITLE_EXPR = "json_extract(extra, '$.title')";
+const HEADINGS_EXPR = "json_extract(extra, '$.headings')";
+
 function scoreNode(node, query) {
   let score = 0;
 
@@ -238,7 +245,7 @@ export async function graphSearch({ repoRoot, query, type, file, kind: kindArg, 
     // could have been returned regardless. Add a kind that admits documents and this stays correct
     // without anyone remembering to come back here.
     const documentsExcluded = kind === 'code' || (Boolean(type) && type !== 'Document');
-    if (EXACT_SYMBOL_RE.test(normalizedQuery) && documentsExcluded) {
+    if (EXACT_SYMBOL_RE.test(normalizedQuery)) {
       const exactClauses = ['label = $label', ...baseClauses];
       const exactHits = db.all(
         `SELECT * FROM nodes WHERE ${exactClauses.join(' AND ')} LIMIT $limit`,
@@ -252,7 +259,25 @@ export async function graphSearch({ repoRoot, query, type, file, kind: kindArg, 
           .map((n, i) => ({ n, i, gen: isGeneratedPath(n.file_path) }))
           .sort((a, b) => (a.gen === b.gen ? a.i - b.i : (a.gen ? 1 : -1)))
           .map(x => x.n);
-        const rendered = annotateGenerated(renderCompact({ nodes: orderedExact, edges: [] }), orderedExact);
+        // ⛔ THE BRANCH DOES TWO JOBS AND ONLY ONE OF THEM WAS EVER WRONG. Returning exact hits
+        // alone keeps an exact query from being diluted by substring siblings — `get_user` must
+        // not drag in `get_user_profile`, and an agent depends on that far more than on a doc
+        // match. Deleting this branch for the widened kinds restored the document layer and threw
+        // that precision away with it; the integration suite refused the trade, correctly.
+        //
+        // ⇒ So the document layer is ADDED here rather than the code precision being removed. A
+        // document is reachable by TITLE or HEADINGS and never by an exact label, so it cannot
+        // appear above without a query of its own — and where the caller's kind excludes documents
+        // there is nothing to add and this costs them nothing.
+        const docHits = documentsExcluded ? [] : db.all(
+          `SELECT * FROM nodes
+            WHERE type = 'Document'
+              AND (label LIKE $like OR ${TITLE_EXPR} LIKE $like OR ${HEADINGS_EXPR} LIKE $like)
+            LIMIT $limit`,
+          { like: `%${normalizedQuery}%`, limit: cappedLimit },
+        );
+        const nodes = [...orderedExact, ...docHits];
+        const rendered = annotateGenerated(renderCompact({ nodes, edges: [] }), nodes);
         return prefixReadWarnings(rendered, freshnessWarnings);
       }
     }
@@ -309,7 +334,7 @@ export async function graphSearch({ repoRoot, query, type, file, kind: kindArg, 
     // naming the document; a summary is whatever sentence happened to be there. Adding it would
     // widen recall by an unmeasured amount at an unmeasured precision cost, and this repo has
     // spent the night deleting rules that were admitted without a measurement.
-    const TITLE = "json_extract(extra, '$.title')";
+    const TITLE = TITLE_EXPR;
     // ⛔ HEADINGS TOO, AND THE MEASUREMENT IS WHY. Over ten topics this repo genuinely discusses,
     // name|title reached THREE documents; headings add FORTY-NINE. `graph_search("sqlite")`
     // answered NO RESULTS on the repository whose storage layer is SQLite.
@@ -327,7 +352,7 @@ export async function graphSearch({ repoRoot, query, type, file, kind: kindArg, 
     // path where the join would need a correlated subquery per token. The failure mode is a rare
     // extra match rather than a missed one, and precision is UNMEASURED on any corpus this rule
     // did not shape.
-    const HEADINGS = "json_extract(extra, '$.headings')";
+    const HEADINGS = HEADINGS_EXPR;
     const docText = (bind) => `(label LIKE ${bind} OR ${TITLE} LIKE ${bind} OR ${HEADINGS} LIKE ${bind})`;
     let matchClause;
     if (tokens.length > 1) {
