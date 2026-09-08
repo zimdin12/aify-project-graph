@@ -128,6 +128,35 @@ host actually sends and accepts:
 host, one session, observed rather than assumed — not a rate, and stated here as the reason A1 needs
 its own row rather than as a finding.
 
+### ⛔ A FOURTH STATE, FOUND BY DOING: REACHABLE, BUT NOT THE BUILD YOU THINK
+
+A0/A1/A2 all ask whether the verb can be *invoked*. They all pass while the answer comes from
+different code.
+
+**Observed 2026-09-08, first call of the step-3 exercise.** `graph_health` reported the server
+process had loaded `cf78545a` on 2026-09-06 while the checkout was `b40e132a` — **23 executable
+files under `mcp/` different**, including `mcp/stdio/query/graph-capabilities.mjs`, whose absence gate had been
+rewritten hours earlier. The verb was listed, callable, and answered promptly, from two-day-old code.
+
+⇒ **THE INSTALLED BUNDLE IS NOT THE CHECKED-OUT BUNDLE, AND ONLY THE SERVER CAN SEE THE DIFFERENCE.**
+This is why §3a opens by requiring a measurement to name the commit it ran against: here the server's
+commit and the repository's commit were both knowable and **not equal**, and every answer would have
+been attributed to the wrong one.
+
+⚠ **AND THE DATA WAS CURRENT WHILE THE CODE WAS NOT** — the index was at `b40e132a` with
+`stale: false`. Two different staleness questions share one word. A graph fact could be right while
+the disclosure wrapped around it came from a build that no longer exists.
+
+⭐ The server DETECTED and DISCLOSED this itself, unprompted and first. That guard is doing the job
+this whole plan is about, and it is the reason the exercise stopped instead of publishing a figure
+about the wrong build.
+
+⛔ **CLEARING IT IS NOT AVAILABLE TO ME.** The process must be restarted by the host (an operator
+`/mcp reconnect` or a CLI relaunch); reloading files or re-running the verb does not do it, and a
+session restart may cycle the agent worker without respawning the MCP child. Verify by the process
+start timestamp, never by the commit — an unsuccessful restart and a restart onto the same commit
+look identical by commit alone.
+
 ### VOLUNTARY USE — did an agent choose it with alternatives to hand
 
 A property of the **decision**, and it is only defined where three things hold together:
@@ -227,6 +256,22 @@ say it before the result exists. Without one, every outcome reads as encourageme
 Outside the protected adoption cohort. No new benchmark platform, no analytics identity system, and
 no paid arm until `docs/efficacy-eval-design.md`'s eight appendix items are filled — that hold is
 engineering, not budget, and funding cannot lift it.
+
+### Status: STARTED, then STOPPED at the first call, on purpose
+
+Ground truth for three composed tasks was established by hand **before** any verb ran — that
+ordering is the point, so an expectation cannot be fitted to an output.
+
+⚠ **AND BUILDING THAT GROUND TRUTH IMMEDIATELY PRODUCED A WRONG ZERO OF ITS OWN.** The
+contract-join task's truth was gathered with a case-sensitive grep that missed
+`docs/known-limitations.md`, which documents the withdrawal under `WITHDRAWN`. Graded against that
+truth, a correct answer would have been marked a false positive. **The ground truth needs its own
+positive and negative controls, exactly like the instrument it judges** — added to the pre-run list
+above in spirit, and worth stating plainly: the oracle is an instrument too.
+
+Then `graph_health` reported the stale-build state described in §3a, and the run stopped there. A
+graded result would have described `cf78545a` while claiming to describe `b40e132a`. **The tasks and
+their ground truth stand and are reusable; what is missing is a server running the code under test.**
 
 ---
 
