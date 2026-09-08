@@ -229,8 +229,36 @@ free and comes first.
 > gets no further investment.**
 
 Fixed now, while the outcome cannot be seen. The failure mode this guards is `correct but wrong`: a
-beautiful, proven surface that gets opened twice. Instrumented by the dashboard's own access log, not
-by memory, and not by asking him.
+beautiful, proven surface that gets opened twice.
+
+#### ⛔ EVALUATION STATUS: UNMEASURABLE FROM RETAINED INSTRUMENTATION
+
+**The rule above stands exactly as written, with its original dates.** What does not stand is the
+sentence that used to follow it — "instrumented by the dashboard's own access log". It is not.
+
+`dashboard/server.js` appends one line to `.aify-graph/delta-views.log` on every `/api/delta`
+request, and that line is a bare timestamp. It carries no actor, no session, and it is written
+BEFORE the endpoint checks whether a delta is even available. So the log can establish that a
+request arrived; it cannot distinguish Steven opening the view from a poll, a probe, a test run, a
+response that turned out to be unavailable, or the agent that built it.
+
+⇒ **The criterion cannot be decided from what was retained.** Not "the threshold was missed" —
+undecidable. An absent entry is equally not proof of no open.
+
+⛔ **What must NOT happen to this rule.** Do not substitute request counts for opens. Do not read a
+low number as a failed trial. Do not quietly restart or re-date the window so it can be answered.
+Each of those replaces an honest "cannot tell" with a fabricated verdict, which is the exact failure
+this preregistration existed to prevent — and it would be worse coming from the instrument's author.
+
+⇒ **What would make it measurable, stated but deliberately not built:** an actor and an event agreed
+PROSPECTIVELY, before the next trial, with an observation method fixed at the same time. A browser
+click, or an `isTrusted` flag, still would not establish that the person clicking is Steven. Building
+identity or analytics infrastructure to rescue a threshold would cost more than the question is
+worth; directly witnessed or self-reported use can inform a later decision if it is LABELLED as
+such, but it cannot retroactively satisfy an instrumented trial that was never instrumented.
+
+⇒ Until then, further investment in the delta surface is **on hold as an explicit product decision
+under missing evidence** — not as a measured failure of this rule.
 
 ---
 

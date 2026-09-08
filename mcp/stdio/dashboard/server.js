@@ -471,9 +471,19 @@ export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
     // `.aify-graph/diff-overlay.json` "for the dashboard blast-radius highlight" while nothing read
     // it — producer proven, consumer absent, claim shipped. This is the consumer.
     if (req.url?.startsWith('/api/delta')) {
-      // ⛔ THE ABANDON RULE IS INSTRUMENTED BY THE THING ITSELF. Preregistered: fewer than three
-      // opens in the fourteen days after this ships and it gets no further investment. Measuring
-      // that by memory would not be measuring it, and asking would replace it with a recollection.
+      // ⛔ THIS LOG DOES NOT INSTRUMENT THE ABANDON RULE, AND IT USED TO SAY THAT IT DID.
+      //
+      // The preregistered rule is about STEVEN OPENING THE VIEW — fewer than three times in fourteen
+      // days and the surface gets no further investment. What this line records is one bare
+      // timestamp per REQUEST, written before the handler even knows whether a delta is available.
+      // It carries no actor and no session, so it cannot separate him from a poll, a probe, a test
+      // run, an unavailable response, or the agent that wrote this. Wanting to measure something is
+      // not measuring it, and a comment asserting an instrument is not one.
+      //
+      // The rows are kept because "a request reached this endpoint at time T" is honest data and
+      // costs nothing. Only the claim was wrong. docs/PLAN-2026-09-06-two-tags.md records the
+      // criterion as UNMEASURABLE FROM RETAINED INSTRUMENTATION rather than as a failed trial, and
+      // says what a real one would need — agreed prospectively, not reconstructed afterwards.
       try {
         appendFileSync(join(repoRoot, '.aify-graph', 'delta-views.log'), `${new Date().toISOString()}\n`);
       } catch { /* an unwritable log must never cost the reader their answer */ }
