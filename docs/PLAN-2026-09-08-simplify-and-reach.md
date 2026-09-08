@@ -154,11 +154,79 @@ The gated adoption re-measurement is a **separate, protected cohort**. Step 2 ob
 surface of a runtime; it does not read that cohort's outcome and does not accelerate it. Reading
 `n` is allowed; reading the result is not.
 
+### Measured, server side
+
+Run 2026-09-08 against this build: the server lists **16** verbs by default and **32** under
+`--toolset=full`. So half the surface is unlisted by the server's own choice, before any host
+decides what to defer. That is the A2/hidden split and it is the server's half of availability.
+
+⚠ **IT IS NOT THE HALF THAT MATTERS MOST.** A1 — the host deferring MCP tools behind a search — is a
+decision the server neither makes nor can observe, and it applies to verbs the server *did* list.
+
 ### Not yet observed, and named rather than implied
 
-The subagent-side availability figure needs a probe that runs **inside a subagent** and reports what
-its toolset contained. That probe has not been run against `0.9.0`. It is an unrun measurement, not
-an unknown quantity — and until it runs, no subagent reach claim is available in either direction.
+The subagent-side figure needs a probe that runs **inside a subagent** and reports what its toolset
+contained. That probe has not been run against `0.9.0`: an unrun measurement, not an unknown
+quantity, and until it runs there is no subagent reach claim in either direction.
+
+⭐ **AND THE OBJECTION I ASSUMED WOULD BLOCK IT IS REFUTED.** I expected such a probe to accelerate
+the gated adoption cohort, since that cohort counts subagent sidechains and a probe would create
+some. It cannot: `scripts/lib/adoption-window.mjs` fixes `excludeProject:
+'C--Docker-aify-project-graph'` in the **preregistered** window, so sidechains spawned from this repo
+are excluded mechanically — and `excludeInstructed` excludes a prompt that names the tool anyway,
+deliberately over-broad because over-exclusion can only lower a measured rate. The preregistration
+anticipated this exact hazard in its own words: *"the probes I spawn to verify a routing fix call
+the graph because I told them to; counting them measures my own prompt."*
+
+⇒ A blocker I was about to write down did not survive being checked. What remains between here and
+that figure is ordinary work with its own decision to make, not a conflict with the gate.
+
+---
+
+## 3b. Step 3's tasks and acceptance conditions, fixed before anything runs
+
+Same discipline as 3a and for the same reason: **a condition written after a result gets fitted to
+it.** These are the questions the product exists to answer, so a task that grep answers just as well
+is not evidence for us either way.
+
+### The task shape that counts
+
+A task qualifies only if it is **composed** — the answer needs several facts joined, which is the
+thing grep structurally cannot do for an agent. Three families, each with a real consumer:
+
+| family | the question | why grep cannot compose it |
+|---|---|---|
+| **discovery** | "where is the code that does X" when X is a concept, not a token | the caller does not know the name to search for; that is the whole problem |
+| **transitive impact** | "what breaks if I change this" beyond one hop | each hop is a separate search, and the agent must hold and join the results |
+| **contract joins** | "which task/feature/document governs this symbol" | the link lives across layers, not in any one file's text |
+
+### What has to be fixed BEFORE a run
+
+1. The exact repository and **commit**, so the graph and the ground truth describe one state.
+2. The literal task text, and the consumer that receives the answer.
+3. `must` / `must_not` for each task — what a correct answer contains, and what it may not claim.
+4. **Known-positive cases included and marked**, so an omission can surface. A suite of tasks the
+   system happens to answer measures nothing; the point is to give it chances to be caught missing.
+5. Who grades, and against what — fixed before any answer exists.
+
+### Acceptance
+
+**A better correct answer, or less total consumer cost at acceptable quality.** Not more
+invocations. If the verb is called and the answer is no better, that is a cost with no benefit and
+the honest reading is to stop expanding the bundle.
+
+⛔ **AND A CALL IS NOT A BENEFIT.** `graph_health` is the most-called verb on this machine and it is
+maintenance. Counting invocations as success would score the tool highest exactly where it is doing
+housekeeping.
+
+⚠ **PREREGISTER THE ABANDON RULE.** What result would say the family is not worth pursuing — and
+say it before the result exists. Without one, every outcome reads as encouragement.
+
+### Boundaries
+
+Outside the protected adoption cohort. No new benchmark platform, no analytics identity system, and
+no paid arm until `docs/efficacy-eval-design.md`'s eight appendix items are filled — that hold is
+engineering, not budget, and funding cannot lift it.
 
 ---
 
