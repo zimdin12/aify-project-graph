@@ -280,6 +280,23 @@ their ground truth stand and are reusable; what is missing is a server running t
 Across 211 JS/MJS/HTML files under `mcp/`: **38 exceed 400 physical lines, 8 exceed 1,000.** These
 are physical lines including comments, not executable statements or effort.
 
+⭐ **AND COUNTING THE OTHER NOUN CHANGES WHAT THE DECISION SHOULD BE.** Measured 2026-09-08 over the
+207 JS/MJS files: **20 exceed 400 lines of CODE, and ZERO exceed 1,000.** `mcp/stdio/query/verbs/health.js` is
+2,071 physical against 908 code; `mcp/stdio/freshness/orchestrator.js` is 1,356 against 717. More than half of
+the worst files is the record of *why they are the way they are*.
+
+⇒ "Eight files are past the refactor threshold" and "no file holds a thousand lines of code" are the
+same corpus under two nouns, and only one of them should drive a refactor. The size problem is real
+— 908 code lines is still far past the 400 bar — but it is **half the size the physical count
+implies**, and a budget on physical lines would have paid an author to delete the evidence comments
+this repository runs on. The caveat was already written above; the figure that makes it actionable
+was not, until now.
+
+**A door now holds the line** (`tests/unit/source-files-do-not-grow.test.js`): files over 400 lines
+of code may only DECREASE from 20, and 1,000 is a hard ceiling with no grandfathered offender. Its
+counter carries its own controls, because a counter that returned zero would report an empty
+violation list and get greener as the code got worse.
+
 The worst entry point is `ensureFresh` in `mcp/stdio/freshness/orchestrator.js`, which owns cache
 decisions, Git observations, rebuild selection, extraction, compiler-evidence salvage, transactions
 and publication in one function whose correctness depends on distant locals and ordering. The
