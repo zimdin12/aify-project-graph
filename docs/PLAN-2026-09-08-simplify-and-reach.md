@@ -269,9 +269,52 @@ truth, a correct answer would have been marked a false positive. **The ground tr
 positive and negative controls, exactly like the instrument it judges** — added to the pre-run list
 above in spirit, and worth stating plainly: the oracle is an instrument too.
 
-Then `graph_health` reported the stale-build state described in §3a, and the run stopped there. A
-graded result would have described `cf78545a` while claiming to describe `b40e132a`. **The tasks and
-their ground truth stand and are reusable; what is missing is a server running the code under test.**
+The first attempt stopped at `graph_health`, which reported the stale-build state in §3a. Steven
+restarted the process; the replacement reports `startedAt 2026-09-08T09:40:48Z`, `commit e9f1a070`,
+`staleProcess: false` — **verified by start timestamp, not commit**, because a failed restart and a
+restart onto the same code are indistinguishable by commit alone.
+
+### RESULT, graded against the abandon rule fixed before the run
+
+**T1 — transitive impact on `retainedDigest`: 4/4, no false positives.** The set equals the grep
+truth exactly. What it added is not an extra item but a TYPE: `tests_adjacent_basis` marks three
+edges `CALLS` and one `DEFINES`, separating the definition site from its consumers, and the answer
+carries `exhaustive: false` plus a coverage caveat naming the 73-of-627-file spine.
+
+**T2 — discovery: NO RESULT, and this is the finding.** Semantic mode fell back to lexical because
+**there are no embeddings**: `APG_EMBED_ENDPOINT` unset, and zero embedding tables in the database,
+confirmed against a control that could see 15 tables and 7,326 node rows. So the one family that is
+the whole product thesis — find the concept whose NAME YOU DO NOT KNOW — **is not installed on this
+repository.**
+⇒ §2 freezes embedding expansion "until an actual discovery task needs it". **One just did.** That
+condition is now met by a task that could not be answered, not by an argument.
+⭐ The refusal itself was exemplary: it named the mechanism (documents match filename, title and
+headings only), refused to let its own zero read as absence, and said to fall back to grep.
+
+**T3 — contract join: 2/2 recall, poor precision, and NO precision signal.** Both governing
+documents came back — but ranked 6th and 8th of 11, below three false positives
+(`docs/2026-08-26-f6-withdrawn-twice.md`, `docs/efficacy-eval-design.md`,
+`docs/evidence/m5-scale/PROPOSAL-decision-rubric.md`) which contain the word "withdrawn" and **zero**
+mentions of this withdrawal, verified by grep. An agent taking the top three gets the wrong answer,
+and nothing in the response says the list is mostly noise.
+
+### The verdict, and what it is NOT
+
+⛔ **NOT ABANDONED, BUT ONLY ON THE SECOND LIMB.** The rule required BOTH "no true item grep missed"
+AND "no disclosure that changes what I would do". The first limb HELD — across all three tasks the
+graph surfaced **no true item the grep truth missed**. What saved it is the second: the relation
+typing in T1 and the refusal in T2 do change what a caller does next.
+
+⇒ **On this run the product's value was entirely in its REFUSALS AND ITS TYPING, not in finding
+anything grep could not.** That is a narrower claim than "composed questions beat grep", and it is
+the one the evidence supports.
+
+⚠ **WHAT THIS CANNOT SUPPORT: n=3, one repository, graded by the author of the change.** It is a
+smoke test of composed questions, not efficacy evidence, and it must never be quoted as the latter.
+
+⇒ **NEXT, and it is now motivated rather than speculative:** unfreeze embeddings far enough to make
+T2 answerable, then re-run all three. Document ranking needs a precision signal before T3's answer
+is safe to act on.
 
 ---
 
