@@ -141,8 +141,10 @@ export function listDigestCommits(db) {
 // those is recoverable), listDigestCommits (dashboard/server.js), the stored rows themselves, and
 // the read/write pair the withdrawal test uses to prove rows are preserved and not relabelled.
 //
-// ⚠ AND THIS FILE NO LONGER IMPORTS structural-digest.mjs. That module now has NO production
-// importer — only tests. Retiring it is staged behind replacing those fixtures with retained BYTES
-// from the pinned old writer, which tests format compatibility rather than testing that a writer
-// and its reader still agree with each other.
+// ⚠ AND storage/structural-digest.mjs IS GONE — `buildDigest`, `computeDelta` and `symbolKey` were
+// deleted once nothing produced a digest. The staging that removal waited on is done: the tests that
+// needed a digest now load RETAINED BYTES the old writer actually wrote
+// (tests/helpers/retained-digest.js), so what they check is that the code which SURVIVES can still
+// read the format that was stored — rather than that a writer and its reader still agree with each
+// other, which regenerated fixtures can satisfy while both drift together.
 

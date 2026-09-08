@@ -29,7 +29,7 @@ import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { openDb } from '../../../mcp/stdio/storage/db.js';
 import { ensureFresh } from '../../../mcp/stdio/freshness/orchestrator.js';
-import { buildDigest, computeDelta, symbolKey } from '../../../mcp/stdio/storage/structural-digest.mjs';
+import { retainedDigest } from '../../helpers/retained-digest.js';
 import { writeStructuralDigest, listDigestCommits, readStructuralDigest } from '../../../mcp/stdio/storage/structural-digest-store.js';
 import { deltaBetween, deltaFromPrevious } from '../../../mcp/stdio/storage/delta-between.js';
 import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
@@ -48,13 +48,9 @@ const V = 'ext-1';
 const A = 'a'.repeat(40);
 const B = 'b'.repeat(40);
 
-const sym = (qname, file) => ({ qname, file, layer: null });
-const digestFor = (commit, edges) => buildDigest({
-  commit,
-  extractorVersion: V,
-  symbols: [sym('alpha', 'src/a.js'), sym('beta', 'src/b.js')],
-  edges,
-});
+// ⛔ THE FIXTURES ARE RETAINED BYTES, NOT A CALL TO THE BUILDER. `buildDigest` was retired with the
+// comparison it fed; regenerating through a writer that moves alongside its reader would only prove
+// the pair still agree with each other. See tests/helpers/retained-digest.js.
 
 /** A database holding TWO version-compatible digests — a pair that would previously compare fine. */
 function dbWithTwoDigests() {
@@ -63,10 +59,8 @@ function dbWithTwoDigests() {
   mkdirSync(join(dir, '.aify-graph'), { recursive: true });
   const db = openDb(join(dir, '.aify-graph', 'graph.sqlite'));
   ensurePublicationTables(db);
-  writeStructuralDigest(db, digestFor(A, []), { createdAt: '2026-09-01T00:00:00.000Z' });
-  writeStructuralDigest(db, digestFor(B, [
-    { from: symbolKey('alpha', 'src/a.js'), to: symbolKey('beta', 'src/b.js'), relation: 'CALLS' },
-  ]), { createdAt: '2026-09-02T00:00:00.000Z' });
+  writeStructuralDigest(db, retainedDigest('withdrawnBefore', A), { createdAt: '2026-09-01T00:00:00.000Z' });
+  writeStructuralDigest(db, retainedDigest('withdrawnAfter', B), { createdAt: '2026-09-02T00:00:00.000Z' });
   return { dir, db };
 }
 
@@ -114,18 +108,35 @@ describe('a commit-to-commit comparison is refused while source attribution is u
     expect(res.delta).toBeNull();
   });
 
-  it('★★★ THE POSITIVE CONTROL: the PURE comparison algorithm still works', () => {
-    // ⛔ WITHOUT THIS, "everything refuses" would satisfy every assertion above — including a change
-    // that simply broke computeDelta. What was withdrawn is permission to compare DEPLOYED history,
-    // not the algorithm; qualifying the algorithm is a separate question and it stays testable.
-    const before = digestFor(A, []);
-    const after = digestFor(B, [
-      { from: symbolKey('alpha', 'src/a.js'), to: symbolKey('beta', 'src/b.js'), relation: 'CALLS' },
-    ]);
-    const d = computeDelta(before, after);
+  it('★★★ THE LIVENESS CONTROL: the refusal is a DECISION, not an empty database', () => {
+    // ⛔ WITHOUT THIS, "everything refuses" satisfies every assertion above for the wrong reason — a
+    // pair that never loaded refuses just as convincingly as a pair that loaded and was declined.
+    //
+    // ⚠ THIS REPLACES "the PURE comparison algorithm still works", which compared two digests with
+    // computeDelta. That control was right while the algorithm was kept as a separate, still-live
+    // question; it went with the algorithm when the producer was retired, and asserting a retired
+    // function still runs would pin a decision nobody is making any more.
+    //
+    // ⇒ The property that survives is the one that makes the refusal meaningful: the rows are
+    // really there, really differ, and were really read. Same lesson as the absence-authority gate
+    // — when a verdict becomes constant by design, the liveness moves to whatever still varies.
+    const { db } = dbWithTwoDigests();
+    const stored = listDigestCommits(db).map((sha) => readStructuralDigest(db, sha));
+    db.close();
 
-    expect(d.comparable).toBe(true);
-    expect(d.edgesAdded).toHaveLength(1);
+    expect(stored, 'both rows must be present, or the refusal is about an empty table')
+      .toHaveLength(2);
+    for (const d of stored) {
+      expect(Object.keys(d.symbols ?? {}).length, 'a digest with no symbols cannot be compared anyway')
+        .toBeGreaterThan(0);
+    }
+    // ⚠ THE FIELD IS `edgeKeys`, AND READING `edges` IS HOW THIS FIRST WENT WRONG. `?? {}` turned a
+    // field that does not exist into zero for BOTH rows, so "they differ" failed with 1 vs 2 — my
+    // own wrong-noun error, caught by the assertion it was written into.
+    // Sorted, because `listDigestCommits` returns newest-first and the ORDER is not the property
+    // under test — pinning it would make this fail on a change to the store's ordering.
+    const edgeCounts = stored.map((d) => d.edgeKeys.length).sort();
+    expect(edgeCounts, 'the two rows must actually DIFFER, or nothing was declined').toEqual([0, 1]);
   });
 
   it('★★★ RETAINED ROWS SURVIVE A REINDEX BYTE-FOR-BYTE — preserved, not promoted', async () => {

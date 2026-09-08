@@ -1,0 +1,112 @@
+{
+  "_provenance": {
+    "what": "Structural digests as the RETIRED writer produced them, frozen as BYTES.",
+    "producedBy": "mcp/stdio/storage/structural-digest.mjs buildDigest() — removed after this capture",
+    "digestVersion": 2,
+    "capturedAt": "2026-09-08",
+    "capturedAtCommit": "327ddee476b6bcb4780732840600040c3d1c0ff8",
+    "why": "The withdrawal contract, the store and the /api/delta refusal must stay testable after the producer is retired. Regenerating fixtures through a writer that moves alongside its reader only proves the pair still agree with each other; these bytes test that the stored FORMAT is still readable by the code that survives.",
+    "commitFieldIsSwapped": "Consumers overwrite .commit — the store keys on it and it is not part of the shape under test. Every other field is exactly as written."
+  },
+  "withdrawnBefore": {
+    "digestVersion": 2,
+    "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "extractorVersion": "ext-1",
+    "symbols": {
+      "alpha\u0000src/a.js": {
+        "qname": "alpha",
+        "file": "src/a.js",
+        "layer": null,
+        "fanIn": 0,
+        "fanOut": 0
+      },
+      "beta\u0000src/b.js": {
+        "qname": "beta",
+        "file": "src/b.js",
+        "layer": null,
+        "fanIn": 0,
+        "fanOut": 0
+      }
+    },
+    "edgeKeys": []
+  },
+  "withdrawnAfter": {
+    "digestVersion": 2,
+    "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "extractorVersion": "ext-1",
+    "symbols": {
+      "alpha\u0000src/a.js": {
+        "qname": "alpha",
+        "file": "src/a.js",
+        "layer": null,
+        "fanIn": 0,
+        "fanOut": 1
+      },
+      "beta\u0000src/b.js": {
+        "qname": "beta",
+        "file": "src/b.js",
+        "layer": null,
+        "fanIn": 1,
+        "fanOut": 0
+      }
+    },
+    "edgeKeys": [
+      "alpha\u0000src/a.js\u0001beta\u0000src/b.js\u0001CALLS"
+    ]
+  },
+  "renderLoad": {
+    "digestVersion": 2,
+    "commit": "0000000000000000000000000000000000000000",
+    "extractorVersion": "0.5.0",
+    "symbols": {
+      "load\u0000data/load.js": {
+        "qname": "load",
+        "file": "data/load.js",
+        "layer": "data",
+        "fanIn": 1,
+        "fanOut": 0
+      },
+      "render\u0000ui/render.js": {
+        "qname": "render",
+        "file": "ui/render.js",
+        "layer": "ui",
+        "fanIn": 0,
+        "fanOut": 1
+      }
+    },
+    "edgeKeys": [
+      "render\u0000ui/render.js\u0001load\u0000data/load.js\u0001CALLS"
+    ]
+  },
+  "renderLoadPlus": {
+    "digestVersion": 2,
+    "commit": "0000000000000000000000000000000000000000",
+    "extractorVersion": "0.5.0",
+    "symbols": {
+      "load\u0000data/load.js": {
+        "qname": "load",
+        "file": "data/load.js",
+        "layer": "data",
+        "fanIn": 1,
+        "fanOut": 0
+      },
+      "log\u0000util/log.js": {
+        "qname": "log",
+        "file": "util/log.js",
+        "layer": "util",
+        "fanIn": 0,
+        "fanOut": 0
+      },
+      "render\u0000ui/render.js": {
+        "qname": "render",
+        "file": "ui/render.js",
+        "layer": "ui",
+        "fanIn": 0,
+        "fanOut": 1
+      }
+    },
+    "edgeKeys": [
+      "render\u0000ui/render.js\u0001load\u0000data/load.js\u0001CALLS"
+    ]
+  }
+}

@@ -23,21 +23,17 @@ import { openDb } from '../../../mcp/stdio/storage/db.js';
 import { startDashboard } from '../../../mcp/stdio/dashboard/server.js';
 import { ensurePublicationTables } from '../../../mcp/stdio/storage/publication-schema.js';
 import { writeStructuralDigest } from '../../../mcp/stdio/storage/structural-digest-store.js';
-import { buildDigest, symbolKey } from '../../../mcp/stdio/storage/structural-digest.mjs';
+import { retainedDigest } from '../../helpers/retained-digest.js';
 import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
 const SHA = (c) => c.repeat(40);
 
-const digestFor = (commit, extra = []) => buildDigest({
-  commit,
-  extractorVersion: '0.5.0',
-  symbols: [
-    { qname: 'render', file: 'ui/render.js', layer: 'ui' },
-    { qname: 'load', file: 'data/load.js', layer: 'data' },
-    ...extra,
-  ],
-  edges: [{ from: symbolKey('render', 'ui/render.js'), to: symbolKey('load', 'data/load.js'), relation: 'CALLS' }],
-});
+// ⛔ RETAINED BYTES, NOT A CALL TO THE BUILDER — see tests/helpers/retained-digest.js.
+// The `renderLoadPlus` template is `renderLoad` plus ONE extra symbol (`log`), and that difference
+// is load-bearing: it is what a leaked delta would report as symbolsAdded:[{"qname":"log"}], which
+// is the forbidden canary the refusal assertion below feeds to the live matcher.
+const digestFor = (commit, extra = []) =>
+  retainedDigest(extra.length ? 'renderLoadPlus' : 'renderLoad', commit);
 
 let dir;
 let db;

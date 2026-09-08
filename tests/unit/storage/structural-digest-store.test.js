@@ -16,20 +16,14 @@ import { ensurePublicationTables } from '../../../mcp/stdio/storage/publication-
 import {
   writeStructuralDigest, readStructuralDigest, listDigestCommits, DIGEST_RETENTION,
 } from '../../../mcp/stdio/storage/structural-digest-store.js';
-import { buildDigest, symbolKey } from '../../../mcp/stdio/storage/structural-digest.mjs';
+import { retainedDigest } from '../../helpers/retained-digest.js';
 
 const read = (rel) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
-const digestFor = (commit, over = {}) => buildDigest({
-  commit,
-  extractorVersion: '0.5.0',
-  symbols: [
-    { qname: 'render', file: 'ui/render.js', layer: 'ui' },
-    { qname: 'load', file: 'data/load.js', layer: 'data' },
-  ],
-  edges: [{ from: symbolKey('render', 'ui/render.js'), to: symbolKey('load', 'data/load.js'), relation: 'CALLS' }],
-  ...over,
-});
+// ⛔ RETAINED BYTES, NOT A CALL TO THE BUILDER. `buildDigest` was retired with the comparison it
+// fed; what this file tests is the STORE, and the store must keep reading rows in the format that
+// was actually written. The `over` parameter the old factory carried was never once supplied.
+const digestFor = (commit) => retainedDigest('renderLoad', commit);
 
 function freshDb() {
   const db = new Database(':memory:');
