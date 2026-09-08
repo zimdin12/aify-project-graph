@@ -5,6 +5,14 @@ symbols in the same repository, in the same pass. The two surfaces disagree, and
 calls when it asks "who calls X" is the permissive one.
 
 Probe: `scripts/probe-coverage-floor-vs-answer.mjs` (preregistered before the run, at `11ad91ad`).
+
+> ⛔ **THE PROBE WAS RETIRED 2026-09-08 and is recoverable from git history; this FINDING and its
+> numbers stand.** Its `AUTHORITY GRANT CONTROL` asserted that `absenceAuthority` can be granted.
+> On 2026-09-08 that grant became a stated POLICY of constant false, so the control has no
+> satisfiable subject and the probe could only ever exit 2. Its verdict — the two surfaces
+> disagree — was ruled CORRECT on 2026-09-06 and is now asserted by
+> `tests/unit/query/absence-authority-is-not-honoured-by-any-verb.test.js` rather than measured by a
+> script. An instrument whose question is settled is maintenance without a decision attached.
 Run: `docs/evidence/m2-contract/coverage-floor-vs-answer.txt`.
 
 > ⚠ The extension is not cosmetic. This was first written as `.log`, which `.gitignore:4`

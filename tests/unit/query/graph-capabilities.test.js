@@ -48,23 +48,24 @@ describe('graphCapabilities — orientation and absence authority are INDEPENDEN
     expect(c.reason).toBe('collection_partial');
   });
 
-  it('⭐ absence authority is TRUE only when every clause holds', () => {
-    // The positive control. A predicate that never grants is as useless as one that always does.
+  it('⭐ every clause holding LEAVES ONLY the architectural refusal — nothing else is denying', () => {
+    // ⛔ 2026-09-08: THIS WAS "absence authority is TRUE only when every clause holds", and its
+    // comment read "a predicate that never grants is as useless as one that always does". The grant
+    // is now a stated POLICY — the product cannot establish what a language server indexed — so a
+    // boolean assertion here would only re-state a constant.
+    //
+    // ⇒ THE LIVENESS RESIDUE IS STRONGER THAN THE BOOLEAN WAS. With every repository-side clause
+    // satisfied, the surviving reason must be the ARCHITECTURAL one. If any clause were silently
+    // denying — a stale collection, an empty spine, a missing attestation — its reason would appear
+    // here instead, and this test names which.
     const c = graphCapabilities({
       indexed: true, compilerVerifiedEdges: 1410, collectionAvailable: true, coverage: { complete: true },
-      // A complete collection taken at an older commit no longer grants authority, so the state that
-      // means "every clause holds" now has to say the collection is current too.
-      collectionCurrent: true,
-      // And an unattested graph cannot support an absence claim at all, so "every clause" now
-      // includes the publication generation agreeing with the manifest.
-      attestation: ATTESTATION.ATTESTED,
-      // And 2026-09-06: a complete collection says what APG PROCESSED, never what the language
-      // server INDEXED, so "every clause" now includes the LSP's own population being attested.
-      lspPopulationAttested: true,
+      collectionCurrent: true, attestation: ATTESTATION.ATTESTED,
     });
-    expect(c.absenceAuthority).toBe(true);
-    expect(c.reason).toBeNull();
-    expect(c.nextAction).toBeNull();
+    expect(c.absenceAuthority).toBe(false);
+    expect(c.reason, 'every repository-side clause released; only the unattestable population remains')
+      .toBe('index_population_unattested');
+    expect(c.nextAction, 'a refusal must still name an action').toBeTruthy();
   });
 
   it('⛔ UNKNOWN coverage refuses — `complete !== true`, not `=== false`', () => {
@@ -142,24 +143,38 @@ describe('every refusal carries an action a reader can take', () => {
     }
   });
 
-  it('⭐ says NO more often than YES across the state space — not a rubber stamp', () => {
-    const states = [
-      // collectionCurrent added when this clause landed: a complete collection taken at an older
-      // commit no longer grants authority, so the one granting state must now also be current.
-      // attestation added the same way: an unattested graph cannot support an absence claim, so the
-      // single granting state has to satisfy that clause as well. The COUNT is what this test is
-      // about — one YES against four NOs — and adding a clause must not quietly turn it into zero.
-      // lspPopulationAttested added the same way, 2026-09-06, and this test's own warning above is
-      // why: adding a clause must not quietly turn the one YES into zero.
-      { indexed: true, compilerVerifiedEdges: 1410, collectionAvailable: true, coverage: { complete: true }, collectionCurrent: true, attestation: ATTESTATION.ATTESTED, lspPopulationAttested: true },
-      { indexed: false },
-      { indexed: true, compilerVerifiedEdges: 0, collectionAvailable: false },
-      { indexed: true, compilerVerifiedEdges: 0, collectionAvailable: true, coverage: { complete: true } },
-      { indexed: true, compilerVerifiedEdges: 9, collectionAvailable: true, coverage: { complete: false } },
-    ];
-    const granted = states.filter((s) => graphCapabilities(s).absenceAuthority);
-    expect(granted).toHaveLength(1);
-    expect(granted.length).toBeLessThan(states.length - granted.length);
+  it('⭐ NO to every state, but never the SAME no — the rubber stamp moved to the reason', () => {
+    // ⛔ THIS TEST WAS WRITTEN TO CATCH A CLAUSE QUIETLY TURNING THE ONE YES INTO ZERO, and its own
+    // comment warned about exactly that twice. On 2026-09-08 the zero became DELIBERATE: the grant
+    // is a stated policy, because the product cannot establish what a language server indexed.
+    //
+    // ⇒ ITS PURPOSE SURVIVES THE CHANGE AND ITS INSTRUMENT DOES NOT. "Not a rubber stamp" cannot be
+    // measured on a boolean that is constant by design, so it moves to the field that still varies.
+    // A gate that denied every state for the SAME reason would be the rubber stamp this test has
+    // always been about — and that is now the failure it can catch.
+    const states = {
+      everythingSatisfied: { indexed: true, compilerVerifiedEdges: 1410, collectionAvailable: true, coverage: { complete: true }, collectionCurrent: true, attestation: ATTESTATION.ATTESTED },
+      notIndexed: { indexed: false },
+      noCollection: { indexed: true, compilerVerifiedEdges: 0, collectionAvailable: false },
+      emptySpine: { indexed: true, compilerVerifiedEdges: 0, collectionAvailable: true, coverage: { complete: true } },
+      partialCoverage: { indexed: true, compilerVerifiedEdges: 9, collectionAvailable: true, coverage: { complete: false } },
+    };
+    const results = Object.fromEntries(
+      Object.entries(states).map(([k, v]) => [k, graphCapabilities(v)]),
+    );
+
+    // The policy: not one of them buys the licence.
+    for (const [k, c] of Object.entries(results)) {
+      expect(c.absenceAuthority, `${k} must not grant`).toBe(false);
+    }
+    // The discrimination: five states, five different answers to WHY.
+    const reasons = Object.values(results).map((c) => c.reason);
+    expect(new Set(reasons).size, `five states must give five reasons, got ${reasons.join(', ')}`)
+      .toBe(5);
+    // And every one of them names an action, so a denial is never a dead end.
+    for (const [k, c] of Object.entries(results)) {
+      expect(c.nextAction, `${k} must tell the reader what to do`).toBeTruthy();
+    }
   });
 });
 
@@ -181,13 +196,17 @@ describe('graphCapabilities — an incomplete index is reported, and only when i
   // 2026-09-06 with the clause itself — otherwise this positive control would assert that an
   // integrity-agreeing graph "keeps every capability" while one of them was denied for an unrelated
   // reason, and the integrity tests below would be measuring the wrong denial.
-  const FULL = { indexed: true, compilerVerifiedEdges: 1410, collectionAvailable: true, coverage: { complete: true }, collectionCurrent: true, attestation: ATTESTATION.ATTESTED, lspPopulationAttested: true };
+  const FULL = { indexed: true, compilerVerifiedEdges: 1410, collectionAvailable: true, coverage: { complete: true }, collectionCurrent: true, attestation: ATTESTATION.ATTESTED };
 
   it('⭐ POSITIVE CONTROL: a graph whose counts agree keeps every capability', () => {
     const c = graphCapabilities({ ...FULL, integrity: { manifestNodes: 2572, dbNodes: 2572, manifestEdges: 13618, dbEdges: 13618, codeNodes: 1904 } });
     expect(c.orientationUsable).toBe(true);
-    expect(c.absenceAuthority).toBe(true);
-    expect(c.reason).toBeNull();
+    // ⛔ THE CAPABILITY THIS CONTROL IS ABOUT IS INTEGRITY, NOT THE GRANT. Agreeing counts must not
+    // produce `index_incomplete`; since 2026-09-08 the grant is a constant policy, so the assertion
+    // that this state is healthy lives in the REASON — it must not be an integrity complaint.
+    expect(c.absenceAuthority).toBe(false);
+    expect(c.reason, 'agreeing counts must not be diagnosed as a half-written index')
+      .toBe('index_population_unattested');
   });
 
   it('⛔ THE OBSERVED SHAPE: manifest 2,572 / database 90 / zero code nodes', () => {
@@ -296,14 +315,16 @@ describe('absence authority requires a CURRENT collection, not just a complete o
     // PROCESSED and the two are different populations. The base means "every clause satisfied", so
     // it carries the new one too — same extension this fixture took for `collectionCurrent` and
     // `attestation` before it.
-    lspPopulationAttested: true,
   };
 
   it('POSITIVE CONTROL: a current, complete collection still grants authority', () => {
-    // Without this the two assertions below would pass on a clause that denies unconditionally.
+    // ⛔ WITHOUT THIS THE TWO ASSERTIONS BELOW WOULD PASS ON A CLAUSE THAT DENIES UNCONDITIONALLY,
+    // and that risk is REAL, not theoretical: since 2026-09-08 the verdict IS unconditional. So the
+    // control moved to the reason, which still varies — a current collection must NOT be diagnosed
+    // as stale, and this is what proves `collection_stale` below is the currency clause firing.
     const c = graphCapabilities({ ...complete, collectionCurrent: true });
-    expect(c.absenceAuthority).toBe(true);
-    expect(c.reason).toBeNull();
+    expect(c.absenceAuthority).toBe(false);
+    expect(c.reason, 'a current collection must not be reported stale').toBe('index_population_unattested');
   });
 
   it('denies authority when the collection was taken at an older commit', () => {
@@ -415,15 +436,17 @@ describe('publication attestation gates the claim that deletes code', () => {
     collectionCurrent: true,
     // See the note on `complete` above — "every other clause satisfied" now includes the language
     // server's own indexed population being attested.
-    lspPopulationAttested: true,
   };
 
   it('POSITIVE CONTROL: an attested graph with every other clause satisfied still grants authority', () => {
-    // ⛔ WITHOUT THIS EVERY DENIAL BELOW IS WORTHLESS. A gate whose closed state is permanent is
-    // not fail-closed, it is off, and it would pass all four refusals while never opening.
+    // ⛔ WITHOUT THIS EVERY DENIAL BELOW IS WORTHLESS — and since 2026-09-08 the closed state IS
+    // permanent by policy, so the old form of this control (assert it opens) can no longer be
+    // written. What still discriminates is the REASON: an attested graph must stop producing an
+    // attestation complaint, which is what makes the three refusals below meaningful.
     const c = graphCapabilities({ ...attestedBase, attestation: ATTESTATION.ATTESTED });
-    expect(c.absenceAuthority).toBe(true);
-    expect(c.reason).toBeNull();
+    expect(c.absenceAuthority).toBe(false);
+    expect(c.reason, 'an attested graph must not be diagnosed as an attestation problem')
+      .toBe('index_population_unattested');
     expect(c.attestation).toBe(ATTESTATION.ATTESTED);
   });
 

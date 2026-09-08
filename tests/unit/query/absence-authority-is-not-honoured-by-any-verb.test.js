@@ -22,10 +22,11 @@
 // `index_population_unattested` is true of EVERY call, because the compile DB selects which files
 // clangd MAY index and never reports which it DID.
 //
-// ⇒ So the gate gains the clause it was missing, BY NAME rather than by hardcoding false. A
-// hardcoded false is a list someone must remember to update; a named unsatisfied clause is a
-// derivation, and a future workspace-symbol round-trip or background-index opt-in (both already
-// named as future work in README.md) can satisfy it without anyone rediscovering this reasoning.
+// ⛔ EVERYTHING ABOVE IS THE 2026-09-06 STATE AND IS KEPT AS THE HISTORY OF THE DEFECT. "It CAN
+// evaluate true" was true then. It is not true now: on 2026-09-08 the named clause became a stated
+// POLICY of constant false, and the paragraph that used to stand here — "BY NAME rather than by
+// hardcoding false", because "a hardcoded false is a list someone must remember to update" — is the
+// argument I made and then lost. See the block above the first describe for why it was wrong.
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -46,6 +47,74 @@ const BEST_CASE = Object.freeze({
   attestation: ATTESTATION.ATTESTED,
 });
 
+// ⛔⛔ 2026-09-08: THE CLAUSE BECAME A CONSTANT, AND I LOST THE ARGUMENT FOR KEEPING IT NAMED.
+//
+// I defended the named clause with "a gate that can only say no cannot show its no is a decision".
+// That is a rule about DETECTORS, where silence is ambiguous between a real absence and a broken
+// instrument. A POLICY carries no such ambiguity: "this product cannot grant absence authority" is
+// a decision, and a decision does not need a manufactured positive to prove it holds. I applied an
+// instrument rule to a policy.
+//
+// ⛔ AND I CITED THE TEST BELOW AS IF IT JUSTIFIED THE DESIGN. It asserts the design choice under
+// review. A test is not an oracle for its own premise — the derived-expectation trap, in the file
+// that exists to stop me trusting my own expectations.
+//
+// ⭐ WHAT ACTUALLY SETTLED IT, verified before conceding: the five denial states already returned
+// false with five DISTINCT reasons, so the diagnostics never depended on the grant and no denial
+// test was vacuous. The claim I had to withdraw was "every denial test becomes vacuous".
+//
+// ⇒ The grant is now a stated POLICY. What must not be lost is that the gate still DISCRIMINATES —
+// a constant that flattened the reasons would be the over-correction, and the control below is what
+// refuses it.
+describe('the grant is a policy, and a policy still has to discriminate', () => {
+  it('★★★ THE POLICY: no input grants, including one that satisfies every clause', () => {
+    // ⛔ ALSO A REGRESSION GUARD. It passes the retired `lspPopulationAttested` flag explicitly, so
+    // reintroducing a supplier-satisfiable grant turns this red rather than silently opening.
+    for (const extra of [{}, { lspPopulationAttested: true }, { lspPopulationAttested: 'yes' }]) {
+      const c = graphCapabilities({ ...BEST_CASE, ...extra });
+      expect(c.absenceAuthority, `no caller may buy the licence: ${JSON.stringify(extra)}`)
+        .toBe(false);
+    }
+  });
+
+  it('★★★ THE DISCRIMINATING CONTROL: a constant must not flatten the diagnoses', () => {
+    // ⛔ THIS IS THE ASSERTION THAT STOPS THE OVER-CORRECTION. Hardcoding the verdict is only safe
+    // while each observed problem still produces its OWN reason; a gate that answered
+    // "false / unattested" to everything would pass the policy test above and be useless.
+    const reasons = Object.fromEntries(Object.entries({
+      missingIndex: { ...BEST_CASE, indexed: false },
+      partialCollection: { ...BEST_CASE, coverage: { complete: false } },
+      staleCollection: { ...BEST_CASE, collectionCurrent: false },
+      noCollection: { ...BEST_CASE, collectionAvailable: false },
+    }).map(([k, v]) => [k, graphCapabilities(v).reason]));
+
+    expect(reasons).toEqual({
+      missingIndex: 'not_indexed',
+      partialCollection: 'collection_partial',
+      staleCollection: 'collection_stale',
+      noCollection: 'no_collection',
+    });
+    expect(new Set(Object.values(reasons)).size, 'four states must give four reasons').toBe(4);
+  });
+
+  it('★★★ attestation_unknown SURVIVES the clause becoming unconditional', () => {
+    // ⛔ THE TRAP IN THIS CHANGE, AND THE WHOLE REASON IT NEEDED A TEST FIRST. With the grant gone,
+    // `index_population_unattested` is true on EVERY call, so left in its old position it shadowed
+    // the terminal `attestation_unknown` and silently deleted a diagnosis. An always-true
+    // architectural fact is not a discriminating diagnosis and must not outrank a caller omission,
+    // so attestation_unknown moves ahead of it and the architectural clause becomes terminal.
+    const noAttestation = {
+      indexed: true, compilerVerifiedEdges: 1943, collectionAvailable: true,
+      coverage: { complete: true }, collectionCurrent: true, languageHasServer: true,
+    };
+    expect(graphCapabilities(noAttestation).reason).toBe('attestation_unknown');
+
+    // ...and the architectural reason is still reachable, for a caller that DID attest.
+    expect(graphCapabilities({ ...noAttestation, attestation: ATTESTATION.ATTESTED }).reason)
+      .toBe('index_population_unattested');
+  });
+});
+
 describe('absence authority may not be granted on a population nothing attested', () => {
   it('★★★ THE REAL CASE: the best-case repo is REFUSED, because the language server never attested what it indexed', () => {
     // Measured true before this clause existed. The compile DB selects which files clangd MAY index
@@ -56,24 +125,18 @@ describe('absence authority may not be granted on a population nothing attested'
     expect(c.reason).toBe('index_population_unattested');
   });
 
-  it('★★★ NOT SUPPLIED DENIES — the clause fails closed like every other one here', () => {
-    // The alternative is a gate that silently opens for every caller written before the clause
-    // existed, which is the fail-open default this project keeps removing.
-    for (const value of [undefined, null, false, 0, 'yes']) {
-      const c = graphCapabilities({ ...BEST_CASE, lspPopulationAttested: value });
-      expect(c.absenceAuthority, `lspPopulationAttested=${String(value)} must not grant`).toBe(false);
-    }
-  });
-
-  it('★★★ THE POSITIVE CONTROL: the clause is a DERIVATION, not a hardcoded false', () => {
-    // ⛔ A predicate that can never grant is as useless as one that always does, and hardcoding
-    // `false` would have made every other clause in this gate dead code. When a future
-    // workspace-symbol round-trip can attest the indexed population, this grants again with no
-    // archaeology required.
-    const c = graphCapabilities({ ...BEST_CASE, lspPopulationAttested: true });
-    expect(c.absenceAuthority, 'the gate must still be satisfiable').toBe(true);
-    expect(c.reason).toBeNull();
-  });
+  // ⛔ TWO TESTS WERE REMOVED HERE ON 2026-09-08, AND NEITHER IS A COVERAGE LOSS.
+  //
+  // "THE POSITIVE CONTROL: the clause is a DERIVATION, not a hardcoded false" asserted that
+  // `lspPopulationAttested: true` GRANTS. That is the design choice this change reverses, so the
+  // test now states the opposite of the contract. Its coverage is inverted and kept: the POLICY
+  // test above feeds that exact flag and requires denial, so the state it used to demand is now
+  // the state that must never occur.
+  //
+  // "NOT SUPPLIED DENIES" looped five falsy-ish values and required denial for each. With the grant
+  // a constant, every one of them denies no matter what the gate does — a test that cannot fail,
+  // manufacturing confidence. The POLICY test covers the same ground while still being able to go
+  // red, because it names the flag a regression would reintroduce.
 
   it('★★★ the new clause does not MASK the older ones — each still names its own reason', () => {
     // Ordering matters: if this clause were tested first, every partial or stale collection would be

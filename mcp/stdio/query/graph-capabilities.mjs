@@ -48,7 +48,6 @@ export function graphCapabilities({
   languageHasServer = true,
   integrity = null,
   attestation = null,
-  lspPopulationAttested = false,
 } = {}) {
   // ⛔ AN INTERRUPTED INDEX LEAVES A GRAPH THAT PASSES EVERY OTHER CHECK. Observed: a `graph_index`
   // killed mid-write left click holding 90 nodes — Document 43, Directory 25, Config 22 — and ZERO
@@ -87,8 +86,10 @@ export function graphCapabilities({
   // set is a FLOOR, not exhaustive". This flag disagreed with it, and of the two surfaces this is the
   // one a reader consults before deleting code.
   //
-  // Unknown fails closed, like every other clause here: null is not evidence of currency.
-  const collectionIsCurrent = collectionCurrent === true;
+  // Unknown fails closed, like every other clause here: null is not evidence of currency. The
+  // reason chain reads `collectionCurrent` directly and distinguishes known-stale from
+  // unknown-currency; the derived boolean that used to collapse them existed only for the retired
+  // grant, and a local nothing reads is dead code however true it is.
 
   // ⛔ AN UNATTESTED GRAPH CANNOT SUPPORT AN ABSENCE CLAIM, WHATEVER ELSE IS TRUE OF IT.
   // Every clause below this one asks how good the evidence is. This one asks whether the graph in
@@ -114,20 +115,43 @@ export function graphCapabilities({
   // so on every call since 2026-08-19: the compile DB selects which files clangd MAY index and never
   // reports which it DID, so `index_population_unattested` is true of every call.
   //
-  // ⇒ Named, not hardcoded false. A hardcoded false is a list someone must remember to update, and
-  // it would make every other clause here dead code. A named unsatisfied clause is a derivation: the
-  // workspace-symbol round-trip and the background-index opt-in that README.md already lists as
-  // future work can satisfy it without anyone rediscovering this reasoning.
+  // ⛔ THIS PARAGRAPH USED TO ARGUE FOR A NAMED CLAUSE OVER A HARDCODED FALSE, AND THAT ARGUMENT
+  // LOST ON 2026-09-08. It said a hardcoded false "would make every other clause here dead code".
+  // It would not: the clauses do their real work in the `reason` derivation below, which is
+  // untouched and still returns a distinct diagnosis for every distinct state. Nothing was ever
+  // supplied for the flag, so the derivation it guarded had exactly one reachable value.
+  //
+  // The remaining half of the old argument — that a future workspace-symbol round-trip or
+  // background-index opt-in could satisfy it — is a reason to REVISIT the policy when such a
+  // mechanism exists, not a reason to ship a switch that only a test can flip today.
   //
   // ⚠ AND THE ROADMAP'S FIX WAS BACKWARDS. `ROADMAP-2026-09-03.md` R1.1 says to wire this gate INTO
   // `graph_callers`. That would let the caller verb UPGRADE its absence claim whenever the flag was
   // true — fail-open, in the codebase whose recorded dominant defect class is fail-open. The answer
   // paths were already right; the GRANT was wrong.
-  const absenceAuthority = Boolean(
-    indexed && !incomplete && attested
-    && collectionAvailable && hasVerified && coverageComplete && collectionIsCurrent
-    && lspPopulationAttested === true,
-  );
+  // ⛔⛔ THIS IS A POLICY, NOT A COMPUTATION, AND SAYING SO IS THE POINT.
+  //
+  // The product cannot establish what a language server actually indexed, so it cannot grant a
+  // licence to conclude "nothing calls this". That is a standing decision about what we are able to
+  // claim, not a verdict recomputed per repository — and no combination of inputs may buy it.
+  //
+  // ⚠ THE NAMED-CLAUSE VERSION IS RETIRED, AND MY ARGUMENT FOR IT WAS A CATEGORY ERROR. It read
+  // `lspPopulationAttested === true`, which nothing in production ever supplied. I defended it as a
+  // liveness control — "a gate that can only say no cannot show its no is a decision" — but that
+  // rule governs DETECTORS, where silence is ambiguous between a real absence and a broken
+  // instrument. A policy has no such ambiguity and needs no manufactured positive.
+  //
+  // ⚠ WHAT A CONSTANT COULD HAVE COST, AND WHAT PROTECTS IT: hardcoding a verdict is only safe
+  // while each observed problem still produces its OWN reason. The derivation below is untouched
+  // and does all the discriminating work; `the grant is a policy, and a policy still has to
+  // discriminate` in tests/unit/query/absence-authority-is-not-honoured-by-any-verb.test.js fails
+  // if four distinct states ever collapse to one answer.
+  //
+  // ⚠ AND THE ROADMAP'S FIX WAS BACKWARDS. `ROADMAP-2026-09-03.md` R1.1 says to wire this gate INTO
+  // `graph_callers`. That would let the caller verb UPGRADE its absence claim whenever the flag was
+  // true — fail-open, in the codebase whose recorded dominant defect class is fail-open. The answer
+  // paths were already right; the GRANT was wrong.
+  const absenceAuthority = false;
 
   let reason = null;
   if (!indexed) reason = 'not_indexed';
@@ -158,14 +182,23 @@ export function graphCapabilities({
   // the language server's own indexed population even when the collection is perfect. Placed higher
   // it would diagnose every ordinary collection problem as an unattestable population and send the
   // reader to fix something they cannot.
-  else if (lspPopulationAttested !== true) reason = 'index_population_unattested';
-  // ⛔ LAST, BECAUSE IT IS A FACT ABOUT THE CALLER AND NOT ABOUT THE GRAPH. It still DENIES — an
-  // authority nobody asked to verify is not granted — but it must not outrank a real diagnosis.
-  // Placed first, it masked `no_collection` and `trust_spine_empty` on every caller written before
-  // it existed, and an existing test named "does not mask a more severe reason that was already
-  // firing" caught it immediately. A caller bug reported in place of a graph state sends the next
-  // reader to rebuild a healthy index.
+  // ⛔ AFTER EVERY GRAPH DIAGNOSIS, BECAUSE IT IS A FACT ABOUT THE CALLER AND NOT ABOUT THE GRAPH.
+  // It still DENIES — an authority nobody asked to verify is not granted — but it must not outrank
+  // a real diagnosis. Placed first, it masked `no_collection` and `trust_spine_empty` on every
+  // caller written before it existed, and an existing test named "does not mask a more severe
+  // reason that was already firing" caught it immediately. A caller bug reported in place of a
+  // graph state sends the next reader to rebuild a healthy index.
   else if (!attested) reason = 'attestation_unknown';
+  // ⛔ TERMINAL, AND IT MOVED HERE WHEN THE GRANT BECAME A POLICY — THIS IS THE TRAP IN THAT CHANGE.
+  // The clause used to read `lspPopulationAttested !== true`, one position earlier. With the flag
+  // retired that test is true on EVERY call, so left where it was it would have shadowed
+  // `attestation_unknown` and silently deleted a diagnosis a test already pinned as reachable.
+  //
+  // ⇒ AN ALWAYS-TRUE ARCHITECTURAL FACT IS NOT A DISCRIMINATING DIAGNOSIS. It is what remains once
+  // nothing else is wrong: the compile DB selects which files clangd MAY index and never reports
+  // which it DID, so the indexed population is unattestable however healthy the graph is. It
+  // therefore ranks below every observation about this repository, including a caller omission.
+  else reason = 'index_population_unattested';
 
   return {
     orientationUsable,
