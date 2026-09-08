@@ -246,10 +246,14 @@ export async function graphSearch({ repoRoot, query, type, file, kind: kindArg, 
     // without anyone remembering to come back here.
     const documentsExcluded = kind === 'code' || (Boolean(type) && type !== 'Document');
     if (EXACT_SYMBOL_RE.test(normalizedQuery)) {
+      // ⛔ ONE EXTRA ROW, SO SATURATION IS DETECTABLE. This ran `LIMIT $limit` with no `+ 1`, so it
+      // capped in silence and the renderer was never told — "a cap is not a count", the defect this
+      // repository removed from five verbs and which I then wrote fresh on this path.
+      const exactFetch = cappedLimit + 1;
       const exactClauses = ['label = $label', ...baseClauses];
       const exactHits = db.all(
         `SELECT * FROM nodes WHERE ${exactClauses.join(' AND ')} LIMIT $limit`,
-        { ...baseParams, label: normalizedQuery, limit: cappedLimit }
+        { ...baseParams, label: normalizedQuery, limit: exactFetch }
       );
       if (exactHits.length > 0) {
         // P1-5 — even on the exact-label fast path, generated stubs sort LAST
@@ -269,15 +273,42 @@ export async function graphSearch({ repoRoot, query, type, file, kind: kindArg, 
         // document is reachable by TITLE or HEADINGS and never by an exact label, so it cannot
         // appear above without a query of its own — and where the caller's kind excludes documents
         // there is nothing to add and this costs them nothing.
+        // ⛔ AND IT OBEYS THE SAME FILTERS AS THE QUERY IT JOINS. Written without `baseClauses`, this
+        // ignored `file:` entirely — a caller who scoped to one directory was handed documents from
+        // anywhere in the repository. A branch added beside another inherits none of its contracts
+        // automatically; filters, identity, budget and disclosure each have to be carried across.
         const docHits = documentsExcluded ? [] : db.all(
           `SELECT * FROM nodes
-            WHERE type = 'Document'
+            WHERE type = 'Document' AND ${['1=1', ...baseClauses].join(' AND ')}
               AND (label LIKE $like OR ${TITLE_EXPR} LIKE $like OR ${HEADINGS_EXPR} LIKE $like)
             LIMIT $limit`,
-          { like: `%${normalizedQuery}%`, limit: cappedLimit },
+          { ...baseParams, like: `%${normalizedQuery}%`, limit: exactFetch },
         );
-        const nodes = [...orderedExact, ...docHits];
-        const rendered = annotateGenerated(renderCompact({ nodes, edges: [] }), nodes);
+
+        // ⛔ ONE NODE, ONE ROW. A Document whose label equals the query is returned by BOTH queries,
+        // and concatenating rendered it twice — which reads as two independent findings.
+        const seen = new Set();
+        const combined = [];
+        for (const n of [...orderedExact, ...docHits]) {
+          if (seen.has(n.id)) continue;
+          seen.add(n.id);
+          combined.push(n);
+        }
+
+        // ⛔ AND ONE BUDGET. Each query carried its own LIMIT and the results were concatenated, so
+        // `limit: 1` could return two rows. `limit` is a budget on the ANSWER.
+        const nodes = combined.slice(0, cappedLimit);
+        const dropped = combined.length - nodes.length;
+        const saturated = exactHits.length > cappedLimit || docHits.length > cappedLimit;
+        const rendered = annotateGenerated(renderCompact({
+          nodes,
+          edges: [],
+          truncated: dropped,
+          // A remainder computed from a saturated fetch is a floor: rows beyond the cap were never
+          // read, so the true count is at least this and the renderer must say so.
+          ...(dropped > 0 ? { truncatedIsFloor: saturated } : {}),
+          suggestion: `limit=${cappedLimit + 10}`,
+        }), nodes);
         return prefixReadWarnings(rendered, freshnessWarnings);
       }
     }

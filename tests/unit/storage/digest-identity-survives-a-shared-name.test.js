@@ -79,7 +79,6 @@ describe('a digest keeps two symbols that share a name apart', () => {
     const d = computeDelta(before, after);
 
     expect(d.edgesAdded).toHaveLength(1);
-    expect(d.symbols === undefined || true).toBe(true);
     // The crossing reader must recover BOTH endpoints from the key. Under `split('>')` the template
     // argument's own `>` truncated the name and the lookup missed, so no crossing could be seen.
     expect(d.crossLayer.available).toBe(true);
