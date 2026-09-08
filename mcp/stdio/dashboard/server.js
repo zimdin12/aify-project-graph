@@ -23,7 +23,10 @@ const DASHBOARD_EDGE_LIMIT = 120000;
 
 // Load a JSON overlay file from .aify-graph/, tolerating missing files.
 // HEAD of the repository being shown, or null when it is not a git checkout. Null is fine: the
-// delta reader falls back to the newest stored digest and SAYS it substituted.
+// delta reader refuses either way, and naming what was ASKED FOR makes the refusal more useful than
+// refusing an unnamed question. (This used to say the reader "falls back to the newest stored digest
+// and SAYS it substituted" — true until the commit-to-commit claim was withdrawn, and found only by
+// re-reading the file after correcting the comment eight lines below it.)
 function headOf(repoRoot) {
   try {
     return execFileSync('git', ['-C', repoRoot, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
@@ -488,11 +491,19 @@ export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
         appendFileSync(join(repoRoot, '.aify-graph', 'delta-views.log'), `${new Date().toISOString()}\n`);
       } catch { /* an unwritable log must never cost the reader their answer */ }
 
-      // ⭐ THE SUBSTITUTION HAPPENS HERE, NOT INSIDE THE READER. `deltaFromPrevious` refuses a
-      // missing commit on purpose — a caller that forgot to pass one must not be answered silently.
-      // A dashboard pointed at a non-git checkout is a different case: it genuinely cannot name a
-      // commit, so it asks for the newest stored one EXPLICITLY and the response still reports which
-      // pair was compared.
+      // ⛔ THIS DESCRIBED A SUBSTITUTION THAT NO LONGER HAPPENS. It said the caller picks a commit
+      // explicitly so "the response still reports which pair was compared" — true while a comparison
+      // could be served, and false since the commit-to-commit claim was withdrawn: no pair is ever
+      // compared, because a stored digest cannot be attributed to the source its commit contained.
+      // Fourth stale claim this session, and the same shape each time — prose describing behaviour
+      // that moved underneath it, with nothing that could fail when it did.
+      //
+      // The commit is still resolved because the refusal names what was ASKED FOR, which is more
+      // useful than refusing an unnamed question. See storage/delta-between.js for the reasoning.
+      //
+      // ⚠ `diffOverlay` below stays on the response deliberately: it answers a DIFFERENT question —
+      // a git diff mapped onto current symbols — which the withdrawal does not touch. The page
+      // returns early on `!available`, so none of its figures reach a reader beside the refusal.
       const asked = new URL(req.url, 'http://localhost').searchParams.get('to');
       const requested = asked || headOf(repoRoot) || listDigestCommits(db)[0] || null;
       const result = deltaFromPrevious(db, { toCommit: requested });
