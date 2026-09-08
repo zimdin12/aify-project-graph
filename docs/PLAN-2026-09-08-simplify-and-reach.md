@@ -377,6 +377,24 @@ input.
 **Open and his:** whether structural history is ever recommissioned, and whether the 3D view is
 cut. The second removes functioning user-facing behaviour; that is what makes it his.
 
+### ⭐ NEW AND MOTIVATED BY A FAILED TASK, NOT BY AN ARGUMENT: how to make discovery answerable
+
+T2 could not be answered because there are no embeddings, and `scripts/build-embeddings.mjs`
+requires an OpenAI-compatible `/v1/embeddings` endpoint. Measured 2026-09-08 with a reachability
+control (the same probe reached `api.github.com` with HTTP 200, so the zeros are real): **nothing is
+listening on 11434, 1234, 8080 or 5000, and `ollama` is not on PATH.** So there are exactly two ways
+forward and they differ in who owns them:
+
+| | option | whose call, and why |
+|---|---|---|
+| a | **A local model server** (Ollama + e.g. `nomic-embed-text`; the code needs no API key for one) | Steven's — it installs software and downloads a model onto his machine. Nothing leaves it, so it crosses no data boundary, and it is reversible. |
+| b | **A cloud endpoint** via `APG_EMBED_ENDPOINT` | ⛔ Steven's, firmly. Repo content would be sent to an external service and it likely costs money — the external-data boundary named in this section. |
+
+⚠ **AND NEITHER IS "TURN ON SEMANTIC SEARCH".** §2 freezes embedding EXPANSION; what is authorised
+by T2's failure is the minimum that makes one measured task answerable, followed by a re-run of all
+three. Building an index is not the same as establishing that semantic discovery beats grep here —
+that is precisely what the re-run would test, and it may still fail.
+
 ⚠ **Retiring the dormant digest machinery is NOT on that list, and my first draft had it there.**
 The argument for escalating was that deletion would make recommissioning more expensive. It does
 not: the retained implementation has no attribution path and still uses the identity scheme the
