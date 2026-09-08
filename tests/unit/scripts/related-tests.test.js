@@ -12,7 +12,9 @@
 // after the hazard scanner failed to see the defect it was built from.
 import { describe, it, expect } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { testsImporting, stagedSourceFiles } from '../../../scripts/related-tests.mjs';
+import {
+  testsImporting, stagedSourceFiles, stagedTestFiles, corpusWideTests,
+} from '../../../scripts/related-tests.mjs';
 
 const TESTS = execFileSync('git', ['ls-files', 'tests'], { encoding: 'utf8' })
   .split('\n').filter((f) => f.endsWith('.test.js'));
@@ -66,5 +68,64 @@ describe('related-tests finds what already describes the contract', () => {
 
   it('★★ an empty staged set asks for nothing', () => {
     expect(testsImporting([], TESTS)).toEqual([]);
+  });
+});
+
+// ⛔ THE SECOND MISS, 2026-09-08, AND IT IS THE SAME SHAPE ONE LEVEL UP.
+//
+// `tests/unit/negative-assertions-are-controlled.test.js` reads every test file in the repo and
+// imports none of them. `testsImporting` matches import specifiers, so it is STRUCTURALLY unable to
+// select that file — no staged path can ever produce it. The ratchet therefore caught three of my
+// bare-negative violations at full-suite time, ~20 minutes each, three times in one session, when a
+// pre-commit hook existed the whole time and had run for every one of those commits.
+//
+// ⭐ INDEPENDENT SOURCE, NAMED: the pairing asserted below is a historical fact, not a description
+// of this code. The ratchet has read the whole `tests/` tree since 0d97826 and has never contained
+// an import of a test file. That was true before `corpusWideTests` existed and stays true if it is
+// deleted.
+describe('a test that walks a tree is related to a commit no import edge connects it to', () => {
+  it('★★★ THE DEFECT ITSELF: import matching cannot reach the ratchet, from anything', () => {
+    // ⛔ THIS IS THE ANCHOR FOR WHY A SECOND MECHANISM EXISTS. If this ever starts passing a hit
+    // back, the ratchet has grown an import edge and the extra selection below may be redundant.
+    // The subject must be in the state the claim is about, so the staged path is the ratchet's own.
+    expect(testsImporting(['tests/unit/negative-assertions-are-controlled.test.js'], TESTS))
+      .toEqual([]);
+  });
+
+  it('★★★ POSITIVE CONTROL: the enumerating detector finds the file that caught me three times', () => {
+    expect(corpusWideTests(TESTS), 'the ratchet reads every test file and imports none of them')
+      .toContain('tests/unit/negative-assertions-are-controlled.test.js');
+  });
+
+  it('★★★ NEGATIVE CONTROL: an ordinary unit test is NOT called corpus-wide', () => {
+    // A detector that flags everything selects the full suite and gets bypassed within a day.
+    // packet-evidence.test.js imports the module it tests and enumerates nothing.
+    const wide = corpusWideTests(TESTS);
+    // ⛔ LIVENESS FIRST. An empty array satisfies every `not.toContain` ever written, so the
+    // rejection below means nothing until the detector is known to be speaking.
+    expect(wide.length, 'the detector must have selected something before its refusals count')
+      .toBeGreaterThan(0);
+    expect(wide).not.toContain('tests/unit/query/packet-evidence.test.js');
+    expect(wide.length, 'and it must be a minority of the corpus, or the hook is a full-suite run')
+      .toBeLessThan(TESTS.length / 4);
+  });
+
+  it('★★★ a TEST-ONLY commit is no longer a commit that runs nothing', () => {
+    // ⛔ `stagedSourceFiles` returns [] for a test-only change, and the hook then exited 0 having
+    // selected nothing — so the file just edited, the one most likely to be wrong, was the one
+    // thing not run.
+    const staged = ['tests/unit/query/packet-evidence.test.js'];
+    expect(stagedSourceFiles(staged), 'the source filter is still correct — it is not the fix')
+      .toEqual([]);
+    expect(stagedTestFiles(staged)).toEqual(['tests/unit/query/packet-evidence.test.js']);
+  });
+
+  it('★★ the staged-test filter takes tests and nothing else', () => {
+    expect(stagedTestFiles([
+      'docs/evidence/suite/latest.log',
+      'mcp/stdio/query/verbs/callers.js',
+      'tests/helpers/live-matcher.js',
+      'tests/unit/a.test.js',
+    ])).toEqual(['tests/unit/a.test.js']);
   });
 });

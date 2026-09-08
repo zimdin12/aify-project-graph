@@ -97,7 +97,13 @@ describe('incomplete coverage does not promote a mixed caller set to a floor', (
     // instructions in one banner is what this whole arc keeps finding.
     const out = await line('python', [verified, ...Array.from({ length: 10 }, () => heuristic)]);
 
-    expect(out).not.toMatch(/Treat the caller set as a FLOOR/);
+    expectAbsentWithLiveMatcher(
+      /Treat the caller set as a FLOOR/,
+      { forbidden: 'python_dynamic; Treat the caller set as a FLOOR; verify with rg',
+        allowed: 'coverage incomplete: python_dynamic' },
+      out,
+      'the coverage note’s floor advice must not be quoted where it is false',
+    );
   }, 60_000);
 
   it('★★★ THE DISCRIMINATING CONTROL: partial coverage + ALL VERIFIED is STILL a floor', async () => {

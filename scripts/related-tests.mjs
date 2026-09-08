@@ -43,6 +43,48 @@ export function stagedSourceFiles(files) {
     && !f.endsWith('.test.js'));
 }
 
+/** Test files in the commit. A test can break by its own edit, with no source change at all. */
+export function stagedTestFiles(files) {
+  return files.filter((f) => f.startsWith('tests/') && f.endsWith('.test.js'));
+}
+
+// ⛔ A TEST THAT ENUMERATES A TREE AT RUNTIME HAS NO IMPORT EDGE TO WHAT IT READS, so
+// `testsImporting` is structurally blind to it. The ratchet in
+// tests/unit/negative-assertions-are-controlled.test.js is exactly that shape: it reads every test
+// file in the repo and imports none of them. It was therefore never selected by this hook, and
+// caught three of my violations at FULL-SUITE time instead — ~20 minutes each, three times in one
+// session, on the same rule.
+//
+// ⚠ WHY THIS DOES NOT TRY TO WORK OUT WHICH TREE EACH ONE WALKS. The root is a runtime expression
+// (`new URL('..', import.meta.url)`, a git invocation, a joined constant); recovering it from the
+// source means guessing, and a wrong guess DROPS the test silently — which is the defect being
+// fixed, reintroduced one level up. So anything that enumerates runs whenever anything is staged.
+// Measured 2026-09-08: 31 files, 192 tests, 49s. Against 20 minutes, three times.
+//
+// ⚠ WHAT THIS CANNOT SEE: enumeration through a glob library, a shell-out that lists files by some
+// other verb, or a helper module that walks on the test's behalf. The signal is the three calls
+// below and nothing else; a new corpus test using a fourth mechanism is invisible here until this
+// regex learns it.
+const ENUMERATES_A_TREE = /readdirSync|readdir\(|ls-files/;
+
+/**
+ * Tests that read a whole tree rather than importing named modules.
+ *
+ * @param {string[]} testFiles repo-relative test paths to search
+ * @returns {string[]} tests that enumerate, sorted
+ */
+export function corpusWideTests(testFiles) {
+  const hits = [];
+  for (const t of testFiles) {
+    const abs = `${repo()}/${t}`;
+    if (!existsSync(abs)) continue;
+    let text;
+    try { text = readFileSync(abs, 'utf8'); } catch { continue; }
+    if (ENUMERATES_A_TREE.test(text)) hits.push(t);
+  }
+  return hits.sort();
+}
+
 /**
  * Test files that IMPORT one of `sources`.
  *
@@ -83,16 +125,27 @@ function stagedFiles() {
 
 // `node -e` and test importers have no argv[1]; guard rather than throw on the import path.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const sources = stagedSourceFiles(stagedFiles());
-  if (sources.length === 0) process.exit(0);          // docs/evidence commit — nothing to check
-  const related = testsImporting(sources, allTestFiles());
-  if (related.length === 0) {
+  const staged = stagedFiles();
+  if (staged.length === 0) process.exit(0);
+  const sources = stagedSourceFiles(staged);
+  const allTests = allTestFiles();
+
+  const selected = new Set(testsImporting(sources, allTests));
+  // ⛔ A TEST-ONLY COMMIT USED TO RUN NOTHING AT ALL. `stagedSourceFiles` returned empty and the
+  // hook exited 0 having selected no tests — so the one file the author had just edited, the file
+  // most likely to be wrong, was the one thing not run.
+  for (const t of stagedTestFiles(staged)) selected.add(t);
+  for (const t of corpusWideTests(allTests)) selected.add(t);
+
+  if (sources.length > 0 && testsImporting(sources, allTests).length === 0) {
     // ⚠ NOT SILENCE. Zero related tests is a real fact about the change and the author should see
-    // it — it means nothing existing describes the contract being altered.
+    // it — it means nothing existing describes the contract being altered. It stays a warning even
+    // now that corpus-wide tests are always selected, because those describe repo invariants and
+    // not this contract.
     process.stderr.write(
       `[related-tests] ${sources.length} source file(s) staged, NO existing test imports them.\n`
       + '  Nothing describes the contract you are changing. That is worth knowing before you commit.\n');
-    process.exit(0);
   }
-  process.stdout.write(related.join('\n') + '\n');
+  if (selected.size === 0) process.exit(0);
+  process.stdout.write([...selected].sort().join('\n') + '\n');
 }
