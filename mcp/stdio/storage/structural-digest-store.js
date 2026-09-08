@@ -155,8 +155,20 @@ export function captureStructuralDigest(db, { commit, extractorVersion, layerOf 
     const qname = r.qname || r.label;
     if (!qname) continue;
     const key = symbolKey(qname, r.file_path);
-    // Every id maps to its key, including ids that share one: two rows for the same name in the
-    // same file ARE the same symbol, and their edges belong together.
+    // ⛔ AND THIS COMMENT USED TO ASSERT SOMETHING FALSE: that two rows sharing a name AND a file
+    // ARE the same symbol. C++ overloads falsify it directly — `f(int)` and `f(double)` are distinct
+    // symbols extracted as distinct nodes with one qname in one file, and this key merges them. A
+    // reviewer transferred an edge between two real extracted overload IDs and the digest reported
+    // NO movement; two edges to the two overloads produce ONE edge key while fan-in counts both.
+    //
+    // ⚠ AND THE OBVIOUS REPAIR IS NOT ENOUGH EITHER. This repository already splits overloads by
+    // normalized parameter list (M1b), but neither that nor a site id establishes CROSS-EDIT
+    // CONTINUITY: a rename or a move changes the key and reads as a removal plus an addition, which
+    // describes movement of an address rather than of a symbol.
+    //
+    // ⇒ SO THE KEY IS LEFT AS IT IS AND THE CLAIM IS DROPPED. Ids that share a key are grouped, and
+    // that grouping is NOT asserted to be identity. Nothing may compare two of these digests as
+    // authoritative history — see storage/delta-between.js, where that comparison is refused.
     byId.set(r.id, key);
     if (known.has(key)) continue;
     known.add(key);

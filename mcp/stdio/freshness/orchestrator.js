@@ -6,7 +6,7 @@ import { RebuildTransaction } from '../storage/rebuild-transaction.js';
 import { SCHEMA_VERSION } from '../storage/schema.js';
 import { upsertNode, getNodesByFile, deleteNode, countNodes } from '../storage/nodes.js';
 import { upsertEdge, deleteEdgesByFile, countEdges } from '../storage/edges.js';
-import { getHeadCommit, getDirtyFileEntries, getChangedFiles, getDirtyFileEntriesSync, getHeadCommitSync } from './git.js';
+import { getHeadCommit, getDirtyFileEntries, getChangedFiles } from './git.js';
 import { appendAll } from '../util/append-all.js';
 import { loadManifest, writeManifest } from './manifest.js';
 import {
@@ -14,7 +14,6 @@ import {
   readStructuralFingerprints, replaceStructuralFingerprints,
 } from '../storage/unresolved-refs.js';
 import { bumpGraphGeneration } from '../storage/publication-schema.js';
-import { captureStructuralDigest } from '../storage/structural-digest-store.js';
 import {
   readLegacyUnresolvedSidecar, readManifestAsMigrationSource, chooseCarryForwardSource,
 } from './legacy-unresolved-bridge.js';
@@ -1084,61 +1083,26 @@ export async function ensureFresh({
       //
       // ⚠ A CHECKOUT WITH NO COMMIT GETS NO DIGEST, rather than one keyed by a placeholder. A
       // digest nobody can place against a revision cannot be compared to anything later.
-      // ⛔⛔ AND HISTORY IS PUBLISHED ONLY FOR A STATE THE COMMIT ACTUALLY NAMED. The store's premise
-      // is "a commit names one graph state, so re-indexing it is an idempotent overwrite". That is
-      // false here: this function reads HEAD and then indexes the WORKING TREE, so indexing with an
-      // uncommitted edit would replace the digest for a commit that never held those bytes — and a
-      // later delta would compare against a before no commit ever produced. A missing before
-      // refuses; a wrong one answers, which is worse.
+      // ⛔⛔ NO DIGEST IS CAPTURED WHILE THE COMMIT-COMPARISON CLAIM IS WITHDRAWN.
       //
-      // ⚠ WHAT THIS CAN AND CANNOT ESTABLISH. The honest binding is a fingerprint of the bytes
-      // actually consumed, and this repository has none — see the note above where the full rebuild
-      // is chosen: there is no per-file hash in the manifest or the schema, and adding one is a
-      // schema change that must not ride along on a correctness fix. So this checks the two things
-      // it CAN: the tree carried no relevant modification when the run began or when it ends, and
-      // HEAD did not move underneath it. A clean -> edit -> restore inside the window is invisible
-      // to that, and docs/known-limitations.md says so rather than leaving it implied.
+      // The guard that stood here checked the working tree at the start and end of the run and
+      // treated a clean pair of endpoints as attribution. It is not. This function reprocesses only
+      // the files it believes changed and CARRIES THE REST FORWARD, so a row parsed from an earlier
+      // dirty index survives into a later clean one and would be published under a commit that never
+      // contained it — tree clean at both ends, HEAD unmoved. `--assume-unchanged` hides a modified
+      // file from porcelain entirely and defeats the check outright.
       //
-      // ⭐ DECLINING IS THE WHOLE IMPLEMENTATION OF "DO NOT UPSERT, DO NOT PRUNE". Retention lives
-      // inside writeStructuralDigest, which only captureStructuralDigest reaches, so not calling it
-      // leaves every stored row untouched. A bespoke skip path that still opened the table would be
-      // a second way to get this wrong.
+      // ⇒ Capturing an unattributable observation and refusing to compare it later would leave rows
+      // whose only purpose is to look like history. The capture stops at the source; see
+      // storage/delta-between.js for the boundary refusal and the reasoning.
       //
-      // ⚠ `dirtyFiles` is filtered through OUR ignore policy as well as git's, and that is the right
-      // population: the graph only consumes files that policy admits, so a modified file it would
-      // never read cannot have changed what was indexed.
-      let attributable = Boolean(commit) && dirtyFiles.length === 0;
-      let unattributableReason = dirtyFiles.length > 0 ? 'the working tree was modified when indexing began' : null;
-      if (attributable) {
-        try {
-          if (getDirtyFileEntriesSync(repoRoot).length > 0) {
-            attributable = false;
-            unattributableReason = 'the working tree was modified while indexing ran';
-          } else if (getHeadCommitSync(repoRoot) !== commit) {
-            attributable = false;
-            unattributableReason = 'HEAD moved while indexing ran';
-          }
-        } catch (err) {
-          // ⛔ A CHECK THAT FAILED IS NOT A CHECK THAT PASSED. If git cannot be consulted we cannot
-          // attribute the observation, so history is withheld rather than published on a guess.
-          attributable = false;
-          unattributableReason = `the working-tree state could not be confirmed (${err.message})`;
-        }
-      }
-      if (commit && !attributable) {
-        console.warn(`[aify-project-graph] structural digest not captured for ${String(commit).slice(0, 7)}: `
-          + `${unattributableReason} — the graph is still usable, but this index cannot be published as that commit's history.`);
-      }
-      if (commit && attributable) {
-        try {
-          captureStructuralDigest(db, { commit, extractorVersion: EXTRACTOR_VERSION });
-        } catch (err) {
-          // ⛔ NEVER BLOCKS THE REBUILD. The digest is an observation ABOUT the graph, not part of
-          // it, and a graph that refused to publish because its history row failed would trade a
-          // working index for a reporting feature. Recorded, not swallowed silently.
-          console.warn(`[aify-project-graph] structural digest not captured for ${String(commit).slice(0, 7)}: ${err.message}`);
-        }
-      }
+      // ⚠ EXISTING ROWS ARE LEFT ALONE — not deleted, not relabelled, not promoted. They were
+      // written under the old claim and stay as the record of it.
+      //
+      // ⚠ THIS IS NOT A DISABLED FEATURE WEARING A FLAG. Restoring it needs a source-attribution
+      // path — observations derived from immutable committed inputs — which is a new input and
+      // publication path, not a smaller guard.
+
       // ⭐ THE AGGREGATES ARE PUBLISHED BY THE SAME COMMIT AS THE ROWS THEY COUNT.
       // The manifest keeps a copy below and ten call sites read it, three of them with no
       // attestation gate at all — so the copy cannot be the authority. This row is, and it is

@@ -9,6 +9,26 @@ Dates are ISO 8601 (YYYY-MM-DD).
 
 ### Withdrawn
 
+- ⛔ **Commit-to-commit structural comparison is withdrawn.** v0.9.0 shipped a structural delta whose
+  digests are keyed by commit sha but built from whatever the indexer parsed. Nothing binds those
+  bytes to the source the commit contained: indexing a dirty file, restoring it, then committing
+  something unrelated and re-indexing publishes the stale symbol under the new commit — with a clean
+  tree at both ends of the run and an unmoved HEAD. `git update-index --assume-unchanged` defeats the
+  status check outright.
+
+  `deltaBetween`, `deltaFromPrevious`, `/api/delta` and the dashboard's Shape view now refuse with a
+  stated reason and **return no movement figures**; the digest capture stops at the source rather
+  than writing rows whose only purpose would be to look like history. Existing rows are preserved,
+  not deleted and not relabelled. Ordinary indexing, every present-tense query, and the pure
+  `buildDigest` / `computeDelta` pair are unaffected and still tested.
+
+  A guard shipped days earlier checked the working tree at the start and end of a run and treated
+  that as attribution — it attests tree state, not the provenance of rows carried forward. Restoring
+  the feature needs observations derived from immutable committed inputs, which is a new input and
+  publication path rather than a smaller guard. See `docs/known-limitations.md`.
+
+### Withdrawn
+
 - ⛔ **v0.9.0's cross-layer edge signal never fired on a real graph, and reported that as "none".**
   `captureStructuralDigest` takes an optional `layerOf` and defaults it to `() => null`. There was
   exactly one production call site and it passed no `layerOf`, so every symbol in every real digest

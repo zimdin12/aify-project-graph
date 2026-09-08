@@ -64,17 +64,22 @@ async function get(pathname) {
 }
 
 describe('the dashboard can answer what changed, not only what is there', () => {
-  it('★★★ two stored digests produce a delta the page can render', async () => {
+  it('★★★ EVEN WITH TWO STORED DIGESTS THE PAGE IS TOLD UNAVAILABLE, with no figures', async () => {
+    // ⛔ THIS ASSERTED THE OPPOSITE, AND THE CONTRACT IT PINNED IS WITHDRAWN. A stored digest cannot
+    // be attributed to the source its commit contained — the indexer parses the working tree and
+    // carries unchanged rows forward — so a populated, version-compatible pair is exactly the case
+    // that must now refuse. This is the reviewer's decisive control at the real HTTP surface: the
+    // dashboard must receive a refusal and NO movement numbers beside it.
     writeStructuralDigest(db, digestFor(SHA('a')), { createdAt: '2026-09-01T00:00:00.000Z' });
     writeStructuralDigest(db, digestFor(SHA('b'), [{ qname: 'log', file: 'util/log.js', layer: 'util' }]),
       { createdAt: '2026-09-02T00:00:00.000Z' });
 
     const { status, body } = await get('/api/delta');
     expect(status).toBe(200);
-    expect(body.available).toBe(true);
-    expect(body.fromCommit).toBe(SHA('a'));
-    expect(body.toCommit).toBe(SHA('b'));
-    expect(body.delta.symbolsAdded).toEqual([{ qname: 'log', file: 'util/log.js' }]);
+    expect(body.available).toBe(false);
+    expect(body.reason).toMatch(/attribut/i);
+    expect(body.delta, 'a refusal carries no delta').toBeNull();
+    expect(JSON.stringify(body)).not.toMatch(/"symbolsAdded"|"edgesAdded"|"fanInMoved"/);
   });
 
   it('★★★ NO HISTORY IS SAID PLAINLY, never rendered as "nothing changed"', async () => {

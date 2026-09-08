@@ -107,24 +107,24 @@ describe('digests are stored per commit, append-only', () => {
     db.close();
   });
 
-  it('★★★ THE PRODUCER IS WIRED — the rebuild writes a digest inside its own transaction', () => {
-    // ⛔ THE ASSERTION THAT WOULD HAVE CAUGHT THE DEFECT THIS MODULE EXISTS TO AVOID. A digest store
-    // nothing writes is a delta engine that can never run, and it would stay green forever.
-    const orchestrator = read('../../../mcp/stdio/freshness/orchestrator.js');
-    // captureStructuralDigest, not writeStructuralDigest: the rebuild hands over the graph it just
-    // wrote and the store derives the digest from it. Asserting the wrong name here failed once,
-    // which is the assertion doing its job on the property while naming the wrong symbol.
-    expect(orchestrator, 'the rebuild must capture a digest').toContain('captureStructuralDigest');
-    // It must land BEFORE the commit, or a rollback leaves a digest describing a graph that was
-    // never published — the exact "three separate promotion events" failure this file's neighbours
-    // were rewritten to remove.
-    const at = orchestrator.indexOf('captureStructuralDigest(db,');
-    const commitAt = orchestrator.indexOf('rebuildTxn.commit()');
-    expect(at, 'captureStructuralDigest must be called').toBeGreaterThan(-1);
-    expect(commitAt, 'the rebuild transaction must still commit').toBeGreaterThan(-1);
-    expect(at, 'the digest must be written before the transaction commits').toBeLessThan(commitAt);
-    // Live control: this search CAN fail, proved by a name the file does not carry.
-    expect(orchestrator).not.toContain('captureStructuralDigestZzq');
-    expect(orchestrator).toContain('replaceStructuralFingerprints');
-  });
+  // ⛔ "THE PRODUCER IS WIRED" WAS ASSERTED HERE AND IS NOW DELIBERATELY FALSE.
+  //
+  // It checked that the rebuild calls `captureStructuralDigest` before its transaction commits — a
+  // good assertion against the defect it was written for: a digest store nothing writes to is a
+  // delta engine that can never run, and it would stay green forever.
+  //
+  // The commit-to-commit claim has since been WITHDRAWN. A stored digest cannot be attributed to
+  // the source its commit contained — the indexer parses the working tree and carries unchanged
+  // rows forward — so the capture stops at the source rather than producing rows whose only purpose
+  // would be to look like history.
+  //
+  // Keeping the assertion would pin a wiring that must not exist. Inverting it to "must NOT be
+  // called" would pin an absence while saying nothing about why, and would be satisfied by deleting
+  // the module. The withdrawal and its decisive controls live in
+  // tests/unit/storage/commit-comparison-is-withdrawn.test.js, which asserts the refusal AND two
+  // positive controls — the pure algorithm, and ordinary indexing — so that breaking something
+  // unrelated cannot satisfy it.
+  //
+  // Everything else in this file still holds: writeStructuralDigest, its byte-identical round trip,
+  // idempotence per commit and the retention bound are unchanged and still exercised directly.
 });

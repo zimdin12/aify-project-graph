@@ -1007,7 +1007,10 @@
         detail.innerHTML = '<h3>What moved</h3><div class="detail-card">'
           + '<div class="field">No structural comparison available.</div>'
           + '<div class="field"><span class="field-label">Why:</span> ' + tourEsc(res.reason || 'unknown') + '</div>'
-          + '<div class="field subtle">A delta needs two indexed commits. Re-index after a commit to build history.</div>'
+          // ⛔ NO STATIC REMEDY. This used to say "re-index after a commit to build history", which is
+          // right when the only problem is a missing row and WRONG while the comparison is withdrawn
+          // for want of source attribution — re-indexing cannot supply that. A fixed hint beside a
+          // varying reason is a claim with nothing checking it, so the reason speaks for itself.
           + '</div>';
         return;
       }
