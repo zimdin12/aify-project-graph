@@ -1,5 +1,22 @@
 # Plan — two tags: stabilise what is true, then build the delta
 
+> # ⛔ SUPERSEDED 2026-09-08 — DO NOT FOLLOW THE ORDERING IN THIS DOCUMENT.
+>
+> **The active plan is `docs/PLAN-2026-09-08-simplify-and-reach.md`.**
+>
+> This document's FINDINGS stand and it remains the history of the delta arc. Its **sequence does
+> not**, and the failure is not cosmetic: section 5 still ends
+> `S1 -> S2 -> S3 -> S4 -> S5(tag) -> D1 -> D2 -> D3 -> D4 -> tag`, and section D1 still orders the
+> `structural_digest` table — work that `./CHANGELOG.md` has since WITHDRAWN, because a stored digest
+> cannot be attributed to the source its named commit contained. An agent following the order below
+> would rebuild rejected work.
+>
+> The two tags are past events, not upcoming milestones. D1 to D4 are not unfinished repairs. The
+> human-use trial is UNMEASURABLE, not failed, and its window does not restart.
+>
+> ⚠ What survives intact is the distinction at lines 71-80: a Git-diff view of what the diff
+> touches is not a claim about historical structural movement. The active plan keeps it.
+
 **Written 2026-09-06.** Supersedes the ORDERING in `ROADMAP-2026-09-03.md`; that document's findings
 all stand and are cited below. Driven by Steven's instruction: reach a measured, polished, tagged
 stable point on the work already done, then a second tag for the new surface.
