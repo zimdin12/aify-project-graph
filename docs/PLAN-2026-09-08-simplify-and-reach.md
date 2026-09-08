@@ -313,8 +313,34 @@ the one the evidence supports.
 smoke test of composed questions, not efficacy evidence, and it must never be quoted as the latter.
 
 ⇒ **NEXT, and it is now motivated rather than speculative:** unfreeze embeddings far enough to make
-T2 answerable, then re-run all three. Document ranking needs a precision signal before T3's answer
-is safe to act on.
+T2 answerable, then re-run all three.
+
+### ⛔ T3's PRECISION SIGNAL: MEASURED, THEN NOT BUILT
+
+The obvious repair for T3 is to rank document hits by WHERE the query matched — a heading match
+looks like stronger evidence of aboutness than a filename match, and the SQL already computes all
+three and throws the distinction away in an `OR`.
+
+**Measured before building it, on T3's own query.** Of nine Document hits for `withdrawn`:
+
+| | match location | files |
+|---|---|---|
+| TRUE | HEADING | `./CHANGELOG.md`, `docs/known-limitations.md` |
+| false | HEADING | six others, including `docs/efficacy-eval-design.md` and `docs/2026-08-10-one-plan.md` |
+
+⇒ **THE SIGNAL DOES NOT DISCRIMINATE.** Both true hits matched on a heading; so did six false ones.
+Ranking on it would reorder nothing and would ship an instrument that cannot tell the two apart —
+the exact shape this plan keeps retiring. **Not built, and the measurement is why.**
+
+⭐ **THE REAL CAUSE IS NOT RANKING.** "withdrawn" is a common word in this repository's headings
+because this repository withdraws things and writes headings about it. Short common terms matched
+against headings produce false positives no reordering of the same metadata can fix. Improving it
+means indexing document BODIES — which the tool already, correctly, says it does not do, and which
+is a scope decision rather than a tweak.
+
+⇒ So T3's honest verdict is narrower than "poor precision, needs a fix": **the tool did what it
+says it does and disclosed its own scope correctly.** What is missing is not a signal but a
+capability, and it is the same capability T2 needs.
 
 ---
 
