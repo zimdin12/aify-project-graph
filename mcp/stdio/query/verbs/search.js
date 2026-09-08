@@ -224,10 +224,21 @@ export async function graphSearch({ repoRoot, query, type, file, kind: kindArg, 
     //
     // ⚠ THIS PREDATES the heading index; it blocked TITLE matches the same way, which is why
     // `kind:"all"` looked like it worked only on queries that were not symbol names.
-    // ⚠ The default `kind:'code'` keeps the fast path: documents are excluded by the filter there
-    // anyway, so short-circuiting costs that caller nothing. Paying the scan is correct only for
-    // the caller who explicitly asked for more than code.
-    if (EXACT_SYMBOL_RE.test(normalizedQuery) && kind !== 'all') {
+    // ⛔ AND THE CONDITION IS "CAN A DOCUMENT BE IN THIS RESULT AT ALL", NEVER A LIST OF KINDS.
+    // This guard was written as `kind !== 'all'` when the default was `code`, and the reasoning
+    // above it was sound then: documents were excluded by the filter anyway, so short-circuiting
+    // cost that caller nothing. The default later moved to `auto` — deliberately, so that OMISSION
+    // means discovery — and `auto` admits documents. The guard covered the EXPLICIT widening and
+    // missed the DEFAULT one, which is the widening every caller who omits `kind` receives. The
+    // justification comment kept asserting a default that had already changed, and nothing checks
+    // a comment.
+    //
+    // ⭐ So the test is derived from the filter's meaning rather than enumerated: the exact-label
+    // branch cannot reach a document by TITLE or HEADING, so it is only safe where no document
+    // could have been returned regardless. Add a kind that admits documents and this stays correct
+    // without anyone remembering to come back here.
+    const documentsExcluded = kind === 'code' || (Boolean(type) && type !== 'Document');
+    if (EXACT_SYMBOL_RE.test(normalizedQuery) && documentsExcluded) {
       const exactClauses = ['label = $label', ...baseClauses];
       const exactHits = db.all(
         `SELECT * FROM nodes WHERE ${exactClauses.join(' AND ')} LIMIT $limit`,

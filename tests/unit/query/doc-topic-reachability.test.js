@@ -159,13 +159,23 @@ describe('a topic in a heading is reachable when the caller widens', () => {
     expect(out, 'code still leads; the widening is additive').toMatch(/src\/cache\.js/);
   }, 20_000);
 
-  it('★★★⛔ THE DEFAULT kind="code" IS UNCHANGED — no document, and the fast path intact', async () => {
+  it('★★★⛔ AN EXPLICIT kind="code" IS UNCHANGED — no document, and the fast path intact', async () => {
     // ⚠ THE OVER-CORRECTION GUARD. Removing the fast path outright would make every ordinary
     // symbol lookup pay a broad substring scan, and would start returning documents to callers who
-    // asked for code. The fix is conditional on the caller having explicitly widened, and this is
-    // what says so.
+    // asked for code. This is what says so, and that intent is unchanged.
+    //
+    // ⛔ WHAT MOVED IS WHICH CALLER THIS DESCRIBES. It was written as `query: 'cache'` with `kind`
+    // omitted, under a signature whose default was `code` — so omission and "asked for code" were
+    // the same caller. The default was later changed to `auto` DELIBERATELY, so that omission means
+    // discovery; from that moment this test asserted that the default path returns no documents,
+    // which is the defect rather than the guard. The guard now names the caller it always meant:
+    // one who explicitly asked for code. The default path is covered by
+    // the-widening-fix-missed-the-default.test.js, where it must now REACH the document.
+    //
+    // ⭐ IS THE POPULATION YOU CHANGED THE POPULATION YOU NAMED — this test named "a code search"
+    // and implemented "an omitted argument", and the two silently stopped being the same set.
     repoRoot = await topicRepo();
-    const out = await graphSearch({ repoRoot, query: 'cache' });
+    const out = await graphSearch({ repoRoot, query: 'cache', kind: 'code' });
     expect(docsIn(out), 'a code search returns no documents').toEqual([]);
     expect(out).toMatch(/src\/cache\.js/);
   }, 20_000);
