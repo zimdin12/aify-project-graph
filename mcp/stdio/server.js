@@ -20,7 +20,6 @@ const PACKAGE_VERSION = JSON.parse(
   fs.readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
 ).version;
 import { shutdownAllSessions } from './code-intel/live.js';
-import { noteDeprecatedVerbCall, noteProbeArmed } from './deprecation-probe.js';
 import { HIDDEN_FULL_TOOL_NAMES } from './hidden-tools.js';
 // The 42 tool declarations live in tools/schema.js — 614 lines of schema that were sitting
 // beside the dispatcher. 34 handler imports moved with them; see that file's header.
@@ -262,9 +261,11 @@ const DEFAULT_TOOL_NAMES = new Set([
 //      (references/definitions/hover/symbols/diagnostics/hierarchy) are the
 //      coherent front; replay (parent-session reads) + analyze (clang-tidy/
 //      build) are specialist follow-ups.
-// HIDDEN_FULL_TOOL_NAMES now lives in ./hidden-tools.js so the deprecation probe
-// derives from the SAME source — see that file for why the two unlisted sets are not
-// the same thing.
+// HIDDEN_FULL_TOOL_NAMES lives in ./hidden-tools.js — see that file for why the two
+// unlisted sets (redundant vs long-tail specialist) are not the same thing. The second
+// consumer that motivated the split was a deprecation probe, retired 2026-09-08; the
+// constant is now read by the listing filter below and by
+// tests/integration/hidden-verbs-still-answer.test.js.
 
 // Tier B — kept visible in `tools/list` but with a one-line description in
 // place of the full prose. Agents can still discover them by name, and the
@@ -481,17 +482,6 @@ rl.on('line', async (line) => {
     // ★ ARM THE DENOMINATOR. A tools/list call means a host is building its callable
     // set from the listing — so if these verbs are filtered out of it, that host CANNOT
     // reach them however much it might want to. the field test measured 0 of 11 reachable on
-    // exactly such a host, which means an empty call log proves nothing about demand.
-    //
-    // `hostCanReachUnlisted` is false whenever any watched verb is absent from what we
-    // are about to send, which is the honest reading: we can see what we listed, we
-    // cannot see whether this particular client also permits calling unlisted names.
-    // False here therefore means "not demonstrably reachable", and it is the safe
-    // direction — it withholds the licence to delete rather than granting it.
-    const listedNames = new Set(LISTED_TOOLS.map(t => t.name));
-    noteProbeArmed({
-      hostCanReachUnlisted: [...HIDDEN_FULL_TOOL_NAMES].every(n => listedNames.has(n)),
-    });
     send({
       jsonrpc: '2.0', id: req.id,
       result: {
@@ -605,21 +595,6 @@ rl.on('line', async (line) => {
       return;
     }
 
-    // ★ DELETION EVIDENCE — AFTER the sensitive-path gate, deliberately.
-    //
-    // This used to run before it. the reviewer found that a hidden-verb call could
-    // therefore write telemetry beneath a caller-supplied path that the very next check
-    // was about to reject as sensitive: the catch stopped the append throwing outward, it
-    // did not undo a successful unauthorised write. Telemetry must never be the thing
-    // that touches a path the request is not yet allowed to touch.
-    //
-    // The sink has also moved out of the queried repo entirely, so this ordering is now
-    // belt-and-braces rather than load-bearing — but the ordering is the part that would
-    // be wrong again if the sink ever moved back.
-    //
-    // Still after tool resolution, so a typo'd name cannot forge a call record. Still
-    // does not gate, warn, or change the response.
-    noteDeprecatedVerbCall(name, args?.repoRoot ?? args?.repo ?? args?.projectRoot);
 
     try {
       let repoRoot = args?.repo ?? process.cwd();

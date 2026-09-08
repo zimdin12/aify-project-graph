@@ -17,10 +17,16 @@
 // the reviewer's scope-3 audit. Only set 1 is a deletion question. A probe aimed
 // at "unlisted verbs" would measure both and answer neither.
 //
-// It lives in its own module so `server.js` and `deprecation-probe.js` derive from ONE
-// source. Previously the probe carried its own copy of the list, which is precisely the
-// arrangement that lets a twelfth verb be hidden without being probed — and then its
-// silence would be indistinguishable from a verb nobody calls.
+// It lives in its own module because it once had two consumers — `server.js` and a
+// deprecation probe — and the probe originally carried its OWN copy of the list, which is
+// precisely the arrangement that lets a twelfth verb be hidden without being watched.
+//
+// ⚠ THE PROBE WAS RETIRED 2026-09-08 as permanent instrumentation with no decision attached, so
+// this constant now has one production consumer: the `tools/list` filter. It stays in its own
+// module because the SECOND consumer is a test —
+// tests/integration/hidden-verbs-still-answer.test.js — which asserts the property the probe's
+// removal would otherwise have taken with it: hiding a verb unadvertises it, it does not withdraw
+// it, so every name here must still ANSWER.
 export const HIDDEN_FULL_TOOL_NAMES = new Set([
   // 1. Legacy locator aliases the briefs replaced.
   'graph_lookup',
