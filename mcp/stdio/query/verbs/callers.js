@@ -59,9 +59,21 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
     // in the requested directory can be discarded by a LIMIT that never looked at directories —
     // and the verb then answers NO CALLERS from "<dir>", its own most dangerous output. Prefix
     // comparison rather than LIKE, because a path may legitimately contain % or _.
-    const fileScopeSql = file ? 'AND substr(n.file_path, 1, $fileLen) = $filePrefix' : '';
-    const recursiveFileScopeSql = file ? 'WHERE substr(n.file_path, 1, $fileLen) = $filePrefix' : '';
-    const fileScopeParams = file ? { filePrefix: file, fileLen: file.length } : {};
+    // ⛔ AND THE LENGTH IS SQLITE'S, NOT JAVASCRIPT'S. The first version passed `file.length` —
+    // UTF-16 CODE UNITS — into `substr`, which counts UNICODE CHARACTERS. Every path built from BMP
+    // characters agrees, so the entire suite agreed; `src/🧪/` is 8 units and 7 characters, so the
+    // comparison took 8 characters from the path, compared them to a 7-character prefix, and could
+    // never match. The verb then answered NO CALLERS from that directory — a false absence
+    // introduced by the commit that moved this filter into SQL to remove a false absence.
+    //
+    // ⭐ THE UNITS ARE NOT CONVERTED, THEY ARE NEVER MIXED. `length($filePrefix)` is evaluated by
+    // SQLite, so both operands are in its coordinate system by construction and no future path
+    // shape can pull them apart. brief/graph-shape.js was already doing exactly this.
+    //
+    // ⚠ STILL NOT `LIKE`: a path may legitimately contain `%` or `_`, and this comparison is literal.
+    const fileScopeSql = file ? 'AND substr(n.file_path, 1, length($filePrefix)) = $filePrefix' : '';
+    const recursiveFileScopeSql = file ? 'WHERE substr(n.file_path, 1, length($filePrefix)) = $filePrefix' : '';
+    const fileScopeParams = file ? { filePrefix: file } : {};
     let edges;
     if (depth <= 1) {
       edges = db.all(
