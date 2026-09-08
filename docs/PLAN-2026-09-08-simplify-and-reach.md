@@ -75,6 +75,7 @@ of scope; unmotivated expansion is.
    named. Nothing here changes an answer the product gives.
 2. **Verify the supported bundle reaches the intended runtime** — parent session and subagent. Reach
    is the demonstrated problem; measure it where it fails rather than adding surface.
+   ⛔ **Its first deliverable is section 3a, the definitions. Not a number.**
 3. **Exercise named discovery and transitive-impact tasks against their real consumers.** Real
    tasks, real consumers, known-positive cases included so an omission can show up.
 4. **Refactor the ownership seams those tasks expose** — not arbitrary equal chunks. Acquisition
@@ -87,6 +88,77 @@ of scope; unmotivated expansion is.
 **Success is a better correct answer, or less total consumer cost at acceptable quality. It is not
 more invocations.** If the bundle only adds maintenance calls, stop expanding it. No new benchmark
 platform and no analytics identity system.
+
+---
+
+## 3a. Step 2's definitions, fixed before anything is counted
+
+⛔ **THIS SECTION EXISTS BECAUSE I ALREADY MADE THIS EXACT MISTAKE THIS SESSION.** I reported a
+subagent SKILL-invocation zero as a graph-VERB figure. Both numbers were correct; the noun was not.
+A reach measurement is more exposed to that failure than anything else in this plan, because the two
+quantities below are easy to state in one sentence and mean different things.
+
+### The build under test
+
+`0.9.0`, `mcp/stdio/server.js`, launched over stdio and distributed **per repository** by an
+.mcp.json file in that repo (this one is `./.mcp.json`) — not installed in user scope. **A
+measurement names the exact commit it ran against**, because "the server" is a moving target and a
+figure that outlives its build is a figure with no subject.
+
+### Two runtimes, and they do not share a tool surface
+
+A **parent session** and a **subagent sidechain** are different populations with different tool
+surfaces, and `scripts/measure-verb-adoption.mjs` already reports them separately with the noun
+spelled out on the sidechain figure. Its discipline is the model; the summaries built on top of it
+are where the noun got lost.
+
+### AVAILABILITY — can the verb be invoked here at all
+
+A property of the **runtime**, not of any agent's judgement. Three states, distinguished by what the
+host actually sends and accepts:
+
+| | state | what decides it |
+|---|---|---|
+| A0 | not installed | no .mcp.json in the repo; no verb exists to call |
+| A1 | installed, **not listed** | the verb is absent from the `tools/list` the host sends, and reaching it needs an extra step (a tool search) that the agent must think to take |
+| A2 | installed and listed | the verb is in the default listing |
+
+⚠ **A1 IS NOT A ROUNDING ERROR, IT IS THE LIKELY SHAPE OF THE PROBLEM.** In this very session the
+`mcp__aify-project-graph__*` verbs arrived deferred behind a search step rather than listed. One
+host, one session, observed rather than assumed — not a rate, and stated here as the reason A1 needs
+its own row rather than as a finding.
+
+### VOLUNTARY USE — did an agent choose it with alternatives to hand
+
+A property of the **decision**, and it is only defined where three things hold together:
+1. the verb was reachable (A2, or A1 plus a search that actually succeeded);
+2. a non-graph route to the same answer existed — grep, read, the file itself;
+3. the agent picked the verb anyway.
+
+⛔ **THE DENOMINATOR IS TASKS WHERE EITHER ROUTE WOULD HAVE ANSWERED, NOT SESSIONS.** Counting
+sessions puts every task the verbs do not serve into the denominator and reports self-routing as
+failure. `docs/2026-08-25-seven-verbs-carrier-and-population.md` already carries the caveats that
+survive here — a call is not a benefit, one machine is not a rate, usage is not value — and its
+numbers are not restated.
+
+### What must never be fused
+
+**A0 and A1 are both "zero calls" and only one of them is about the product.** Nothing was installed
+versus installed-but-unreachable have different fixes: one is distribution, the other is surfacing.
+And **neither is evidence about voluntary use**, because an agent that could not reach a verb never
+made a choice to observe.
+
+### The boundary this measurement may not cross
+
+The gated adoption re-measurement is a **separate, protected cohort**. Step 2 observes the tool
+surface of a runtime; it does not read that cohort's outcome and does not accelerate it. Reading
+`n` is allowed; reading the result is not.
+
+### Not yet observed, and named rather than implied
+
+The subagent-side availability figure needs a probe that runs **inside a subagent** and reports what
+its toolset contained. That probe has not been run against `0.9.0`. It is an unrun measurement, not
+an unknown quantity — and until it runs, no subagent reach claim is available in either direction.
 
 ---
 
