@@ -1,5 +1,9 @@
 // ⛔ THE CROSS-LAYER SIGNAL COULD NOT FIRE IN PRODUCTION, AND SAID SO AS "NONE FOUND".
 //
+// ⛔ `captureStructuralDigest` WAS REMOVED 2026-09-08 (orphaned once its call site was withdrawn);
+// it is recoverable from git history. The account below is the HISTORY of a real defect and
+// stands as written — the behaviour it describes no longer has a producer in this codebase.
+//
 // `captureStructuralDigest` takes `layerOf` and defaults it to `() => null`. At the pin 3a0e4b5c
 // there was exactly ONE production call site (freshness/orchestrator.js:1089) and it passed no
 // `layerOf` — so every symbol in every real digest carried `layer: null`. `computeDelta` then skips

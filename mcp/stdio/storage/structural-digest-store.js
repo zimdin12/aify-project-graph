@@ -10,7 +10,6 @@
 // replace-on-write: `structural_fingerprints` is keyed by file_path and re-extracting REPLACES the
 // row, `graph_generation` is CHECK (id = 1). That is why "how did the shape change" was unanswerable
 // before this existed.
-import { buildDigest, symbolKey } from './structural-digest.mjs';
 
 // Keyed by commit — and ⛔ "A COMMIT NAMES ONE GRAPH STATE" IS FALSE HERE, which is why the
 // commit-to-commit comparison is withdrawn. The indexer parses the working tree and carries
@@ -126,76 +125,24 @@ export function listDigestCommits(db) {
   }
 }
 
-/**
- * Build a digest from the graph rows the rebuild has just written, and store it.
- *
- * Called INSIDE the rebuild transaction, so the digest is published by the same COMMIT as the graph
- * it describes. Written outside it, a rollback would leave a digest describing a graph that was
- * never published — the "three separate promotion events" failure this module's neighbours were
- * rewritten to remove.
- *
- * ⚠ LAYERS ARE OPTIONAL AND DEGRADE HONESTLY. They come from the intelligence overlay, which most
- * repositories do not build. A symbol with no layer gets null, and `computeDelta` treats an unknown
- * layer as NOT a crossing — otherwise every unlabelled symbol would look like an architecture
- * violation the moment anyone called it.
- */
-export function captureStructuralDigest(db, { commit, extractorVersion, layerOf = () => null, createdAt } = {}) {
-  const nodeRows = many(db,
-    `SELECT id, label, file_path, COALESCE(json_extract(extra, '$.qname'), label) AS qname
-     FROM nodes
-     WHERE type IN ('Function','Method','Class','Interface','Type','Route','Entrypoint')`);
+// ⛔ `captureStructuralDigest` WAS REMOVED HERE ON 2026-09-08. It built a digest from the rows a
+// rebuild had just written and stored it inside the rebuild transaction.
+//
+// Its call site was already gone: the commit-to-commit comparison was withdrawn because a stored
+// digest cannot be attributed to the source its named commit contained, and the capture was stopped
+// AT THE SOURCE rather than left writing rows whose only purpose would be to look like history. What
+// remained here was a producer with no producer — an orphan kept compiled and tested, which
+// preserves an option it does not actually hold: it still uses the identity scheme the withdrawal
+// rejected, so a future attribution path would not reuse it. Git preserves the implementation.
+//
+// ⛔ WHAT DELIBERATELY STAYS, because ordinary indexing and the withdrawal contract need it:
+// STRUCTURAL_DIGEST_TABLE_SQL (publication-schema.js creates the table on every publication — a
+// missing table gives every reader "no such table" instead of "no digest yet", and only one of
+// those is recoverable), listDigestCommits (dashboard/server.js), the stored rows themselves, and
+// the read/write pair the withdrawal test uses to prove rows are preserved and not relabelled.
+//
+// ⚠ AND THIS FILE NO LONGER IMPORTS structural-digest.mjs. That module now has NO production
+// importer — only tests. Retiring it is staged behind replacing those fixtures with retained BYTES
+// from the pinned old writer, which tests format compatibility rather than testing that a writer
+// and its reader still agree with each other.
 
-  // Keyed by node id: edges reference ids, and two symbols can share a qname. Resolving through the
-  // id keeps the fan-in on the symbol the edge actually pointed at.
-  // ⛔ IDENTITY IS THE NAME AND THE FILE, NEVER THE NAME ALONE. Resolving through the node id to a
-  // bare qname merged every symbol that shares a name — an overload, a declaration and its
-  // definition in another file, the same method in two modules — into ONE entry carrying whichever
-  // file arrived first, and then credited that entry with edges aimed at the others.
-  const byId = new Map();
-  const symbols = [];
-  const known = new Set();
-  for (const r of nodeRows) {
-    const qname = r.qname || r.label;
-    if (!qname) continue;
-    const key = symbolKey(qname, r.file_path);
-    // ⛔ AND THIS COMMENT USED TO ASSERT SOMETHING FALSE: that two rows sharing a name AND a file
-    // ARE the same symbol. C++ overloads falsify it directly — `f(int)` and `f(double)` are distinct
-    // symbols extracted as distinct nodes with one qname in one file, and this key merges them. A
-    // reviewer transferred an edge between two real extracted overload IDs and the digest reported
-    // NO movement; two edges to the two overloads produce ONE edge key while fan-in counts both.
-    //
-    // ⚠ AND THE OBVIOUS REPAIR IS NOT ENOUGH EITHER. This repository already splits overloads by
-    // normalized parameter list (M1b), but neither that nor a site id establishes CROSS-EDIT
-    // CONTINUITY: a rename or a move changes the key and reads as a removal plus an addition, which
-    // describes movement of an address rather than of a symbol.
-    //
-    // ⇒ SO THE KEY IS LEFT AS IT IS AND THE CLAIM IS DROPPED. Ids that share a key are grouped, and
-    // that grouping is NOT asserted to be identity. Nothing may compare two of these digests as
-    // authoritative history — see storage/delta-between.js, where that comparison is refused.
-    byId.set(r.id, key);
-    if (known.has(key)) continue;
-    known.add(key);
-    symbols.push({ qname, file: r.file_path, layer: layerOf(r.file_path) });
-  }
-
-  // Only edges whose BOTH ends are symbols in this digest. A dangling edge is refused by buildDigest
-  // rather than counted, because counting it inflates fan-in for a symbol nobody can look up and the
-  // inflation then reads as growth on the next delta.
-  // ⛔ AND THE RELATION IS PART OF THE EDGE. `SELECT from_id, to_id` dropped it, so a CALLS and a
-  // REFERENCES between one pair became indistinguishable — they collapsed to a single key while
-  // fan-in counted both, and the digest disagreed with itself about how many edges it held.
-  const edges = [];
-  for (const e of many(db, 'SELECT from_id, to_id, relation FROM edges')) {
-    const from = byId.get(e.from_id);
-    const to = byId.get(e.to_id);
-    if (!from || !to || !known.has(from) || !known.has(to)) continue;
-    edges.push({ from, to, relation: e.relation });
-  }
-
-  // ⛔ THE COLLAPSE-BY-QNAME PASS IS GONE, NOT RELOCATED. It existed because buildDigest's table was
-  // keyed by qname and duplicates made it lossy; the table is now keyed by identity, so there is
-  // nothing to collapse and the symbols that were being discarded are the ones the delta needs.
-  const digest = buildDigest({ commit, extractorVersion, symbols, edges });
-  writeStructuralDigest(db, digest, createdAt ? { createdAt } : undefined);
-  return digest;
-}

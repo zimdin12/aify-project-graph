@@ -1,5 +1,9 @@
 // ⛔ THE DIGEST COLLAPSED TWO SYMBOLS INTO ONE AND ATTRIBUTED THE EDGES TO WHICHEVER CAME FIRST.
 //
+// ⛔ `captureStructuralDigest` WAS REMOVED 2026-09-08 (orphaned once its call site was withdrawn);
+// it is recoverable from git history. The account below is the HISTORY of a real defect and
+// stands as written — the behaviour it describes no longer has a producer in this codebase.
+//
 // `captureStructuralDigest` resolved every edge endpoint through node id to a QNAME, then reduced
 // the symbol list to one entry per qname keeping the FIRST occurrence. Two distinct nodes that share
 // a qname — the same method name in two files, an overload, a declaration and its definition — became

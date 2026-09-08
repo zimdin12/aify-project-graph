@@ -110,6 +110,7 @@ describe('digests are stored per commit, append-only', () => {
   // ⛔ "THE PRODUCER IS WIRED" WAS ASSERTED HERE AND IS NOW DELIBERATELY FALSE.
   //
   // It checked that the rebuild calls `captureStructuralDigest` before its transaction commits — a
+  // function itself REMOVED on 2026-09-08, once it was an orphaned producer with no call site — a
   // good assertion against the defect it was written for: a digest store nothing writes to is a
   // delta engine that can never run, and it would stay green forever.
   //
