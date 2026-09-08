@@ -57,7 +57,7 @@ That is the product thesis in one line, and it tells us where value is:
 ### What is already covered, and is not worth redoing
 
 - incremental reindex, cosmetic-skip, salvageable-file reuse: 43 references of machinery
-- a file watcher and auto-sync pipeline (`APG_AUTO_SYNC=1`, opt-in)
+- a file watcher, consumed by `graph_watch` (the `APG_AUTO_SYNC` loop was RETIRED 2026-09-08 — no production caller)
 - publication attestation, torn-graph refusal, absence authority (the closed unit)
 - `no_compile_db` cause; two shape detectors wired to empty results
 
@@ -377,8 +377,11 @@ which is the same watcher `graph_watch` uses. It is the FRAMING that is void.
   could see cost.
   ⚠ **OVERLAPPING bursts — HALVED 2026-09-03, not closed.** The blocker bundled two questions and
   only one is now answered.
+  ⛔ **RETIRED 2026-09-08 WITH ITS MODULE.** The finding below was real and its test is preserved in
+  git history at the deletion commit; `startAutoSync` had no production caller and was removed. The
+  live refresh paths are `graph_watch` and the Git hook, and neither runs this coalescing loop.
   ✅ **Lost updates: answered at the logic tier.** A write landing DURING a sync is observed by a
-  later sync (`tests/unit/sync/auto-sync.test.js`, two mutants killed — dropping the coalesced rerun,
+  later sync (two mutants killed — dropping the coalesced rerun,
   and forgetting the pending burst). ⭐ The existing coalescing test could not see this: it pins
   `maxConcurrent === 1` and "fewer syncs than events", and **"fewer syncs than events" is exactly
   what a lost update looks like through a call counter.** The new test makes the overlap a

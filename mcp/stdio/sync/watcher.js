@@ -1,4 +1,10 @@
-// Plan #17 B: native OS file watcher with debounced auto-sync.
+// Plan #17 B: native OS file watcher with a debounce window.
+//
+// ⚠ ITS ONE PRODUCTION CONSUMER IS `graph_watch` (query/verbs/watch.js), which wires this straight
+// to graphIndex. The `startAutoSync` loop that used to sit between them was retired 2026-09-08:
+// it had no production caller, only two closed-study probes, and our own
+// docs/evidence/m3-freshness/FINDING-m3a-debated-an-unreachable-flag.md had already established
+// that independently. Explicit watch and the Git-hook refresh are the live refresh paths.
 //
 // Mirrors github.com/colbymchenry/codegraph's approach: recursive
 // fs.watch (FSEvents on macOS / inotify on Linux 19+ /
