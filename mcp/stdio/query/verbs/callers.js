@@ -180,6 +180,12 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
       from_label: e.from_label,
       to_label: symbol,
     }));
+    // ⛔ THE ROWS FETCHED AND THE GROUPS SHOWN ARE DIFFERENT NUMBERS, AND ONE LABEL NAMED BOTH.
+    // `collapseCallerEdges` groups a class rollup's method rows by caller, so ten method-target rows
+    // from one caller become one row. The confidence footer took its count AFTER that and called it
+    // "candidate edge rows fetched" — precise wording over the wrong number. Captured before the
+    // collapse so each number can be reported as what it is.
+    const fetchedRowCount = mapped.length;
     if (rolledUp) mapped = collapseCallerEdges(mapped, symbol);
     // File scope filter: only show callers from a specific directory
     if (file) mapped = mapped.filter(e => e.source_file && e.source_file.startsWith(file));
@@ -234,7 +240,12 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
         // told a live agent "100 callers" for a symbol with 10 call sites in one function. The
         // truncation flag already existed and reached the trust banner while never reaching the
         // line that prints the number — computed and not consumed.
-        const counted = describeResultCount({ resultCount, truncated: edgesTruncated });
+        const counted = describeResultCount({ resultCount: fetchedRowCount, truncated: edgesTruncated });
+        // Named only when the two genuinely differ; on the ordinary path they are the same number
+        // and a second clause would be noise.
+        const collapsedNote = fetchedRowCount !== resultCount
+          ? `, collapsed into ${resultCount} caller group${resultCount === 1 ? '' : 's'}`
+          : '';
         // ⛔ AND THE NOUN HAS TO BE THE ONE THE QUERY ESTABLISHED. This printed `${counted.text}
         // callers` above a line reading "This list is NOT a floor", which is two defensible
         // sentences about two different things: "at least 100" is a floor on the EDGE ROWS fetched,
@@ -245,7 +256,7 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
         //
         // ⭐ graph_impact ALREADY had this right — it prints the same helper output as "edges
         // found". One verb carried the stronger noun, and it was the one an agent acts on.
-        confidenceFooter = `\nCONFIDENCE: ${counted.text} candidate edge rows fetched · trust=${trust} · ${occurrences} indexed nodes labeled "${symbol}" · ${trustCount} unresolved CALLS edges not attributed to any caller.`
+        confidenceFooter = `\nCONFIDENCE: ${counted.text} candidate edge rows fetched${collapsedNote} · trust=${trust} · ${occurrences} indexed nodes labeled "${symbol}" · ${trustCount} unresolved CALLS edges not attributed to any caller.`
           + `\n  ⚠ ROWS ARE NOT CALLERS, and the caller-function total is UNKNOWN. Heuristic edges`
           + ` resolve calls BY NAME, so unrelated same-named calls OVERCOUNT this set`
           + `${overcountRisk ? ' — and this symbol is exactly the shape that overcounts' : ''};`

@@ -161,7 +161,7 @@ describe('Code-Intel v2 L2b — LSP_VERIFIED surface', () => {
     expect(out).not.toContain('lsp-partial');
   });
 
-  it('(d2) B4: indexReady=true but MIXED verified+heuristic result → lsp-partial FLOOR, not exhaustive', async () => {
+  it('(d2) B4: indexReady=true but MIXED verified+heuristic result → lsp-partial, bounded in NEITHER direction', async () => {
     const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
     try {
       db.run(`UPDATE code_intel_collections SET index_ready = 1, mode = 'indexed', refs_found = 5, refs_not_found = 0 WHERE collection_id = 'ci-1'`);
@@ -172,8 +172,18 @@ describe('Code-Intel v2 L2b — LSP_VERIFIED surface', () => {
     // "index-ready, N callers" delete-licensing banner.
     const out = await graphCallers({ repoRoot, symbol: 'execute' });
     expect(out).toContain('[lsp✓]');           // the verified edge is still marked
-    expect(out).toContain('lsp-partial');       // but the banner is a floor
-    expect(out).toMatch(/FLOOR/);
+    expect(out).toContain('lsp-partial');       // and it must not read as exhaustive
+    // ⛔ THIS ASSERTED `/FLOOR/` AND THAT WORD WAS THE DEFECT. A floor is a LOWER BOUND — it promises
+    // the real answer is at least this. True of an all-verified set (tests B2/B3 above still pin it
+    // there, correctly). FALSE of a mixed set: the heuristic edges resolve BY NAME and can include
+    // unrelated same-named calls, so the set may be too LARGE as well as too small.
+    //
+    // ⚠ THE TEST'S INTENT IS UNCHANGED AND STILL ASSERTED. "A mixed result must not earn the
+    // index-ready delete-licensing banner" is what the two assertions around this line check, and
+    // both still hold. What changed is that it no longer pins a word making a promise the data does
+    // not support — the same contradiction the CONFIDENCE footer was corrected for one commit
+    // earlier, which this line was quietly holding in place.
+    expect(out).toMatch(/NEITHER direction/);
     expect(out).not.toMatch(/TRUST: lsp-verified \(cpp-clangd, index-ready, \d+ caller/);
   });
 

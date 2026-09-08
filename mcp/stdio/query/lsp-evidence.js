@@ -818,8 +818,21 @@ async function buildTrustLineBody({ edges = [], db, repoRoot, truncated = false,
   if (collection && collection.indexReady === true && allVerified) {
     line = `TRUST: lsp-verified (${backend}, index-ready, ${verifiedCount} caller${verifiedCount === 1 ? '' : 's'}, ${dbHash}, collected ${when})`;
   } else if (collection && collection.indexReady === true) {
+    // ⛔ A MIXED SET IS NOT A FLOOR, AND THIS LINE SAID IT WAS. A floor is a LOWER BOUND: it promises
+    // the real answer is at least this. That holds for the all-verified branches above — every edge
+    // came from a compiler, so every one is a real caller and only completeness is open. It does not
+    // hold here: the heuristic edges resolve BY NAME, so the set can contain calls to unrelated
+    // same-named symbols and may be too LARGE as well as too small. It bounds the real callers in
+    // neither direction.
+    //
+    // ⚠ The CONFIDENCE footer was corrected to say the caller total is unknown, and this banner one
+    // row above kept asserting the floor — the two lines contradicted each other about the same set.
+    // Fixing one consumer and leaving the other is moving the error, not removing it.
     const heur = totalEdges - verifiedCount;
-    line = `TRUST: lsp-partial (${backend} index-ready but result mixes ${verifiedCount} verified + ${heur} heuristic edge${heur === 1 ? '' : 's'} — caller set is a FLOOR, not exhaustive; verify with code_intel_references / rg before any "no callers" / delete) `
+    line = `TRUST: lsp-partial (${backend} index-ready but result mixes ${verifiedCount} verified + ${heur} heuristic edge${heur === 1 ? '' : 's'} — `
+      + `the ${verifiedCount} verified ${verifiedCount === 1 ? 'is a real caller' : 'are real callers'}, but the ${heur} heuristic `
+      + `${heur === 1 ? 'one is resolved' : 'ones are resolved'} BY NAME and can include unrelated same-named calls, so this set bounds the real callers in NEITHER direction; `
+      + `verify with code_intel_references / rg before any "no callers" / delete) `
       + `[${dbHash}]`;
   } else {
     // null/unknown indexReady: name provenance + freshness, make NO completeness
