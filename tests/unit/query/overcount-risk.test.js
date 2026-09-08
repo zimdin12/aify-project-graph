@@ -27,11 +27,11 @@ const read = (rel) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)),
 
 // The live shape of graph_callers("has"): one node labelled `has`, 25 heuristic rows, healthy trust.
 const HAS = {
-  trust: 'strong', resultCount: 25, occurrences: 1, symbol: 'has', hasVerifiedEdge: false,
+  trust: 'strong', resultCount: 25, occurrences: 1, symbol: 'has', verifiedCount: 0,
 };
 // The live shape of graph_callers("inspectReadFreshness"): 25 genuine callers, distinctive name.
 const GENUINE = {
-  trust: 'strong', resultCount: 25, occurrences: 1, symbol: 'inspectReadFreshness', hasVerifiedEdge: false,
+  trust: 'strong', resultCount: 25, occurrences: 1, symbol: 'inspectReadFreshness', verifiedCount: 0,
 };
 
 describe('the overcount guard fires on the shape it was written for', () => {
@@ -49,8 +49,12 @@ describe('the overcount guard fires on the shape it was written for', () => {
   });
 
   it('★★★ a COMPILER-RESOLVED result is never a name collision', () => {
-    // Warning about an LSP-verified set would undercut the trust spine's entire point.
-    expect(isOvercountSuspicious({ ...HAS, hasVerifiedEdge: true }).suspicious).toBe(false);
+    // Warning about an LSP-verified set would undercut the trust spine's entire point. The INTENT
+    // here is unchanged; what moved is how "compiler-resolved" is stated. It was a boolean fed by
+    // `edges.some(...)`, so ONE verified edge among twenty-five heuristic ones satisfied it — the
+    // predicate answered ANY while this test's own name says SET. Saying it as a count makes the
+    // fixture describe the set it claims to describe.
+    expect(isOvercountSuspicious({ ...HAS, verifiedCount: HAS.resultCount }).suspicious).toBe(false);
   });
 
   it('★★ the two ORIGINAL clauses still fire — this adds, it does not replace', () => {

@@ -8,7 +8,7 @@ import { inspectReadFreshness, prefixReadWarnings, staleNotFoundCaveat } from '.
 import { loadManifest } from '../../freshness/manifest.js';
 import { computeTrustLevel } from './health.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
-import { buildTrustLine, buildAbsenceTrustLine, hasLspVerifiedEdge, ABSENCE_TRUST_UNAVAILABLE, RESULTS_TRUST_UNAVAILABLE } from '../lsp-evidence.js';
+import { buildTrustLine, buildAbsenceTrustLine, hasLspVerifiedEdge, ABSENCE_TRUST_UNAVAILABLE, RESULTS_TRUST_UNAVAILABLE, lspVerifiedEdgeCount } from '../lsp-evidence.js';
 import { EXECUTION_FAMILY, CALL_FAMILY } from '../../storage/taxonomy.js';
 import { normalizePathArg } from '../../util/paths.js';
 import { noMatchMessage } from '../did-you-mean.js';
@@ -196,7 +196,7 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
       // it had the same hole in both: it modelled AMBIGUITY and was blind to the builtin-method
       // COLLISION that `graph_callers("has")` produces. See overcount-risk.js.
       const { suspicious } = isOvercountSuspicious({
-        trust, resultCount, occurrences, symbol, hasVerifiedEdge: hasLspVerifiedEdge(mapped),
+        trust, resultCount, occurrences, symbol, verifiedCount: lspVerifiedEdgeCount(mapped),
       });
       if (suspicious) {
         // ⛔ THE LEAN THIS BLOCK USED TO CARRY, TWO LINES BELOW THE SENTENCE THAT WITHDREW IT.
@@ -223,11 +223,22 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
         // truncation flag already existed and reached the trust banner while never reaching the
         // line that prints the number — computed and not consumed.
         const counted = describeResultCount({ resultCount, truncated: edgesTruncated });
-        confidenceFooter = `\nCONFIDENCE: ${counted.text} callers · trust=${trust} · ${occurrences} indexed nodes labeled "${symbol}" · ${trustCount} unresolved CALLS edges not attributed to any caller.`
-          + `\n  ⚠ This list is NOT a floor. On a weak-trust graph it can UNDERCOUNT (C++ cross-file`
-          + ` dispatch, PHP traits/Eloquent, dynamic dispatch) and, because heuristic edges resolve`
-          + ` calls BY NAME, it can also OVERCOUNT with unrelated same-named calls`
-          + `${overcountRisk ? ' — and this symbol is exactly the shape that overcounts' : ''}.`
+        // ⛔ AND THE NOUN HAS TO BE THE ONE THE QUERY ESTABLISHED. This printed `${counted.text}
+        // callers` above a line reading "This list is NOT a floor", which is two defensible
+        // sentences about two different things: "at least 100" is a floor on the EDGE ROWS fetched,
+        // and "not a floor" is about REAL CALLERS, which heuristic name resolution can inflate.
+        // Side by side they simply contradict, and whichever the reader believed, the other was
+        // there to undo it. What the query counted is candidate edge rows; the caller-function
+        // total was never established, so it is now reported as unknown rather than asserted.
+        //
+        // ⭐ graph_impact ALREADY had this right — it prints the same helper output as "edges
+        // found". One verb carried the stronger noun, and it was the one an agent acts on.
+        confidenceFooter = `\nCONFIDENCE: ${counted.text} candidate edge rows fetched · trust=${trust} · ${occurrences} indexed nodes labeled "${symbol}" · ${trustCount} unresolved CALLS edges not attributed to any caller.`
+          + `\n  ⚠ ROWS ARE NOT CALLERS, and the caller-function total is UNKNOWN. Heuristic edges`
+          + ` resolve calls BY NAME, so unrelated same-named calls OVERCOUNT this set`
+          + `${overcountRisk ? ' — and this symbol is exactly the shape that overcounts' : ''};`
+          + ` on a weak-trust graph it can equally UNDERCOUNT (C++ cross-file dispatch, PHP`
+          + ` traits/Eloquent, dynamic dispatch).`
           + `\n  Verify with: rg -n "${symbol}\\b" before any deletion, rename, or signature change.`;
       }
     } catch { /* defensive */ }

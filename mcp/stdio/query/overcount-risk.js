@@ -74,11 +74,12 @@ export function leafName(symbol) {
  * @param {number}  args.resultCount      edges actually returned
  * @param {number}  args.occurrences      nodes in the graph carrying this label
  * @param {string}  args.symbol           the queried symbol, qualified or not
- * @param {boolean} args.hasVerifiedEdge  does the result carry compiler-resolved evidence
+ * @param {number}  args.verifiedCount    how many of those edges a compiler resolved. A COUNT,
+ *                                       not a flag: one verified edge does not vouch for the rest.
  * @returns {{suspicious: boolean, reason: string|null}}
  */
 export function isOvercountSuspicious({
-  trust, resultCount = 0, occurrences = 0, symbol = '', hasVerifiedEdge = false,
+  trust, resultCount = 0, occurrences = 0, symbol = '', verifiedCount = 0,
 } = {}) {
   // (a) The IMPACT bench's silent-undercount mode: weak trust and a thin result.
   if (trust === 'weak' && resultCount < OVERCOUNT_MIN_RESULTS) {
@@ -97,9 +98,20 @@ export function isOvercountSuspicious({
   // ⛔ EXEMPT COMPILER-RESOLVED RESULTS. An LSP-verified set was resolved by a compiler rather than
   // by name, so it is not a collision, and warning about one would undercut the trust spine's whole
   // purpose.
-  if (!hasVerifiedEdge
-    && leafName(symbol).length <= SHORT_NAME_MAX
-    && resultCount >= OVERCOUNT_MIN_RESULTS) {
+  //
+  // ⛔ BUT THE EXEMPTION IS PER EDGE, NOT PER RESULT. This was gated on `hasVerifiedEdge`, and its
+  // producer is `edges.some(...)` — so ONE compiler-resolved edge declared a hundred name-matched
+  // ones innocent. The argument in the paragraph above is about a SET; the predicate asked ANY.
+  // That is the wrong-noun error this repository keeps paying for, sitting directly under a comment
+  // that states the right noun.
+  //
+  // ⭐ AND `.every()` WOULD BE THE SAME MISTAKE MIRRORED — silent only on a perfectly clean set,
+  // shouting at one that is 99% resolved. The collision risk lives in the UNRESOLVED edges, so
+  // count those. The exemption then falls out rather than being asserted: a fully verified set has
+  // nothing unresolved and cannot trip this.
+  const unresolvedResults = Math.max(0, resultCount - verifiedCount);
+  if (leafName(symbol).length <= SHORT_NAME_MAX
+    && unresolvedResults >= OVERCOUNT_MIN_RESULTS) {
     return { suspicious: true, reason: 'short-name-overcount' };
   }
 

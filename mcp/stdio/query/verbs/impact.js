@@ -7,7 +7,7 @@ import { inspectReadFreshness, prefixReadWarnings, staleNotFoundCaveat } from '.
 import { loadManifest } from '../../freshness/manifest.js';
 import { computeTrustLevel } from './health.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
-import { buildTrustLine, buildAbsenceTrustLine, hasLspVerifiedEdge, ABSENCE_TRUST_UNAVAILABLE, RESULTS_TRUST_UNAVAILABLE } from '../lsp-evidence.js';
+import { buildTrustLine, buildAbsenceTrustLine, hasLspVerifiedEdge, ABSENCE_TRUST_UNAVAILABLE, RESULTS_TRUST_UNAVAILABLE, lspVerifiedEdgeCount } from '../lsp-evidence.js';
 import { isOvercountSuspicious, describeResultCount } from '../overcount-risk.js';
 import { indexedScopePhrase } from '../miss-scope.js';
 import { IMPACT_FAMILY } from '../../storage/taxonomy.js';
@@ -202,7 +202,7 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
       // had the same hole in both: it modelled AMBIGUITY and was blind to the builtin-method
       // COLLISION. See overcount-risk.js.
       const { suspicious } = isOvercountSuspicious({
-        trust, resultCount, occurrences, symbol, hasVerifiedEdge: hasLspVerifiedEdge(mapped),
+        trust, resultCount, occurrences, symbol, verifiedCount: lspVerifiedEdgeCount(mapped),
       });
       if (suspicious) {
         const parts = [
