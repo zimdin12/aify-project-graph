@@ -16,8 +16,16 @@ function normalizeLines(stdout) {
     .map((line) => line.replace(/\\/g, '/'));
 }
 
-export async function getHeadCommit(repoRoot) {
+// ⛔ A SYNCHRONOUS READER EXISTS BECAUSE ONE CALLER CANNOT AWAIT. The structural digest is captured
+// inside the rebuild transaction, and it must re-read HEAD there to prove the commit it is about to
+// publish under has not moved since the run began. Same shape as getDirtyFileEntries below: the
+// async form is the wrapper, and the work was always synchronous.
+export function getHeadCommitSync(repoRoot) {
   return execGit(repoRoot, ['rev-parse', 'HEAD']).trim();
+}
+
+export async function getHeadCommit(repoRoot) {
+  return getHeadCommitSync(repoRoot);
 }
 
 export async function getDirtyFileEntries(repoRoot) {

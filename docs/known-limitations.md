@@ -25,6 +25,31 @@ reach the symbol, then Grep within each for the specific lines.
 Measured on the 2026-04-22 echoes bench: mixed-mode (graph for the set,
 Grep for lines) produced the best results on this class of question.
 
+## Structural history is withheld when the index cannot be attributed to a commit
+
+`structural_digest` holds one row per indexed commit and is what a delta compares against. The
+indexer reads HEAD and then indexes the **working tree**, so an index taken with uncommitted changes
+would describe bytes that commit never held — and because the row is keyed by commit sha and written
+`ON CONFLICT DO UPDATE`, it would silently replace a correct historical *before* with a fabricated
+one. The extractor-version guard cannot catch that, because the extractor did not change.
+
+So the digest is now captured only when the observation can be attributed to the named commit: the
+working tree carried no relevant modification when the run began, none when it ended, and HEAD did
+not move in between. Otherwise the index still completes and the graph is still usable — history is
+simply not published for that run, with the reason logged.
+
+**⚠ WHAT THIS DOES NOT COVER.** A tree that is clean when the run starts, is edited and then restored
+while it runs, and is clean when it ends, passes every one of those checks while the indexer may
+have parsed the edited bytes. HEAD-and-status checks at the endpoints cannot see inside the window.
+
+Closing that needs the digest bound to a fingerprint of the content actually consumed, and this
+schema has no per-file content hash — `structural_fp` is per node and computable only by re-parsing.
+Adding one is a schema change, not a tweak. Until then this limit is real and stated rather than
+implied.
+
+**What you will see:** a warning naming the commit and the reason, and no new history row for that
+index. Commit your work and re-index to publish history for that commit.
+
 ## Brief TRUST can drift from live `graph_health` between regens
 
 `brief.json` captures the manifest's `dirtyEdgeCount` at the moment briefs were generated. `graph_health()` reads the same field live. If a reindex happens between brief regen and the health call, both surfaces use the same threshold function but different input counts — they'll disagree on the TRUST label ("weak" in brief vs "strong" in health or vice versa).
