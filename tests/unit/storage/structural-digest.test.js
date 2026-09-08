@@ -15,7 +15,12 @@
 // the file each symbol lives in. Not the graph. Appending a full snapshot per commit would grow
 // without bound for a query that only needs aggregates.
 import { describe, it, expect } from 'vitest';
-import { buildDigest, computeDelta, DIGEST_VERSION } from '../../../mcp/stdio/storage/structural-digest.mjs';
+import { buildDigest, computeDelta, DIGEST_VERSION, symbolKey } from '../../../mcp/stdio/storage/structural-digest.mjs';
+
+// ⛔ A SYMBOL'S IDENTITY IS ITS NAME AND ITS FILE. Edges name that identity rather than a bare
+// qname, because a qname alone merges every overload and same-named method into one symbol.
+const FILES = { render: 'ui/render.js', load: 'data/load.js', parse: 'data/parse.js', log: 'util/log.js' };
+const K = (qname) => symbolKey(qname, FILES[qname]);
 
 // A tiny two-layer graph. `render` (ui) calls `load` (data); `load` calls `parse` (data).
 const BASE = {
@@ -27,8 +32,8 @@ const BASE = {
     { qname: 'parse', file: 'data/parse.js', layer: 'data' },
   ],
   edges: [
-    { from: 'render', to: 'load' },
-    { from: 'load', to: 'parse' },
+    { from: K('render'), to: K('load'), relation: 'CALLS' },
+    { from: K('load'), to: K('parse'), relation: 'CALLS' },
   ],
 };
 
@@ -47,21 +52,21 @@ describe('a structural digest is the before that the database does not keep', ()
     // compared as bytes, so byte-stability is the property that actually matters and the assertion
     // has to be made on the bytes.
     expect(JSON.stringify(shuffled)).toBe(JSON.stringify(digestOf()));
-    expect(Object.keys(shuffled.symbols)).toEqual(['load', 'parse', 'render']);
+    expect(Object.keys(shuffled.symbols)).toEqual([K('load'), K('parse'), K('render')].sort());
     expect(digestOf().digestVersion).toBe(DIGEST_VERSION);
   });
 
   it('★★★ records fan-in and fan-out per symbol, which is what the drift signal reads', () => {
     const d = digestOf();
-    expect(d.symbols.load).toMatchObject({ file: 'data/load.js', layer: 'data', fanIn: 1, fanOut: 1 });
-    expect(d.symbols.render).toMatchObject({ fanIn: 0, fanOut: 1 });
-    expect(d.symbols.parse).toMatchObject({ fanIn: 1, fanOut: 0 });
+    expect(d.symbols[K('load')]).toMatchObject({ qname: 'load', file: 'data/load.js', layer: 'data', fanIn: 1, fanOut: 1 });
+    expect(d.symbols[K('render')]).toMatchObject({ fanIn: 0, fanOut: 1 });
+    expect(d.symbols[K('parse')]).toMatchObject({ fanIn: 1, fanOut: 0 });
   });
 
   it('★★ an edge naming a symbol the digest does not hold is refused, not silently counted', () => {
     // A dangling edge would inflate fan-in for a symbol nobody can look up, and the inflation would
     // then read as growth on the next delta.
-    expect(() => digestOf({ edges: [{ from: 'render', to: 'ghost' }] })).toThrow(/ghost/);
+    expect(() => digestOf({ edges: [{ from: K('render'), to: symbolKey('ghost', 'x.js'), relation: 'CALLS' }] })).toThrow(/ghost/);
   });
 });
 
@@ -98,10 +103,10 @@ describe('computeDelta reports how the shape moved, and refuses when it cannot a
     // sees the snapshot inside the diff.
     const after = digestOf({
       symbols: [...BASE.symbols, { qname: 'log', file: 'util/log.js', layer: 'util' }],
-      edges: [...BASE.edges, { from: 'render', to: 'log' }, { from: 'load', to: 'log' }],
+      edges: [...BASE.edges, { from: K('render'), to: K('log'), relation: 'CALLS' }, { from: K('load'), to: K('log'), relation: 'CALLS' }],
     });
     const d = computeDelta(digestOf(), after);
-    expect(d.symbolsAdded).toEqual(['log']);
+    expect(d.symbolsAdded).toEqual([{ qname: 'log', file: 'util/log.js' }]);
     const moved = d.fanInMoved.find((m) => m.qname === 'log');
     expect(moved).toMatchObject({ from: 0, to: 2, delta: 2, direction: 'grew' });
 
@@ -117,23 +122,26 @@ describe('computeDelta reports how the shape moved, and refuses when it cannot a
     // This is the whole point of the delta: a shape decision fails months later, in someone else's
     // task, and nobody attributes it back. Surfacing it at the moment of the change is the only
     // intervention that touches the cause.
-    const after = digestOf({ edges: [...BASE.edges, { from: 'parse', to: 'render' }] });
+    const after = digestOf({ edges: [...BASE.edges, { from: K('parse'), to: K('render'), relation: 'CALLS' }] });
     const d = computeDelta(digestOf(), after);
-    expect(d.newCrossLayerEdges).toEqual([{ from: 'parse', to: 'render', fromLayer: 'data', toLayer: 'ui' }]);
+    expect(d.newCrossLayerEdges).toEqual([{ from: K('parse'), to: K('render'), fromLayer: 'data', toLayer: 'ui' }]);
     // A new edge WITHIN one layer is movement but not a layer crossing, and must not be reported as
     // one — a signal that fires on everything is decoration.
-    const sameLayer = computeDelta(digestOf(), digestOf({ edges: [...BASE.edges, { from: 'parse', to: 'load' }] }));
-    expect(sameLayer.edgesAdded).toEqual(['parse>load']);
+    const sameLayer = computeDelta(digestOf(), digestOf({ edges: [...BASE.edges, { from: K('parse'), to: K('load'), relation: 'CALLS' }] }));
+    expect(sameLayer.edgesAdded).toHaveLength(1);
     expect(sameLayer.newCrossLayerEdges).toEqual([]);
   });
 
   it('★★ a removed symbol and its edges are both reported', () => {
     const after = digestOf({
       symbols: BASE.symbols.filter((s) => s.qname !== 'parse'),
-      edges: BASE.edges.filter((e) => e.to !== 'parse'),
+      edges: BASE.edges.filter((e) => e.to !== K('parse')),
     });
     const d = computeDelta(digestOf(), after);
-    expect(d.symbolsRemoved).toEqual(['parse']);
-    expect(d.edgesRemoved).toEqual(['load>parse']);
+    expect(d.symbolsRemoved).toEqual([{ qname: 'parse', file: 'data/parse.js' }]);
+    expect(d.edgesRemoved).toHaveLength(1);
+    // The key carries both identities and the relation; asserting its spelling would make this a
+    // format check rather than a behaviour one.
+    expect(d.edgesRemoved[0]).toContain('parse');
   });
 });

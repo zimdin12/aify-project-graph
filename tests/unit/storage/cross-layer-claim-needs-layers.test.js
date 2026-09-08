@@ -14,9 +14,11 @@
 // ⇒ A DEFENSIVE BRANCH SHOULD REFUSE, NOT GUESS. The question "did anything newly cross a layer
 // boundary" is UNDECIDABLE without layers, and undecidable is not zero.
 import { describe, it, expect } from 'vitest';
-import { buildDigest, computeDelta } from '../../../mcp/stdio/storage/structural-digest.mjs';
+import { buildDigest, computeDelta, symbolKey } from '../../../mcp/stdio/storage/structural-digest.mjs';
 
 const V = 'ext-1';
+const FILES = { parse: 'data/parse.js', render: 'ui/render.js', load: 'data/load.js' };
+const K = (q) => symbolKey(q, FILES[q]);
 
 /** A digest shaped like a PRODUCTION one: real symbols, real edges, and no layer on anything. */
 function unlabelled(edges) {
@@ -50,10 +52,10 @@ describe('a cross-layer claim needs layers', () => {
   it('★★★ WITHOUT LAYERS THE QUESTION IS UNDECIDABLE, and must not be answered as zero', () => {
     // This is the production shape. An edge was genuinely added, and it may or may not cross a
     // boundary — nothing here can tell. Reporting an empty list asserts the stronger of the two.
-    const d = computeDelta(unlabelled([]), unlabelled([{ from: 'parse', to: 'render' }]));
+    const d = computeDelta(unlabelled([]), unlabelled([{ from: K('parse'), to: K('render'), relation: 'CALLS' }]));
 
     expect(d.comparable).toBe(true);
-    expect(d.edgesAdded).toEqual(['parse>render']); // the edge IS seen — this is not a dead delta
+    expect(d.edgesAdded).toHaveLength(1); // the edge IS seen — this is not a dead delta
     expect(d.crossLayer.available).toBe(false);
     expect(d.crossLayer.symbolsWithLayer).toBe(0);
     expect(d.crossLayer.symbolsTotal).toBe(3);
@@ -63,7 +65,7 @@ describe('a cross-layer claim needs layers', () => {
   it('★★★ THE DISCRIMINATING CONTROL: with layers, a same-layer edge is a REAL zero', () => {
     // Without this the test above proves nothing: a function that always returned null would pass
     // it. This is the case where the instrument must SPEAK, and say none.
-    const d = computeDelta(labelled([]), labelled([{ from: 'parse', to: 'load' }]));
+    const d = computeDelta(labelled([]), labelled([{ from: K('parse'), to: K('load'), relation: 'CALLS' }]));
 
     expect(d.crossLayer.available).toBe(true);
     expect(d.crossLayer.symbolsWithLayer).toBe(3);
@@ -71,11 +73,11 @@ describe('a cross-layer claim needs layers', () => {
   });
 
   it('★★ THE POSITIVE CONTROL: with layers, a real crossing is still reported', () => {
-    const d = computeDelta(labelled([]), labelled([{ from: 'parse', to: 'render' }]));
+    const d = computeDelta(labelled([]), labelled([{ from: K('parse'), to: K('render'), relation: 'CALLS' }]));
 
     expect(d.crossLayer.available).toBe(true);
     expect(d.newCrossLayerEdges).toEqual([
-      { from: 'parse', to: 'render', fromLayer: 'data', toLayer: 'ui' },
+      { from: K('parse'), to: K('render'), fromLayer: 'data', toLayer: 'ui' },
     ]);
   });
 
@@ -110,7 +112,7 @@ describe('a cross-layer claim needs layers', () => {
         { qname: 'parse', file: 'data/parse.js', layer: 'data' },
         { qname: 'render', file: 'ui/render.js', layer: null },
       ],
-      edges: [{ from: 'parse', to: 'render' }],
+      edges: [{ from: K('parse'), to: K('render'), relation: 'CALLS' }],
     });
     const d = computeDelta(before, after);
 

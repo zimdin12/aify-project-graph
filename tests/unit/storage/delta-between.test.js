@@ -12,7 +12,7 @@ import Database from 'better-sqlite3';
 import { ensurePublicationTables } from '../../../mcp/stdio/storage/publication-schema.js';
 import { writeStructuralDigest } from '../../../mcp/stdio/storage/structural-digest-store.js';
 import { deltaBetween, deltaFromPrevious } from '../../../mcp/stdio/storage/delta-between.js';
-import { buildDigest } from '../../../mcp/stdio/storage/structural-digest.mjs';
+import { buildDigest, symbolKey } from '../../../mcp/stdio/storage/structural-digest.mjs';
 
 const SHA = (c) => c.repeat(40);
 
@@ -24,7 +24,7 @@ const digestFor = (commit, { extra = [], extractorVersion = '0.5.0' } = {}) => b
     { qname: 'load', file: 'data/load.js', layer: 'data' },
     ...extra,
   ],
-  edges: [{ from: 'render', to: 'load' }],
+  edges: [{ from: symbolKey('render', 'ui/render.js'), to: symbolKey('load', 'data/load.js'), relation: 'CALLS' }],
 });
 
 function dbWith(entries) {
@@ -58,7 +58,7 @@ describe('joining two stored digests into a delta', () => {
     expect(r.fromCommit).toBe(SHA('a'));
     expect(r.toCommit).toBe(SHA('b'));
     expect(r.delta.comparable).toBe(true);
-    expect(r.delta.symbolsAdded).toEqual(['log']);
+    expect(r.delta.symbolsAdded).toEqual([{ qname: 'log', file: 'util/log.js' }]);
     db.close();
   });
 
@@ -85,7 +85,7 @@ describe('joining two stored digests into a delta', () => {
     const r = deltaFromPrevious(db, { toCommit: SHA('b') });
     expect(r.available).toBe(true);
     expect(r.fromCommit).toBe(SHA('a'));
-    expect(r.delta.symbolsAdded).toEqual(['log']);
+    expect(r.delta.symbolsAdded).toEqual([{ qname: 'log', file: 'util/log.js' }]);
     db.close();
   });
 
@@ -120,7 +120,7 @@ describe('joining two stored digests into a delta', () => {
     expect(r.fromCommit).toBe(SHA('a'));
     expect(r.requestedCommit, 'and what was asked for').toBe(SHA('z'));
     expect(r.note, 'the substitution must be stated, never silent').toMatch(/no digest stored for/i);
-    expect(r.delta.symbolsAdded).toEqual(['log']);
+    expect(r.delta.symbolsAdded).toEqual([{ qname: 'log', file: 'util/log.js' }]);
     db.close();
   });
 

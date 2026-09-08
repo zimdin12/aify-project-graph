@@ -12,15 +12,38 @@
 // answer "how did the shape CHANGE". Both are worth having; only the second is new, and conflating
 // them would be the wrong-noun error this repository keeps paying for.
 //
-// ⭐ A DIGEST HOLDS ONLY WHAT A DELTA READS. Per-symbol fan-in/fan-out, edges keyed `src>dst`, the
+// ⭐ A DIGEST HOLDS ONLY WHAT A DELTA READS. Per-symbol fan-in/fan-out, edges keyed by their two
+// symbol identities and the relation, the
 // layer, and the file. Storing a whole graph per commit would grow without bound to answer a
 // question that only needs aggregates.
 
 /** Bumped when the digest SHAPE changes. Distinct from the extractor version, which is about inputs. */
-export const DIGEST_VERSION = 1;
+// ⛔ BUMPED 1 -> 2 WHEN SYMBOL IDENTITY CHANGED. A v1 digest keyed symbols by qname alone, so it
+// cannot be compared to a v2 one — the same symbol has a different name in each. `computeDelta`
+// already refuses across versions, and that refusal is the correct outcome here rather than a
+// regression: the alternative is a comparison that silently reports every symbol as removed and
+// re-added.
+export const DIGEST_VERSION = 2;
 
-/** One edge key. `>` cannot appear in a qualified name, so this is unambiguous and sorts stably. */
-const edgeKey = (from, to) => `${from}>${to}`;
+// ⛔ A QNAME IS NOT AN IDENTITY. The same qname occurs in several files — an overload, a declaration
+// and its definition, the same method name in two modules — and keying on it alone merged those into
+// one symbol carrying whichever file came first, then credited every edge to it. Identity is the
+// qname AND where it lives.
+//
+// ⛔ AND THE SEPARATORS CANNOT BE CHARACTERS A NAME MAY CONTAIN. The previous edge key was
+// `${from}>${to}` and its reader did `split('>')`. This product targets C++, where
+// `std::vector<int>::push_back` contains `>` — so that split returned the wrong halves for every
+// templated symbol and the lookup missed. No JavaScript fixture in this repository could show it,
+// which is precisely why it survived. NUL and SOH cannot appear in a qname or a path.
+const KEY_SEP = '\u0000';
+const EDGE_SEP = '\u0001';
+
+/** The identity of one symbol in a digest: what it is called AND where it lives. */
+export const symbolKey = (qname, file) => `${qname}${KEY_SEP}${file ?? ''}`;
+
+// The relation belongs in the key. Without it a CALLS and a REFERENCES between one pair collapsed
+// to a single edge while fanIn counted both, so the digest disagreed with itself.
+const edgeKey = (from, to, relation) => `${from}${EDGE_SEP}${to}${EDGE_SEP}${relation ?? ''}`;
 
 /**
  * Build a digest from one graph observation.
@@ -29,7 +52,8 @@ const edgeKey = (from, to) => `${from}>${to}`;
  * @param {string}   args.commit            the commit this graph was built from
  * @param {string}   args.extractorVersion  which extractor produced it — see computeDelta's refusal
  * @param {Array}    args.symbols           [{ qname, file, layer }]
- * @param {Array}    args.edges             [{ from, to }] — qnames, both ends must be in `symbols`
+ * @param {Array}    args.edges             [{ from, to, relation }] — `from`/`to` are `symbolKey`
+ *                                          values; both ends must be in `symbols`
  * @returns {object} the digest, deterministic for a given graph regardless of input order
  */
 export function buildDigest({ commit, extractorVersion, symbols = [], edges = [] }) {
@@ -40,11 +64,13 @@ export function buildDigest({ commit, extractorVersion, symbols = [], edges = []
 
   const table = {};
   for (const { qname, file, layer } of symbols) {
-    table[qname] = { file, layer: layer ?? null, fanIn: 0, fanOut: 0 };
+    // The qname is kept as a FIELD as well as part of the key: a reader still wants the name, and
+    // deriving it back out of the key would mean parsing a separator in two places.
+    table[symbolKey(qname, file)] = { qname, file, layer: layer ?? null, fanIn: 0, fanOut: 0 };
   }
 
   const keys = [];
-  for (const { from, to } of edges) {
+  for (const { from, to, relation } of edges) {
     // ⛔ A DANGLING EDGE IS REFUSED, NOT COUNTED. Counting it would inflate fan-in for a symbol
     // nobody can look up, and that inflation reads as GROWTH on the next delta — a fabricated drift
     // signal, which is worse than a missing one because it invites action.
@@ -52,14 +78,14 @@ export function buildDigest({ commit, extractorVersion, symbols = [], edges = []
     if (!table[to]) throw new TypeError(`buildDigest: edge names unknown target symbol "${to}"`);
     table[from].fanOut += 1;
     table[to].fanIn += 1;
-    keys.push(edgeKey(from, to));
+    keys.push(edgeKey(from, to, relation));
   }
 
   // ⭐ SORTED, BECAUSE A DELTA COMPARES DIGESTS ACROSS RUNS. If extraction order leaked into the
   // digest, every comparison would report churn that never happened and the drift signal would be
   // indistinguishable from noise.
   const ordered = {};
-  for (const qname of Object.keys(table).sort()) ordered[qname] = table[qname];
+  for (const key of Object.keys(table).sort()) ordered[key] = table[key];
 
   return {
     digestVersion: DIGEST_VERSION,
@@ -114,13 +140,15 @@ export function computeDelta(before, after) {
   // Fan-in movement is reported for every symbol present in EITHER digest, so a symbol that appeared
   // this commit shows its arrival (0 to N) rather than being silently skipped for lacking a before.
   const fanInMoved = [];
-  for (const qname of [...new Set([...beforeNames, ...afterNames])].sort()) {
-    const from = before.symbols[qname]?.fanIn ?? 0;
-    const to = after.symbols[qname]?.fanIn ?? 0;
+  for (const key of [...new Set([...beforeNames, ...afterNames])].sort()) {
+    const entry = after.symbols[key] ?? before.symbols[key];
+    const from = before.symbols[key]?.fanIn ?? 0;
+    const to = after.symbols[key]?.fanIn ?? 0;
     if (from === to) continue;
     // ⭐ DIRECTION, NOT LEVEL. A snapshot cannot say whether fan-in 200 is a problem — it might be a
     // logger. "12 to 200" is the information nothing else holds.
-    fanInMoved.push({ qname, from, to, delta: to - from, direction: to > from ? 'grew' : 'shrank' });
+    fanInMoved.push({ key, qname: entry?.qname ?? key, file: entry?.file ?? null,
+      from, to, delta: to - from, direction: to > from ? 'grew' : 'shrank' });
   }
 
   // ⭐ THE SHAPE SIGNAL. A new edge that crosses a layer boundary is the class of change with no
@@ -142,7 +170,7 @@ export function computeDelta(before, after) {
   const newCrossLayerEdges = [];
   for (const key of after.edgeKeys) {
     if (beforeEdges.has(key)) continue;
-    const [from, to] = key.split('>');
+    const [from, to] = key.split(EDGE_SEP);
     const fromLayer = after.symbols[from]?.layer ?? null;
     const toLayer = after.symbols[to]?.layer ?? null;
     // Unknown layers are not a crossing. An absent layer is missing information, and treating it as
@@ -154,8 +182,13 @@ export function computeDelta(before, after) {
   return {
     comparable: true,
     refusal: null,
-    symbolsAdded: afterNames.filter((n) => !beforeSet.has(n)).sort(),
-    symbolsRemoved: beforeNames.filter((n) => !afterSet.has(n)).sort(),
+    // ⛔ IDENTITY, BUT READABLE. The key carries a separator no reader should ever see, so the
+    // arrivals and departures are reported as the pair that identifies them. A bare key would push
+    // control characters into the dashboard and into every /api/delta response.
+    symbolsAdded: afterNames.filter((n) => !beforeSet.has(n)).sort()
+      .map((k) => ({ qname: after.symbols[k].qname, file: after.symbols[k].file })),
+    symbolsRemoved: beforeNames.filter((n) => !afterSet.has(n)).sort()
+      .map((k) => ({ qname: before.symbols[k].qname, file: before.symbols[k].file })),
     edgesAdded: after.edgeKeys.filter((k) => !beforeEdges.has(k)),
     edgesRemoved: before.edgeKeys.filter((k) => !afterEdges.has(k)),
     fanInMoved,

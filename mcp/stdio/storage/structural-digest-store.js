@@ -10,7 +10,7 @@
 // replace-on-write: `structural_fingerprints` is keyed by file_path and re-extracting REPLACES the
 // row, `graph_generation` is CHECK (id = 1). That is why "how did the shape change" was unanswerable
 // before this existed.
-import { buildDigest } from './structural-digest.mjs';
+import { buildDigest, symbolKey } from './structural-digest.mjs';
 
 // Keyed by commit: a commit names one graph state, so re-indexing it is an idempotent overwrite
 // rather than a second history entry. `digest_json` is stored verbatim because a delta compares
@@ -144,38 +144,43 @@ export function captureStructuralDigest(db, { commit, extractorVersion, layerOf 
 
   // Keyed by node id: edges reference ids, and two symbols can share a qname. Resolving through the
   // id keeps the fan-in on the symbol the edge actually pointed at.
+  // ⛔ IDENTITY IS THE NAME AND THE FILE, NEVER THE NAME ALONE. Resolving through the node id to a
+  // bare qname merged every symbol that shares a name — an overload, a declaration and its
+  // definition in another file, the same method in two modules — into ONE entry carrying whichever
+  // file arrived first, and then credited that entry with edges aimed at the others.
   const byId = new Map();
   const symbols = [];
+  const known = new Set();
   for (const r of nodeRows) {
     const qname = r.qname || r.label;
-    if (!qname || byId.has(r.id)) continue;
-    byId.set(r.id, qname);
+    if (!qname) continue;
+    const key = symbolKey(qname, r.file_path);
+    // Every id maps to its key, including ids that share one: two rows for the same name in the
+    // same file ARE the same symbol, and their edges belong together.
+    byId.set(r.id, key);
+    if (known.has(key)) continue;
+    known.add(key);
     symbols.push({ qname, file: r.file_path, layer: layerOf(r.file_path) });
   }
 
   // Only edges whose BOTH ends are symbols in this digest. A dangling edge is refused by buildDigest
   // rather than counted, because counting it inflates fan-in for a symbol nobody can look up and the
   // inflation then reads as growth on the next delta.
+  // ⛔ AND THE RELATION IS PART OF THE EDGE. `SELECT from_id, to_id` dropped it, so a CALLS and a
+  // REFERENCES between one pair became indistinguishable — they collapsed to a single key while
+  // fan-in counted both, and the digest disagreed with itself about how many edges it held.
   const edges = [];
-  const seenQname = new Set(symbols.map((s) => s.qname));
-  for (const e of many(db, 'SELECT from_id, to_id FROM edges')) {
+  for (const e of many(db, 'SELECT from_id, to_id, relation FROM edges')) {
     const from = byId.get(e.from_id);
     const to = byId.get(e.to_id);
-    if (!from || !to || !seenQname.has(from) || !seenQname.has(to)) continue;
-    edges.push({ from, to });
+    if (!from || !to || !known.has(from) || !known.has(to)) continue;
+    edges.push({ from, to, relation: e.relation });
   }
 
-  // Duplicate qnames would make buildDigest's symbol table lossy, so collapse to the first occurrence
-  // and let identity repair (M1a/M1b) be the thing that keeps qnames distinct.
-  const unique = [];
-  const seen = new Set();
-  for (const s of symbols) {
-    if (seen.has(s.qname)) continue;
-    seen.add(s.qname);
-    unique.push(s);
-  }
-
-  const digest = buildDigest({ commit, extractorVersion, symbols: unique, edges });
+  // ⛔ THE COLLAPSE-BY-QNAME PASS IS GONE, NOT RELOCATED. It existed because buildDigest's table was
+  // keyed by qname and duplicates made it lossy; the table is now keyed by identity, so there is
+  // nothing to collapse and the symbols that were being discarded are the ones the delta needs.
+  const digest = buildDigest({ commit, extractorVersion, symbols, edges });
   writeStructuralDigest(db, digest, createdAt ? { createdAt } : undefined);
   return digest;
 }

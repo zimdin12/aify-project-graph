@@ -16,7 +16,7 @@ import { ensurePublicationTables } from '../../../mcp/stdio/storage/publication-
 import {
   writeStructuralDigest, readStructuralDigest, listDigestCommits, DIGEST_RETENTION,
 } from '../../../mcp/stdio/storage/structural-digest-store.js';
-import { buildDigest } from '../../../mcp/stdio/storage/structural-digest.mjs';
+import { buildDigest, symbolKey } from '../../../mcp/stdio/storage/structural-digest.mjs';
 
 const read = (rel) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
 
@@ -27,7 +27,7 @@ const digestFor = (commit, over = {}) => buildDigest({
     { qname: 'render', file: 'ui/render.js', layer: 'ui' },
     { qname: 'load', file: 'data/load.js', layer: 'data' },
   ],
-  edges: [{ from: 'render', to: 'load' }],
+  edges: [{ from: symbolKey('render', 'ui/render.js'), to: symbolKey('load', 'data/load.js'), relation: 'CALLS' }],
   ...over,
 });
 

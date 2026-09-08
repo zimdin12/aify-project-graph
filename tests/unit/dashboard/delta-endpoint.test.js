@@ -23,7 +23,7 @@ import { openDb } from '../../../mcp/stdio/storage/db.js';
 import { startDashboard } from '../../../mcp/stdio/dashboard/server.js';
 import { ensurePublicationTables } from '../../../mcp/stdio/storage/publication-schema.js';
 import { writeStructuralDigest } from '../../../mcp/stdio/storage/structural-digest-store.js';
-import { buildDigest } from '../../../mcp/stdio/storage/structural-digest.mjs';
+import { buildDigest, symbolKey } from '../../../mcp/stdio/storage/structural-digest.mjs';
 
 const SHA = (c) => c.repeat(40);
 
@@ -35,7 +35,7 @@ const digestFor = (commit, extra = []) => buildDigest({
     { qname: 'load', file: 'data/load.js', layer: 'data' },
     ...extra,
   ],
-  edges: [{ from: 'render', to: 'load' }],
+  edges: [{ from: symbolKey('render', 'ui/render.js'), to: symbolKey('load', 'data/load.js'), relation: 'CALLS' }],
 });
 
 let dir;
@@ -74,7 +74,7 @@ describe('the dashboard can answer what changed, not only what is there', () => 
     expect(body.available).toBe(true);
     expect(body.fromCommit).toBe(SHA('a'));
     expect(body.toCommit).toBe(SHA('b'));
-    expect(body.delta.symbolsAdded).toEqual(['log']);
+    expect(body.delta.symbolsAdded).toEqual([{ qname: 'log', file: 'util/log.js' }]);
   });
 
   it('★★★ NO HISTORY IS SAID PLAINLY, never rendered as "nothing changed"', async () => {

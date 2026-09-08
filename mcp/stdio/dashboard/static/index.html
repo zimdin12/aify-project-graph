@@ -1014,7 +1014,13 @@
 
       const d = res.delta;
       const moved = (d.fanInMoved || []).slice(0, 12).map(function (m) {
-        return '<div class="field"><code>' + tourEsc(m.qname) + '</code> callers ' + m.from + ' → ' + m.to + ' (' + tourEsc(m.direction) + ')</div>';
+        // ⛔ "callers" WAS THE WRONG NOUN. This counts INBOUND EDGES OF EVERY EXECUTION RELATION —
+        // a REFERENCES arrives here exactly like a CALLS — so labelling it "callers" states a
+        // narrower and stronger fact than the digest holds. The file is shown because two symbols
+        // can share a name, and until recently this number merged them.
+        return '<div class="field"><code>' + tourEsc(m.qname) + '</code>'
+          + (m.file ? ' <span class="subtle">' + tourEsc(m.file) + '</span>' : '')
+          + ' fan-in ' + m.from + ' → ' + m.to + ' (' + tourEsc(m.direction) + ')</div>';
       }).join('');
       // ⛔ null is NOT an empty list here. computeDelta returns null when no symbol carries a layer,
       // which means the crossing question was never answerable — and on a page "none found" and
