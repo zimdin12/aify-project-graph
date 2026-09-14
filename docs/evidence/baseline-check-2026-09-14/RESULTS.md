@@ -1,24 +1,40 @@
-# Results: APG added nothing to grep and reading on two real change briefs
+# Results: APG query results added nothing to grep and reading on two real change briefs
 
 Graded 2026-09-14 against the protocol in `PROTOCOL.md` (commits 1467db0e, addendum 166893aa), before
 any of this was written. Sealed files re-checked after the runs: every hash in `manifest.sha256` still
 matches, both corpora have a clean git status, and the baseline clone has no `.aify-graph`.
 
-## Verdict under the registered rule
+## The registered result
 
-**Abandon incremental APG integration.** Freeze standalone APG where it is, and keep dashboard knowledge
-independent of it.
+**The abandon rule did not fire.** Criterion 2 passed for task A as registered.
 
 - **Criterion 1, an extra correct fact traceable to an APG result:** not met in either task. Three of
   the four APG-route runs never called APG. The fourth made one call, and it returned a wrong zero (below).
 - **Criterion 2, at least 25% fewer operations at equal quality:**
-  - Task B: not met (6%).
-  - Task A: met **by the letter** (30% fewer tool calls, 21 against 30), and I am **overriding that
-    letter**. Neither APG-route run on task A called APG, so the saving cannot be APG's. Counting the
-    programs chained inside those calls, the gap is 3% (54.5 against 56). The rule should have
-    required attribution for this criterion as it does for the first, and did not. That hole is mine.
-    The decision is recorded here as a judgement over the literal text, so anyone can disagree with it.
+  - Task A: **met** (tool calls 21 against 30, 30% fewer; required facts 4/4 in all four runs; no
+    forbidden claims).
+  - Task B: not met (24.5 against 26, 6%).
 - **Forbidden claims from an APG result:** none.
+
+## The investment judgement, separate from the registered result
+
+**Freeze incremental APG integration.** Keep standalone APG where it is, and keep dashboard knowledge
+independent of it. This is a funding decision made on top of the registered result, not something the
+rule produced. It was corrected on review by graph-senior-dev, who proposed the rule; an earlier wording
+of this file presented it as the rule's verdict.
+
+- **Task A's operation difference is unattributed to APG query use.** Neither APG-route run on task A
+  called APG, so no APG result produced it.
+- **The count of programs chained inside those calls is supplementary, not a replacement endpoint.**
+  It differs by 3% (54.5 against 56), which is consistent with the tool-call gap being a difference in
+  how runners batched commands. It does not replace the registered measure.
+- **Zero APG calls does not rule out an effect of offering APG.** It excludes a mechanism running
+  through APG query results. It does not logically exclude an effect of the changed prompt or tool
+  list, and these runs cannot identify one either way. A future protocol should separate the benefit of
+  the offered bundle from the benefit traceable to query use before measuring. This one did not; that
+  hole is mine.
+- **This is not a failure of every map job.** No overlay existed, so the curated-knowledge join was not
+  tested (see limits below). The grep-and-read success is also no reason to make Graft mandatory.
 
 ## What happened
 
