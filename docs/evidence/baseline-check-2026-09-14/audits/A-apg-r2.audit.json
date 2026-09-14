@@ -1,0 +1,12 @@
+{
+ "route": "apg",
+ "toolCalls": 24,
+ "ops": 24,
+ "byKind": {
+  "shell": 24
+ },
+ "wallSeconds": 163,
+ "selfReportedOps": "24",
+ "outsideCorpus": [],
+ "apgCalls": []
+}

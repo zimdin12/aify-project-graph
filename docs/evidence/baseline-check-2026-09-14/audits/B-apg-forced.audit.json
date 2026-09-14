@@ -1,0 +1,22 @@
+{
+ "route": "apg",
+ "toolCalls": 24,
+ "ops": 23,
+ "byKind": {
+  "toolsearch": 1,
+  "apg": 6,
+  "shell": 16,
+  "read": 1
+ },
+ "wallSeconds": 170,
+ "selfReportedOps": "23",
+ "outsideCorpus": [],
+ "apgCalls": [
+  "graph_health {} -> 8502 chars",
+  "graph_search {\"query\":\"spawn env\",\"kind\":\"code\",\"limit\":30} -> 6578 chars",
+  "graph_consequences {\"target\":\"terminalChildEnv\"} -> 5827 chars",
+  "graph_callers {\"symbol\":\"terminalChildEnv\",\"top_k\":20} -> 3156 chars",
+  "graph_callers {\"symbol\":\"managed_launch_env\",\"top_k\":20} -> 5017 chars",
+  "code_intel_references {\"file\":\"mcp/stdio/child-env-hygiene.mjs\",\"line\":72,\"col\":17,\"waitForReadyMs\":20000,\"warmupFiles\":[\"mcp/stdio/terminal-env.js\",\"mcp/stdio/se -> 8998 chars"
+ ]
+}

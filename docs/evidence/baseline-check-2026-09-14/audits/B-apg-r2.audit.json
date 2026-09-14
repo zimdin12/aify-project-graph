@@ -1,0 +1,16 @@
+{
+ "route": "apg",
+ "toolCalls": 22,
+ "ops": 21,
+ "byKind": {
+  "shell": 20,
+  "toolsearch": 1,
+  "apg": 1
+ },
+ "wallSeconds": 148,
+ "selfReportedOps": "22",
+ "outsideCorpus": [],
+ "apgCalls": [
+  "graph_callers {\"symbol\":\"terminalChildEnv\",\"top_k\":30} -> 3156 chars"
+ ]
+}

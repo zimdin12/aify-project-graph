@@ -1,0 +1,13 @@
+{
+ "route": "baseline",
+ "toolCalls": 24,
+ "ops": 24,
+ "byKind": {
+  "shell": 22,
+  "read": 2
+ },
+ "wallSeconds": 202,
+ "selfReportedOps": "24",
+ "outsideCorpus": [],
+ "apgCalls": []
+}

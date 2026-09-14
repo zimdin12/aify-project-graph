@@ -1,0 +1,20 @@
+{
+ "route": "apg",
+ "toolCalls": 29,
+ "ops": 28,
+ "byKind": {
+  "toolsearch": 1,
+  "apg": 4,
+  "shell": 22,
+  "read": 2
+ },
+ "wallSeconds": 193,
+ "selfReportedOps": "29",
+ "outsideCorpus": [],
+ "apgCalls": [
+  "graph_health {} -> 8502 chars",
+  "graph_search {\"query\":\"placeholder session handle\"} -> 3308 chars",
+  "graph_consequences {\"target\":\"normalize_session_handle\"} -> 7831 chars",
+  "code_intel_references {\"file\":\"mcp/stdio/adapters/base.js\",\"line\":71,\"col\":3,\"waitForReadyMs\":20000,\"warmupFiles\":[\"mcp/stdio/adapters/hermes.js\",\"mcp/stdio/adapt -> 4796 chars"
+ ]
+}
