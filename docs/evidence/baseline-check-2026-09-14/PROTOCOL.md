@@ -97,3 +97,24 @@ the integration it demonstrated, never engine expansion.
   exercised. This measures APG as a code map, not as a curated-knowledge carrier.
 - Task B's outside-the-corpus context (aify-env's launch merge) is not graded; the routes are told not
   to leave the corpus.
+
+## Addendum, 2026-09-14 ~18:45, written after run 1 and before run 2 was graded
+
+**What run 1 showed, as tool counts only (no brief has been graded yet, though the four run-1 briefs were read as they arrived):** both APG-route runners made
+ZERO APG calls and never loaded the tools; one called the language server once. Every other call in all
+four runs was a shell command. Transcript audit: `runs/*-r1.audit.json` in the study dir.
+
+That means the registered rule can only return "no gain traceable to APG" for any run that does not call
+APG. The rule stands unchanged and decides. Run 2 was launched as registered.
+
+**One exploratory arm is added, and it does not enter the decision.** It separates "APG was not used"
+from "APG, used, adds nothing". One run per task, `apg-forced`: the APG prompt plus a clause requiring
+graph_health first, then the fitting APG verb for each section before shell verification, with facts
+that first came from an APG result marked `[APG]`. Same corpus, budget and oracle. Read as: which
+`[APG]` facts are correct, which are wrong, and which of the correct ones appear in neither baseline run
+of that task. Hashes:
+
+```
+15b900282333218f7ef99a6238e9bb686165a72e91684f16bc7d9656a9ba9dea  tasks/rendered/a-apg-forced.txt
+8ee408b02382715294c10c2750c89dfa33f5ccd6a891be8f1cd5d9eed8fa6702  tasks/rendered/b-apg-forced.txt
+```
