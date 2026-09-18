@@ -1,0 +1,5 @@
+A-C2 code refs HEAD ()
+A-C2 code refs pre ('mcp/stdio/terminal-control-loop.mjs',)
+A-C4 code refs HEAD ('install.sh',)
+A-C4 code refs pre ('install.sh', 'mcp/stdio/terminal-control-loop.mjs')
+A-pos live symbol managed_launch_env code refs ('service/routers/terminals.py',)

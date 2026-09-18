@@ -1,0 +1,223 @@
+{
+ "grades": {
+  "5": [
+   "TRUE",
+   "roadmap Phase gates, present tense: TerminalProcessManager.start() 'now delegates' via _handleExit; code deleted, no history marker"
+  ],
+  "6": [
+   "TRUE",
+   "roadmap says delegation 'is still OFF, because isEnabled() needs...'; isEnabled and the flag are gone"
+  ],
+  "11": [
+   "FALSE",
+   "PHASE8_STATUS.md opens with 'THE CODE BELOW WAS DELETED ... read them as history'"
+  ],
+  "12": [
+   "FALSE",
+   "PHASE8_STATUS.md opens with 'THE CODE BELOW WAS DELETED ... read them as history'"
+  ],
+  "14": [
+   "FALSE",
+   "PHASE8_STATUS.md opens with 'THE CODE BELOW WAS DELETED ... read them as history'"
+  ],
+  "15": [
+   "FALSE",
+   "PHASE8_STATUS.md opens with 'THE CODE BELOW WAS DELETED ... read them as history'"
+  ],
+  "17": [
+   "FALSE",
+   "PHASE8_STATUS.md opens with 'THE CODE BELOW WAS DELETED ... read them as history'"
+  ],
+  "19": [
+   "FALSE",
+   "PHASE8_STATUS.md opens with 'THE CODE BELOW WAS DELETED ... read them as history'"
+  ],
+  "20": [
+   "FALSE",
+   "PHASE8_STATUS.md opens with 'THE CODE BELOW WAS DELETED ... read them as history'"
+  ],
+  "21": [
+   "FALSE",
+   "PHASE8_STATUS.md opens with 'THE CODE BELOW WAS DELETED ... read them as history'"
+  ],
+  "22": [
+   "FALSE",
+   "PHASE8_STATUS.md opens with 'THE CODE BELOW WAS DELETED ... read them as history'"
+  ],
+  "23": [
+   "FALSE",
+   "PHASE8_STATUS.md opens with 'THE CODE BELOW WAS DELETED ... read them as history'"
+  ],
+  "24": [
+   "FALSE",
+   "PHASE8_STATUS.md opens with 'THE CODE BELOW WAS DELETED ... read them as history'"
+  ],
+  "26": [
+   "FALSE",
+   "PHASE8_STATUS.md opens with 'THE CODE BELOW WAS DELETED ... read them as history'"
+  ],
+  "27": [
+   "FALSE",
+   "PHASE8_STATUS.md opens with 'THE CODE BELOW WAS DELETED ... read them as history'"
+  ],
+  "29": [
+   "FALSE",
+   "PHASE8_STATUS.md opens with 'THE CODE BELOW WAS DELETED ... read them as history'"
+  ],
+  "30": [
+   "FALSE",
+   "PHASE8_STATUS.md opens with 'THE CODE BELOW WAS DELETED ... read them as history'"
+  ],
+  "31": [
+   "FALSE",
+   "PHASE8_STATUS.md opens with 'THE CODE BELOW WAS DELETED ... read them as history'"
+  ],
+  "33": [
+   "FALSE",
+   "PHASE8_STATUS.md opens with 'THE CODE BELOW WAS DELETED ... read them as history'"
+  ],
+  "34": [
+   "FALSE",
+   "PHASE8_STATUS.md opens with 'THE CODE BELOW WAS DELETED ... read them as history'"
+  ],
+  "35": [
+   "FALSE",
+   "PHASE8_STATUS.md opens with 'THE CODE BELOW WAS DELETED ... read them as history'"
+  ],
+  "37": [
+   "FALSE",
+   "PHASE8_STATUS.md opens with 'THE CODE BELOW WAS DELETED ... read them as history'"
+  ],
+  "39": [
+   "FALSE",
+   "PHASE8_STATUS.md opens with 'THE CODE BELOW WAS DELETED ... read them as history'"
+  ],
+  "40": [
+   "FALSE",
+   "PHASE8_STATUS.md opens with 'THE CODE BELOW WAS DELETED ... read them as history'"
+  ],
+  "41": [
+   "FALSE",
+   "PHASE8_STATUS.md opens with 'THE CODE BELOW WAS DELETED ... read them as history'"
+  ],
+  "42": [
+   "FALSE",
+   "PHASE8_STATUS.md opens with 'THE CODE BELOW WAS DELETED ... read them as history'"
+  ],
+  "43": [
+   "FALSE",
+   "DETECTOR MISS: _invalidate_agent_live_state is an import alias used in production; claim still accurate"
+  ],
+  "44": [
+   "TRUE",
+   "says TURN_BUSY_STALE_SECONDS serves _is_turn_busy_fresh; that function was deleted as dead code (V0.2 C3)"
+  ],
+  "45": [
+   "UNCLEAR",
+   "isNoteworthyDeliveryRun gone with the old dashboard; could not confirm whether the gating behaviour survives elsewhere"
+  ],
+  "47": [
+   "TRUE",
+   "'wrapper + bridge startPty' reaps prior instances; the bridge startPty path is deleted"
+  ],
+  "48": [
+   "FALSE",
+   "section is headed 'Superseded fallback'"
+  ],
+  "50": [
+   "FALSE",
+   "section is headed 'Superseded fallback'"
+  ],
+  "51": [
+   "FALSE",
+   "section is headed 'Superseded fallback'"
+  ],
+  "55": [
+   "TRUE",
+   "decision names claude_managed_channel_only (default false) and _apply_channel_only_to_claude_runs; setting renamed with INVERTED polarity (settings.py:135), function gone"
+  ],
+  "56": [
+   "TRUE",
+   "says the pi RPC child is spawned by createPiController with AIFY_BRIDGE_DISABLED; createPiController no longer exists"
+  ],
+  "57": [
+   "TRUE",
+   "'Resident pi keeps the legacy per-dispatch createPiControllerLegacy path'; gone"
+  ],
+  "58": [
+   "TRUE",
+   "supersession note says delivery discovers the session via pickSessionForKey; it has no production caller"
+  ],
+  "63": [
+   "FALSE",
+   "names service/runtimes/codex.py discover as the thing the wrapper MIRRORS, not as a caller; still accurate"
+  ],
+  "64": [
+   "TRUE",
+   "says the server's 120s TURN_BUSY_STALE_SECONDS window closes turn_busy; it stopped being a delivery window (DECISIONS 2026-07-26)"
+  ],
+  "68": [
+   "FALSE",
+   "past tense historical explanation ('was in fact already dead - stateFor omitted agentId')"
+  ],
+  "69": [
+   "FALSE",
+   "DETECTOR MISS: _environment_effective_status is an import alias used in production"
+  ],
+  "71": [
+   "TRUE",
+   "K1: terminalChildEnv described as the live composer; no production caller since 779099d7"
+  ],
+  "75": [
+   "FALSE",
+   "dated audit record in past tense ('added an in-code guard')"
+  ],
+  "76": [
+   "TRUE",
+   "open finding says JS workspaceWithinRoots in server.js fails open; the JS is gone and service/api_core/workspace.py records the fix"
+  ],
+  "77": [
+   "TRUE",
+   "open limitation about terminal-runtime.js consoleKeepalive; the file is deleted"
+  ],
+  "78": [
+   "TRUE",
+   "same open limitation, _armConsoleKeepalive; gone"
+  ],
+  "80": [
+   "FALSE",
+   "section is 'Resolved 2026-06-04'"
+  ],
+  "82": [
+   "TRUE",
+   "watch-item in present tense names claude-console-spinner.js as matching the TUI; file deleted"
+  ],
+  "84": [
+   "UNCLEAR",
+   "run_codex_foreground lives in the aify-wrapper package, outside this corpus; cannot verify"
+  ]
+ },
+ "summary": {
+  "registered": {
+   "n": 30,
+   "true": 8,
+   "unclear": 1,
+   "false": 21,
+   "precision": 0.267
+  },
+  "amended": {
+   "n": 30,
+   "true": 8,
+   "unclear": 2,
+   "false": 20,
+   "precision": 0.267
+  },
+  "all_49": {
+   "true": 14,
+   "false": 33,
+   "unclear": 2
+  },
+  "false_from_history_marked_notes": 30,
+  "false_from_detector_misses": 2
+ }
+}

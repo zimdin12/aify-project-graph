@@ -1,0 +1,23 @@
+{
+ "docs": 31,
+ "notes": 494,
+ "notes_with_anchors": 323,
+ "anchors": 1745,
+ "path_anchors": 520,
+ "symbol_anchors": 1225,
+ "flags": 87,
+ "notes_flagged_registered": 41,
+ "notes_flagged_amended": 43,
+ "by_rule": {
+  "S1": 18,
+  "S2": 58,
+  "S3": 4,
+  "S4": 0
+ },
+ "by_rule_a": {
+  "S1": 18,
+  "S2": 58,
+  "S3a": 8,
+  "S4a": 2
+ }
+}
