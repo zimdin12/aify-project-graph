@@ -75,3 +75,23 @@ a confirmed-at date, a warning at commit time), not a general layer engine.
 
 **Also reported, not deciding:** the commit each flag's change landed in, which gives pings per commit
 if this ran at commit time.
+
+## Amendment A, 2026-09-18, before any output on the population
+
+Instrument controls on K1 (`raw/controls-registered.txt`) show the registered S3/S4 cannot fire on the
+motivating case. Whole-word grep counts COMMENTS as references: at HEAD `terminalChildEnv` is still
+"referenced" by comments in `mcp/stdio/runtimes.js` and `scripts/hermes-mcp-config.mjs`, and
+`terminal-env` by comments and docstrings in seven files. The definition regex passed its controls
+(finds `terminalChildEnv`, `managed_launch_env`, the method `normalizeSessionHandle`; finds nothing for a
+made-up name).
+
+The registered rules still run unchanged, and their result is reported and decided as registered.
+
+Added, before seeing any population output: **S3a / S4a**, the same rules with references counted only in
+code. JS `//` and `/* */` comments, Python `#` comments and triple-quoted strings, and shell `#` comments
+are stripped before the whole-word test. String literals in JS stay, because imports are strings.
+
+Honesty about this variant: K1-K3 passing under S3a/S4a is NOT evidence, because the amendment was made
+knowing they fail without it. For the amended variant only precision (criterion 2) and volume
+(criterion 3) are evidence. Its build/no-build reading uses criteria 2 and 3, with criterion 1 reported
+but discounted.
