@@ -16,9 +16,10 @@
 // covers what it cannot, and the slice reports BOTH numbers rather than one that implies the
 // corpus reaches something it does not.
 import { describe, it, expect, vi } from 'vitest';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { LIVE_BUDGET_MS, DEFAULT_LIVE_BUDGET_MS, withTimeout, enrichLive } from '../../../mcp/stdio/query/verbs/packet-live.js';
 
 describe('withTimeout', () => {
@@ -87,6 +88,31 @@ describe('enrichLive', () => {
     expect(typeof out.elapsed_ms, 'the cost is reported even on the failing path').toBe('number');
     await cleanup();
   }, 30_000);
+
+  it('★★★ a symbol that maps to a feature ENRICHES, and co_consumer_files arrives as a list', async () => {
+    // ⛔ THE CRASH THIS PINS: graph_consequences returns co_consumer_files as
+    // {items,total,truncated,limit}, and enrichLive called `.slice` on it. graph_packet live=true on
+    // any symbol mapped to a feature threw a TypeError instead of returning a packet (reproduced
+    // on this repo's own feature map, 2026-09-19). The only earlier test used a repo with no graph,
+    // so the parse path was never reached.
+    repo = await mkdtemp(join(tmpdir(), 'apg-live-enrich-'));
+    await mkdir(join(repo, 'src'), { recursive: true });
+    await mkdir(join(repo, '.aify-graph'), { recursive: true });
+    await writeFile(join(repo, 'src', 'a.js'), 'export function shared() { return 1; }\n');
+    await writeFile(join(repo, 'src', 'b.js'), "import { shared } from './a.js';\nexport function user() { return shared(); }\n");
+    await writeFile(join(repo, '.aify-graph', 'functionality.json'), JSON.stringify({ version: '0.2', features: [
+      { id: 'core', anchors: { symbols: ['shared'], files: ['src/a.js'] } },
+      { id: 'consumer', anchors: { symbols: ['user'], files: ['src/b.js', 'src/a.js'] } },
+    ] }));
+    const git = (...args) => execFileSync('git', ['-C', repo, ...args], { stdio: 'ignore', windowsHide: true });
+    git('init', '-q');
+    git('add', 'src');
+    git('-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'init');
+    const out = await enrichLive({ repoRoot: repo, target: 'shared', kind: 'symbol', value: 'shared', opts: {} });
+    expect(out.status, `enrichment must not fail: ${out.detail ?? ''}`).toBe('enriched');
+    expect(Array.isArray(out.co_consumer_files), 'the packet renders a LIST').toBe(true);
+    await cleanup();
+  }, 60_000);
 
   it('★★★ the budget is a NAMED constant, not a literal buried in a branch', async () => {
     // ⚠ It is referenced by both this island and the facade's budgeted symbol lookup. A second

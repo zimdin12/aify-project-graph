@@ -116,11 +116,18 @@ export async function enrichLive({ repoRoot, target, kind, value, opts }) {
 
   // Pull only the enrichment fields packet doesn't already have from
   // overlay. Keeps the LIVE block small.
+  //
+  // ⛔ co_consumer_files is {items,total,truncated,limit} (consequences.js), not a list. Calling
+  // `.slice` on it threw a TypeError out of graph_packet live=true for every symbol that maps to a
+  // feature. A bare list is still accepted, so an older producer does not break the other way.
+  const coConsumers = parsed.co_consumer_files;
+  const coConsumerList = Array.isArray(coConsumers) ? coConsumers
+    : (Array.isArray(coConsumers?.items) ? coConsumers.items : []);
   const enriched = {
     status: 'enriched',
     elapsed_ms: Date.now() - t0,
     last_touched: (parsed.last_touched ?? []).slice(0, 3).map((c) => `${c.sha} ${c.date} ${c.subject ?? ''}`),
-    co_consumer_files: (parsed.co_consumer_files ?? []).slice(0, opts.read_first ?? 3),
+    co_consumer_files: coConsumerList.slice(0, opts.read_first ?? 3),
   };
   return enriched;
 }
