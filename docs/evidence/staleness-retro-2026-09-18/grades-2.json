@@ -1,0 +1,159 @@
+{
+ "new_grades": {
+  "0": [
+   "FALSE",
+   "CLAUDE.md lesson narrating a past event; still accurate as a lesson"
+  ],
+  "1": [
+   "UNCLEAR",
+   "wrapper behaviour now lives in the aify-wrapper package, outside the corpus"
+  ],
+  "2": [
+   "TRUE",
+   "roadmap Phase gates present tense: startDelegated() mirrors startPty; deleted, no marker (comms added one at ca612584)"
+  ],
+  "3": [
+   "TRUE",
+   "same sentence, startPty deleted"
+  ],
+  "4": [
+   "TRUE",
+   "same sentence, _handleOutput deleted"
+  ],
+  "7": [
+   "UNCLEAR",
+   "plan risk-register row about terminal-runtime.js moving; prospective by nature"
+  ],
+  "46": [
+   "TRUE",
+   "decision says reap-managed-claude.js reaps prior instances on managed launch; nothing in code calls it now"
+  ],
+  "52": [
+   "FALSE",
+   "DETECTOR MISS: machineId is a live property in 171 files"
+  ],
+  "53": [
+   "TRUE",
+   "says managed codex dispatch goes through createCodexController; only comments remain"
+  ],
+  "54": [
+   "TRUE",
+   "says managed pi dispatch goes through createPiController; gone"
+  ],
+  "59": [
+   "FALSE",
+   "dated Plan 3 decision recording methods it added; console_command still defined, no claim it is called"
+  ],
+  "60": [
+   "FALSE",
+   "dated Plan 3 decision listing files it extracted; a record of the action"
+  ],
+  "61": [
+   "FALSE",
+   "same Plan 3 record"
+  ],
+  "62": [
+   "FALSE",
+   "past-tense narrative of an old wrapper gap"
+  ],
+  "65": [
+   "TRUE",
+   "present tense: 'A pure classifier (claude-console-spinner.js) recognizes it'; file deleted"
+  ],
+  "66": [
+   "TRUE",
+   "present tense: 'terminal-runtime.js tags state.consoleClass'; file deleted"
+  ],
+  "67": [
+   "FALSE",
+   "states pulseTerminalTurnBusy was retired; accurate"
+  ],
+  "70": [
+   "FALSE",
+   "DETECTOR MISS: import alias used in production"
+  ],
+  "72": [
+   "FALSE",
+   "item marked FIXED with a commit; accurate record"
+  ],
+  "73": [
+   "TRUE",
+   "watch-item says the server.js Stop path guards killByPid with orphanPidReapAllowed; both gone"
+  ],
+  "74": [
+   "FALSE",
+   "DETECTOR MISS: import alias used in production"
+  ],
+  "79": [
+   "TRUE",
+   "open limitation: 'decideConsolePulse now treats...'; the console pulse is deleted"
+  ],
+  "83": [
+   "TRUE",
+   "watch-item present tense: claude-console-prompts.js matches the TUI; file deleted"
+  ],
+  "86": [
+   "FALSE",
+   "generic word 'resume'; the note (do not reintroduce removed aliases) is accurate"
+  ]
+ },
+ "test2_grade_by_flag": {
+  "0": "FALSE",
+  "1": "UNCLEAR",
+  "2": "TRUE",
+  "3": "TRUE",
+  "4": "TRUE",
+  "5": "TRUE",
+  "6": "TRUE",
+  "7": "UNCLEAR",
+  "43": "FALSE",
+  "44": "TRUE",
+  "45": "UNCLEAR",
+  "46": "TRUE",
+  "47": "TRUE",
+  "52": "FALSE",
+  "53": "TRUE",
+  "54": "TRUE",
+  "55": "TRUE",
+  "56": "TRUE",
+  "57": "TRUE",
+  "59": "FALSE",
+  "60": "FALSE",
+  "61": "FALSE",
+  "62": "FALSE",
+  "64": "TRUE",
+  "65": "TRUE",
+  "66": "TRUE",
+  "67": "FALSE",
+  "68": "FALSE",
+  "69": "FALSE",
+  "70": "FALSE",
+  "71": "TRUE",
+  "72": "FALSE",
+  "73": "TRUE",
+  "74": "FALSE",
+  "75": "FALSE",
+  "76": "TRUE",
+  "77": "TRUE",
+  "78": "TRUE",
+  "79": "TRUE",
+  "82": "TRUE",
+  "83": "TRUE",
+  "84": "UNCLEAR",
+  "86": "FALSE"
+ },
+ "summary": {
+  "current_flags": 43,
+  "true": 24,
+  "unclear": 4,
+  "false": 15,
+  "precision": 0.558,
+  "known_true_14_survive": 13,
+  "recall_known": 0.929,
+  "current_notes_flagged": 27,
+  "anchored_notes": 323,
+  "volume": 0.084,
+  "history_flags_dropped": 43,
+  "false_detector_misses": 5
+ }
+}

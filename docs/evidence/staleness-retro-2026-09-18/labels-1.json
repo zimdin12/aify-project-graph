@@ -1,0 +1,990 @@
+{
+ "DECISIONS.md#0": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#1": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#2": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#3": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#4": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#5": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#6": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#7": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#8": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#9": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#10": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#11": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#12": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#13": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#14": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#15": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#16": {
+  "status": "history",
+  "reason": "Banner: SUPERSEDED 2026-06-18; details kept for history only"
+ },
+ "DECISIONS.md#17": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#18": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#19": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#20": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#21": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#22": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#23": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#24": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#25": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#26": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#27": {
+  "status": "history",
+  "reason": "Heading says superseded fallback"
+ },
+ "DECISIONS.md#28": {
+  "status": "history",
+  "reason": "Heading says superseded fallback"
+ },
+ "DECISIONS.md#29": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#30": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#31": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#32": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#33": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#34": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#35": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#36": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#37": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#38": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#39": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#40": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#41": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#42": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#43": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#44": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#45": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#46": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#47": {
+  "status": "history",
+  "reason": "Update banner: described toggle is gone"
+ },
+ "DECISIONS.md#48": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#49": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#50": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#51": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#52": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#53": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#54": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#55": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#56": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#57": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#58": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#59": {
+  "status": "history",
+  "reason": "Banner: superseded 2026-05-25, strict mode now opt-in"
+ },
+ "DECISIONS.md#60": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#61": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#62": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#63": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#64": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#65": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#66": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#67": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#68": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#69": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#70": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#71": {
+  "status": "history",
+  "reason": "Historical evolution note: records original split, model replaced"
+ },
+ "DECISIONS.md#72": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#73": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#74": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#75": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#76": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#77": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#78": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#79": {
+  "status": "history",
+  "reason": "Banner: superseded 2026-05-31; text preserved as original record"
+ },
+ "DECISIONS.md#80": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#81": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#82": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#83": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#84": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#85": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#86": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#87": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#88": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#89": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#90": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#91": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#92": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#93": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#94": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#95": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#96": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#97": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#98": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#99": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#100": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#101": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#102": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#103": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#104": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#105": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#106": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#107": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#108": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ "DECISIONS.md#109": {
+  "status": "current",
+  "reason": "Decision entry describing current behaviour, no superseded marker"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-delivery.md#0": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-delivery.md#1": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-delivery.md#2": {
+  "status": "history",
+  "reason": "Causes and fixes all landed 2026-05-31; resolved record"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-delivery.md#3": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-delivery.md#4": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-delivery.md#5": {
+  "status": "history",
+  "reason": "Fix shipped; bug narrated in past tense"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-delivery.md#6": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-delivery.md#7": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-delivery.md#8": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-delivery.md#9": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-delivery.md#10": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-delivery.md#11": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-delivery.md#12": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-delivery.md#13": {
+  "status": "history",
+  "reason": "Says already fixed in post-4dbb2e2 helper"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-delivery.md#14": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-delivery.md#15": {
+  "status": "history",
+  "reason": "Says already fixed in a4498a6"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-delivery.md#16": {
+  "status": "history",
+  "reason": "Says already fixed in a4498a6"
+ },
+ "docs/PHASE8_STATUS.md#0": {
+  "status": "history",
+  "reason": "Doc banner: code deleted 2026-09-04, read as history"
+ },
+ "docs/PHASE8_STATUS.md#1": {
+  "status": "history",
+  "reason": "Doc banner: code deleted 2026-09-04, read as history"
+ },
+ "docs/PHASE8_STATUS.md#2": {
+  "status": "history",
+  "reason": "Doc banner: code deleted 2026-09-04, read as history"
+ },
+ "docs/PHASE8_STATUS.md#3": {
+  "status": "history",
+  "reason": "Doc banner: code deleted 2026-09-04, read as history"
+ },
+ "docs/PHASE8_STATUS.md#4": {
+  "status": "history",
+  "reason": "Doc banner: code deleted 2026-09-04, read as history"
+ },
+ "docs/PHASE8_STATUS.md#5": {
+  "status": "history",
+  "reason": "Doc banner: code deleted 2026-09-04, read as history"
+ },
+ "docs/PHASE8_STATUS.md#6": {
+  "status": "history",
+  "reason": "Doc banner: code deleted 2026-09-04, read as history"
+ },
+ "docs/PHASE8_STATUS.md#7": {
+  "status": "history",
+  "reason": "Doc banner: code deleted 2026-09-04, read as history"
+ },
+ "docs/PHASE8_STATUS.md#8": {
+  "status": "history",
+  "reason": "Doc banner: code deleted 2026-09-04, read as history"
+ },
+ "docs/PHASE8_STATUS.md#9": {
+  "status": "history",
+  "reason": "Doc banner: code deleted 2026-09-04, read as history"
+ },
+ "docs/PHASE8_STATUS.md#10": {
+  "status": "history",
+  "reason": "Doc banner: code deleted 2026-09-04, read as history"
+ },
+ "docs/PHASE8_STATUS.md#11": {
+  "status": "history",
+  "reason": "Doc banner: code deleted 2026-09-04, read as history"
+ },
+ "docs/PHASE8_STATUS.md#12": {
+  "status": "history",
+  "reason": "Doc banner: code deleted 2026-09-04, read as history"
+ },
+ "docs/PHASE8_STATUS.md#13": {
+  "status": "history",
+  "reason": "Doc banner: code deleted 2026-09-04, read as history"
+ },
+ "docs/PHASE8_STATUS.md#14": {
+  "status": "history",
+  "reason": "Doc banner: code deleted 2026-09-04, read as history"
+ },
+ ".claude/skills/aify-comms/references/operations.md#0": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/operations.md#1": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/operations.md#2": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/operations.md#3": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/operations.md#4": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/operations.md#5": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/operations.md#6": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/operations.md#7": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/operations.md#8": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/operations.md#9": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/operations.md#10": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/operations.md#11": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/operations.md#12": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/operations.md#13": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-bridges.md#0": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-bridges.md#1": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-bridges.md#2": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-bridges.md#3": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-bridges.md#4": {
+  "status": "history",
+  "reason": "Fix shipped (71f2576); resolved bug record"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-bridges.md#5": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-bridges.md#6": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-bridges.md#7": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-bridges.md#8": {
+  "status": "history",
+  "reason": "Symptom marked fixed 2026-07-20"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-bridges.md#9": {
+  "status": "history",
+  "reason": "Cause marked fixed 2026-06-13"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-bridges.md#10": {
+  "status": "history",
+  "reason": "Cause marked fixed 9d81ea8, 2026-06-12"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-bridges.md#11": {
+  "status": "history",
+  "reason": "Cause marked fixed 9d81ea8, 2026-06-12"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-bridges.md#12": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-bridges.md#13": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/codex.md#0": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/codex.md#1": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/codex.md#2": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/codex.md#3": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/codex.md#4": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/codex.md#5": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/codex.md#6": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/codex.md#7": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/codex.md#8": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/codex.md#9": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/codex.md#10": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/codex.md#11": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/codex.md#12": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-launch.md#0": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-launch.md#1": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-launch.md#2": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-launch.md#3": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-launch.md#4": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-launch.md#5": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-launch.md#6": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-launch.md#7": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-launch.md#8": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-launch.md#9": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/dispatch-launch.md#10": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "docs/ARCHITECTURE.md#0": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "docs/ARCHITECTURE.md#1": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "docs/ARCHITECTURE.md#2": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "docs/ARCHITECTURE.md#3": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "docs/ARCHITECTURE.md#4": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "docs/ARCHITECTURE.md#5": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "docs/ARCHITECTURE.md#6": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "docs/ARCHITECTURE.md#7": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "docs/ARCHITECTURE.md#8": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "docs/ARCHITECTURE.md#9": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/hermes-turns.md#0": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/hermes-turns.md#1": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/hermes-turns.md#2": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/hermes-turns.md#3": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/hermes-turns.md#4": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/hermes-turns.md#5": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/hermes-turns.md#6": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/hermes-turns.md#7": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/hermes-turns.md#8": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/hermes-turns.md#9": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.opencode.md#0": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.opencode.md#1": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.opencode.md#2": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.opencode.md#3": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.opencode.md#4": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.opencode.md#5": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.opencode.md#6": {
+  "status": "history",
+  "reason": "Describes historical wrapper builds; path disabled"
+ },
+ "install.opencode.md#7": {
+  "status": "history",
+  "reason": "Retained only as record of previous intended shape"
+ },
+ "install.opencode.md#8": {
+  "status": "history",
+  "reason": "Heading: Historical MCP Example, not supported"
+ },
+ ".claude/skills/aify-comms-debug/references/pi.md#0": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/pi.md#1": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/pi.md#2": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/pi.md#3": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/pi.md#4": {
+  "status": "history",
+  "reason": "Says already fixed in commit 59c66ff"
+ },
+ ".claude/skills/aify-comms-debug/references/pi.md#5": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/pi.md#6": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/pi.md#7": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/dashboard-console.md#0": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/dashboard-console.md#1": {
+  "status": "history",
+  "reason": "All fixes in current builds; RESOLVED record"
+ },
+ ".claude/skills/aify-comms-debug/references/dashboard-console.md#2": {
+  "status": "history",
+  "reason": "Says already fixed in commit c1a1da1"
+ },
+ ".claude/skills/aify-comms-debug/references/dashboard-console.md#3": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/dashboard-console.md#4": {
+  "status": "history",
+  "reason": "Says already fixed in fd00c85"
+ },
+ ".claude/skills/aify-comms-debug/references/dashboard-console.md#5": {
+  "status": "history",
+  "reason": "Fixed 4a0bfb8; resolved cosmetic bug record"
+ },
+ ".claude/skills/aify-comms-debug/references/status-model.md#0": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/status-model.md#1": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/status-model.md#2": {
+  "status": "unclear",
+  "reason": "Current authority heading but bulk marked historical record"
+ },
+ ".claude/skills/aify-comms-debug/references/status-model.md#3": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/status-model.md#4": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/status-model.md#5": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/leading-a-team.md#0": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/leading-a-team.md#1": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/leading-a-team.md#2": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/leading-a-team.md#3": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ }
+}

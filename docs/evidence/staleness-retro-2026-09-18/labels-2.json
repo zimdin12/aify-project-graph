@@ -1,0 +1,990 @@
+{
+ "KNOWN_ISSUES.md#0": {
+  "status": "current",
+  "reason": "Living list of known limitations and deferred work"
+ },
+ "KNOWN_ISSUES.md#1": {
+  "status": "current",
+  "reason": "Logged, not fixed; open contract change"
+ },
+ "KNOWN_ISSUES.md#2": {
+  "status": "current",
+  "reason": "Not fixed; open design decision"
+ },
+ "KNOWN_ISSUES.md#3": {
+  "status": "current",
+  "reason": "Open question whether flap returned"
+ },
+ "KNOWN_ISSUES.md#4": {
+  "status": "current",
+  "reason": "Runtime half not fixed; open"
+ },
+ "KNOWN_ISSUES.md#5": {
+  "status": "current",
+  "reason": "Class not closed; open item"
+ },
+ "KNOWN_ISSUES.md#6": {
+  "status": "current",
+  "reason": "Left alone deliberately; open known limitation"
+ },
+ "KNOWN_ISSUES.md#7": {
+  "status": "current",
+  "reason": "Left unfixed; open gap"
+ },
+ "KNOWN_ISSUES.md#8": {
+  "status": "current",
+  "reason": "Needs a ruling; open item"
+ },
+ "KNOWN_ISSUES.md#9": {
+  "status": "current",
+  "reason": "Current by-design guidance plus carded open consumer"
+ },
+ "KNOWN_ISSUES.md#10": {
+  "status": "history",
+  "reason": "Heading says both restart paths now fixed"
+ },
+ "KNOWN_ISSUES.md#11": {
+  "status": "history",
+  "reason": "Heading marks the rotation-adoption bug FIXED"
+ },
+ "KNOWN_ISSUES.md#12": {
+  "status": "history",
+  "reason": "Heading marks orphaned-claim loss FIXED 2026-08-07"
+ },
+ "KNOWN_ISSUES.md#13": {
+  "status": "history",
+  "reason": "All three fixed and deployed; kept as a record"
+ },
+ "KNOWN_ISSUES.md#14": {
+  "status": "current",
+  "reason": "Planned, not started; open work"
+ },
+ "KNOWN_ISSUES.md#15": {
+  "status": "history",
+  "reason": "Heading says root-caused and fixed"
+ },
+ "KNOWN_ISSUES.md#16": {
+  "status": "current",
+  "reason": "Contains open watch item on weekly null"
+ },
+ "KNOWN_ISSUES.md#17": {
+  "status": "current",
+  "reason": "Open watch: suite red, untriaged"
+ },
+ "KNOWN_ISSUES.md#18": {
+  "status": "current",
+  "reason": "Open watch-items and backlog"
+ },
+ "KNOWN_ISSUES.md#19": {
+  "status": "current",
+  "reason": "Unfixed items from MCP-tool test"
+ },
+ "KNOWN_ISSUES.md#20": {
+  "status": "current",
+  "reason": "Deferred items and still-open operator decisions"
+ },
+ "KNOWN_ISSUES.md#21": {
+  "status": "current",
+  "reason": "Remaining low-severity backlog"
+ },
+ "KNOWN_ISSUES.md#22": {
+  "status": "current",
+  "reason": "Open watch-items"
+ },
+ "KNOWN_ISSUES.md#23": {
+  "status": "current",
+  "reason": "Deferred should-fix backlog"
+ },
+ "KNOWN_ISSUES.md#24": {
+  "status": "current",
+  "reason": "Section heading for current status topics"
+ },
+ "KNOWN_ISSUES.md#25": {
+  "status": "current",
+  "reason": "Operator reference for current status labels"
+ },
+ "KNOWN_ISSUES.md#26": {
+  "status": "current",
+  "reason": "Open limitations"
+ },
+ "KNOWN_ISSUES.md#27": {
+  "status": "current",
+  "reason": "Deferred items still open"
+ },
+ "KNOWN_ISSUES.md#28": {
+  "status": "current",
+  "reason": "Watch items"
+ },
+ "KNOWN_ISSUES.md#29": {
+  "status": "history",
+  "reason": "Heading: Resolved 2026-06-18"
+ },
+ "KNOWN_ISSUES.md#30": {
+  "status": "history",
+  "reason": "Heading: Resolved 2026-06-04"
+ },
+ "KNOWN_ISSUES.md#31": {
+  "status": "history",
+  "reason": "Heading: Resolved 2026-06-04"
+ },
+ "KNOWN_ISSUES.md#32": {
+  "status": "history",
+  "reason": "Heading: Resolved 2026-06-04"
+ },
+ "KNOWN_ISSUES.md#33": {
+  "status": "history",
+  "reason": "Heading: Resolved 2026-06-03"
+ },
+ "KNOWN_ISSUES.md#34": {
+  "status": "history",
+  "reason": "Heading: Resolved 2026-06-03"
+ },
+ "KNOWN_ISSUES.md#35": {
+  "status": "history",
+  "reason": "Heading: Resolved 2026-06-03"
+ },
+ "KNOWN_ISSUES.md#36": {
+  "status": "history",
+  "reason": "Heading: Resolved 2026-06-02"
+ },
+ "KNOWN_ISSUES.md#37": {
+  "status": "history",
+  "reason": "Heading: Resolved 2026-06-02"
+ },
+ "KNOWN_ISSUES.md#38": {
+  "status": "history",
+  "reason": "Heading: Resolved 2026-06-02"
+ },
+ "KNOWN_ISSUES.md#39": {
+  "status": "current",
+  "reason": "Design notes carried forward, current"
+ },
+ "KNOWN_ISSUES.md#40": {
+  "status": "current",
+  "reason": "Pre-existing open backlog"
+ },
+ "KNOWN_ISSUES.md#41": {
+  "status": "current",
+  "reason": "Open watch-items"
+ },
+ "KNOWN_ISSUES.md#42": {
+  "status": "current",
+  "reason": "Not fixed; open accessibility item"
+ },
+ "README.md#0": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "README.md#1": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "README.md#2": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "README.md#3": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "README.md#4": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "README.md#5": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "README.md#6": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "README.md#7": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "README.md#8": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "README.md#9": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "README.md#10": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "README.md#11": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "README.md#12": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "README.md#13": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "README.md#14": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "README.md#15": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "README.md#16": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "README.md#17": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "README.md#18": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "README.md#19": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "README.md#20": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "README.md#21": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "README.md#22": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "README.md#23": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "README.md#24": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "README.md#25": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.codex.md#0": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.codex.md#1": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.codex.md#2": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.codex.md#3": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.codex.md#4": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.codex.md#5": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.codex.md#6": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.codex.md#7": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.codex.md#8": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.codex.md#9": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.codex.md#10": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.codex.md#11": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.codex.md#12": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.codex.md#13": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.codex.md#14": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.codex.md#15": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.codex.md#16": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.codex.md#17": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.codex.md#18": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.codex.md#19": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.codex.md#20": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.hermes.md#0": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.hermes.md#1": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.hermes.md#2": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.hermes.md#3": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.hermes.md#4": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.hermes.md#5": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.hermes.md#6": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.hermes.md#7": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.hermes.md#8": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.hermes.md#9": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.hermes.md#10": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.hermes.md#11": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.hermes.md#12": {
+  "status": "history",
+  "reason": "Says banner never shipped; kept only as record of 2026-05 design"
+ },
+ "install.hermes.md#13": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.hermes.md#14": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.hermes.md#15": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.hermes.md#16": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.hermes.md#17": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.hermes.md#18": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.claude.md#0": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.claude.md#1": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.claude.md#2": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.claude.md#3": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.claude.md#4": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.claude.md#5": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.claude.md#6": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.claude.md#7": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.claude.md#8": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.claude.md#9": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.claude.md#10": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.claude.md#11": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.claude.md#12": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.claude.md#13": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.claude.md#14": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.claude.md#15": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.claude.md#16": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "CLAUDE.md#0": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "CLAUDE.md#1": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "CLAUDE.md#2": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "CLAUDE.md#3": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "CLAUDE.md#4": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "CLAUDE.md#5": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "CLAUDE.md#6": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "CLAUDE.md#7": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "CLAUDE.md#8": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "CLAUDE.md#9": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "CLAUDE.md#10": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "CLAUDE.md#11": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "CLAUDE.md#12": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "CLAUDE.md#13": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "CLAUDE.md#14": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/SKILL.md#0": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/SKILL.md#1": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/SKILL.md#2": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/SKILL.md#3": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/SKILL.md#4": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/SKILL.md#5": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/SKILL.md#6": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/SKILL.md#7": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/SKILL.md#8": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/SKILL.md#9": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/SKILL.md#10": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/SKILL.md#11": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/SKILL.md#12": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/SKILL.md#13": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/SKILL.md#14": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/hermes-session.md#0": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/hermes-session.md#1": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/hermes-session.md#2": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/hermes-session.md#3": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/hermes-session.md#4": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/hermes-session.md#5": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/hermes-session.md#6": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/hermes-session.md#7": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/hermes-session.md#8": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/hermes-session.md#9": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/hermes-session.md#10": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/hermes-session.md#11": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/hermes-session.md#12": {
+  "status": "history",
+  "reason": "Cluster of bugs all resolved 2026-06-03"
+ },
+ ".claude/skills/aify-comms-debug/references/hermes-session.md#13": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.pi.md#0": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.pi.md#1": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.pi.md#2": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.pi.md#3": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.pi.md#4": {
+  "status": "history",
+  "reason": "Retired presence-only wrappers; historical usage, not to be used"
+ },
+ "install.pi.md#5": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.pi.md#6": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.pi.md#7": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.pi.md#8": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.pi.md#9": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.pi.md#10": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "install.pi.md#11": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/teamwork.md#0": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/teamwork.md#1": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/teamwork.md#2": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/teamwork.md#3": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/teamwork.md#4": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/teamwork.md#5": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/teamwork.md#6": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/teamwork.md#7": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/teamwork.md#8": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/teamwork.md#9": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/teamwork.md#10": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/status-symptoms.md#0": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/status-symptoms.md#1": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/status-symptoms.md#2": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/status-symptoms.md#3": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/status-symptoms.md#4": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/status-symptoms.md#5": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/status-symptoms.md#6": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/status-symptoms.md#7": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/status-symptoms.md#8": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/status-symptoms.md#9": {
+  "status": "history",
+  "reason": "Banner: mechanism deleted in v0.6.2; describes fix since deleted"
+ },
+ ".claude/skills/aify-comms-debug/references/status-symptoms.md#10": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/lifecycle.md#0": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/lifecycle.md#1": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/lifecycle.md#2": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/lifecycle.md#3": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/lifecycle.md#4": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/lifecycle.md#5": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/lifecycle.md#6": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/lifecycle.md#7": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/lifecycle.md#8": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/references/lifecycle.md#9": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/building-software.md#0": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/building-software.md#1": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/building-software.md#2": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/building-software.md#3": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/building-software.md#4": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/building-software.md#5": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/building-software.md#6": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/building-software.md#7": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms/references/building-software.md#8": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "docs/superpowers/plans/2026-08-20-three-repo-separation-roadmap.md#0": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "docs/superpowers/plans/2026-08-20-three-repo-separation-roadmap.md#1": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "docs/superpowers/plans/2026-08-20-three-repo-separation-roadmap.md#2": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "docs/superpowers/plans/2026-08-20-three-repo-separation-roadmap.md#3": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "docs/superpowers/plans/2026-08-20-three-repo-separation-roadmap.md#4": {
+  "status": "history",
+  "reason": "All five decisions answered; section now a record, not a queue"
+ },
+ "docs/superpowers/plans/2026-08-20-three-repo-separation-roadmap.md#5": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "docs/superpowers/plans/2026-08-20-three-repo-separation-roadmap.md#6": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "docs/TARGET_ARCHITECTURE.md#0": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "docs/TARGET_ARCHITECTURE.md#1": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "docs/TARGET_ARCHITECTURE.md#2": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "docs/TARGET_ARCHITECTURE.md#3": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "docs/TARGET_ARCHITECTURE.md#4": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "docs/TARGET_ARCHITECTURE.md#5": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ "docs/TARGET_ARCHITECTURE.md#6": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-install/SKILL.md#0": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-install/SKILL.md#1": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-install/SKILL.md#2": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-install/SKILL.md#3": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-install/SKILL.md#4": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-install/SKILL.md#5": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/SKILL.md#0": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/SKILL.md#1": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/SKILL.md#2": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ },
+ ".claude/skills/aify-comms-debug/SKILL.md#3": {
+  "status": "current",
+  "reason": "Describes current behaviour or gives instructions"
+ }
+}
