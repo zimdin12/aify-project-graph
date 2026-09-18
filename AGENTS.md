@@ -94,9 +94,9 @@ tools behind a search step — managed Claude Code sessions included — can rea
 verbs; an unlisted one is not merely undocumented, it is unreachable, and a tool-search for it
 returns nothing. Start the server with `--toolset=full` if you need the long tail.
 
-⚠ `graph_report()` was listed here as the "live orient fallback". It is BOTH unlisted AND
-deprecated (`deprecation-probe.js` maps it to `brief.agent.md`), so the recommendation was
-unreachable and superseded at once. Read `.aify-graph/brief.agent.md` directly instead.
+⚠ `graph_report()` was listed here as the "live orient fallback". It is BOTH unlisted
+(`mcp/stdio/hidden-tools.js`) AND superseded by `brief.agent.md`, so the recommendation was
+unreachable and out of date at once. Read `.aify-graph/brief.agent.md` directly instead.
 
 Verb notes by profile:
 
