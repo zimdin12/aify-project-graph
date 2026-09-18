@@ -1,5 +1,8 @@
 node_modules/
-.aify-graph/
+**/.aify-graph/*
+# The feature map is curated truth (who confirmed what, when), not a build output: a clean
+# clone must keep it. Everything else under .aify-graph/ is regenerated.
+!.aify-graph/functionality.json
 coverage/
 *.log
 # FINISHED suite logs are evidence and must be reachable from git — a commit citing a log that

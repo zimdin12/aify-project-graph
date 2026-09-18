@@ -1,0 +1,517 @@
+{
+  "version": "0.2",
+  "features": [
+    {
+      "id": "indexing-and-freshness",
+      "label": "Indexing and graph freshness",
+      "description": "graph_index runs ensureFresh (incremental unless force), then regenerates briefs, writes unresolved categorization and reports functionality.json anchor validation. ensureFresh resolves a relative repoRoot and forces a full rebuild when the indexed commit cannot be diffed. graphCurrency returns current, stale or unknown; the server warns on read verbs when stale, or unknown with a manifest present, and fresh:true or APG_AUTO_REINDEX reindexes first only when stale.",
+      "anchors": {
+        "symbols": [
+          "graphIndex",
+          "ensureFresh",
+          "graphCurrency",
+          "autoReindexEnabled"
+        ],
+        "files": [
+          "mcp/stdio/query/verbs/index.js",
+          "mcp/stdio/freshness/orchestrator.js",
+          "mcp/stdio/freshness/graph-currency.js",
+          "mcp/stdio/freshness/auto-reindex.js"
+        ]
+      },
+      "tests": [
+        "tests/unit/freshness/orchestrator.test.js",
+        "tests/unit/freshness/graph-currency.test.js",
+        "tests/unit/freshness/auto-reindex.test.js"
+      ],
+      "source": "llm",
+      "confirmed": {
+        "at": "2026-09-18T22:29:27.796Z",
+        "by": "graph-tech-lead (claims checked by an independent reviewer at 8da4353e; two updated at 43ba2975)",
+        "symbols": {
+          "mcp/stdio/query/verbs/index.js#graphIndex": "4f8c367dbeea4f94",
+          "mcp/stdio/freshness/orchestrator.js#ensureFresh": "42e088d4ff6a61de",
+          "mcp/stdio/freshness/graph-currency.js#graphCurrency": "bf5a92cdc41aac3a",
+          "mcp/stdio/freshness/auto-reindex.js#autoReindexEnabled": "b9a635ca1c53d778"
+        },
+        "files": {
+          "mcp/stdio/query/verbs/index.js": "a4d22d6c4e62f92f",
+          "mcp/stdio/freshness/orchestrator.js": "95bca9ce240eaac4",
+          "mcp/stdio/freshness/graph-currency.js": "7f8a9899be31b6e6",
+          "mcp/stdio/freshness/auto-reindex.js": "589953ca58834364"
+        }
+      }
+    },
+    {
+      "id": "symbol-lookup",
+      "label": "Symbol lookup and search",
+      "description": "graph_whereis refuses a limit below 1 and reports shown-of-population counts from one windowed query over declaration types. graph_lookup falls back from exact label to qname, then parent_class, for Class::method or Class.method. graph_search defaults to kind auto, which excludes only External stubs, caps limit at 100, and degrades semantic mode to lexical with a hint when embeddings, an embedder or strong matches are missing.",
+      "anchors": {
+        "symbols": [
+          "graphWhereis",
+          "graphLookup",
+          "graphSearch"
+        ],
+        "files": [
+          "mcp/stdio/query/verbs/whereis.js",
+          "mcp/stdio/query/verbs/lookup.js",
+          "mcp/stdio/query/verbs/search.js"
+        ]
+      },
+      "tests": [
+        "tests/unit/query/whereis-limit-floor.test.js",
+        "tests/unit/query/whereis-attests-population.test.js",
+        "tests/unit/query/class-qualified-lookup.test.js",
+        "tests/unit/query/semantic-search.test.js"
+      ],
+      "depends_on": [
+        "indexing-and-freshness"
+      ],
+      "source": "llm",
+      "confirmed": {
+        "at": "2026-09-18T22:29:27.796Z",
+        "by": "graph-tech-lead (claims checked by an independent reviewer at 8da4353e; two updated at 43ba2975)",
+        "symbols": {
+          "mcp/stdio/query/verbs/whereis.js#graphWhereis": "868fda113c518131",
+          "mcp/stdio/query/verbs/lookup.js#graphLookup": "5a75c456771d2880",
+          "mcp/stdio/query/verbs/search.js#graphSearch": "6b72686528d62da0"
+        },
+        "files": {
+          "mcp/stdio/query/verbs/whereis.js": "9a8a1e3a3a25db72",
+          "mcp/stdio/query/verbs/lookup.js": "56e66c73be91fd3b",
+          "mcp/stdio/query/verbs/search.js": "1d686c3398b0d116"
+        }
+      }
+    },
+    {
+      "id": "callers-and-callees",
+      "label": "Callers and callees from the graph",
+      "description": "graph_callers walks execution-family edges into the target, fetching at most 100 edges (one extra row detects truncation) with the file filter applied in SQL before that cap; the recursive walk's guard stops it at depth 11. rankCallers puts LSP_VERIFIED edges first. graph_callees mirrors this outward. A call outside any function is a caller from its File node. An empty result carries buildAbsenceTrustLine: heuristic, not exhaustive, check with code_intel_references or rg.",
+      "anchors": {
+        "symbols": [
+          "graphCallers",
+          "graphCallees",
+          "rankCallers",
+          "buildAbsenceTrustLine"
+        ],
+        "files": [
+          "mcp/stdio/query/verbs/callers.js",
+          "mcp/stdio/query/verbs/callees.js",
+          "mcp/stdio/query/rank.js",
+          "mcp/stdio/query/lsp-evidence.js"
+        ]
+      },
+      "tests": [
+        "tests/unit/query/caller-callee-chain.test.js",
+        "tests/unit/query/absence-names-its-population.test.js",
+        "tests/unit/query/absence-names-uncommitted-sources.test.js"
+      ],
+      "depends_on": [
+        "indexing-and-freshness"
+      ],
+      "related_to": [
+        "live-code-intel",
+        "lsp-trust-spine"
+      ],
+      "source": "llm",
+      "confirmed": {
+        "at": "2026-09-18T22:29:27.796Z",
+        "by": "graph-tech-lead (claims checked by an independent reviewer at 8da4353e; two updated at 43ba2975)",
+        "symbols": {
+          "mcp/stdio/query/verbs/callers.js#graphCallers": "52e1ba460a4eea02",
+          "mcp/stdio/query/verbs/callees.js#graphCallees": "d6fb80ee5e1906e9",
+          "mcp/stdio/query/rank.js#rankCallers": "f2ed7cc3d33fd612",
+          "mcp/stdio/query/lsp-evidence.js#buildAbsenceTrustLine": "0f91576d5250c0de"
+        },
+        "files": {
+          "mcp/stdio/query/verbs/callers.js": "5a88c506b0eb9fcb",
+          "mcp/stdio/query/verbs/callees.js": "66697de4903492e1",
+          "mcp/stdio/query/rank.js": "9e1e85fc94529ddd",
+          "mcp/stdio/query/lsp-evidence.js": "0be3f71bce874602"
+        }
+      }
+    },
+    {
+      "id": "change-impact",
+      "label": "Change impact and consequences",
+      "description": "graph_impact walks impact-family edges backwards (default depth 3, guard stops at 11), dedupes by edge keeping the shortest depth, and adds one hop of OVERRIDDEN_BY edges out of the target. graph_consequences on a symbol or file returns features, contracts, open tasks, tests_adjacent, last_touched and risk_flags (no_test_coverage, orphan_anchor); a task id returns only features, contracts and sibling tasks. findCompanionHeaders finds same-stem indexed headers of .cpp-family files.",
+      "anchors": {
+        "symbols": [
+          "graphImpact",
+          "graphConsequences",
+          "findCompanionHeaders"
+        ],
+        "files": [
+          "mcp/stdio/query/verbs/impact.js",
+          "mcp/stdio/query/verbs/consequences.js"
+        ]
+      },
+      "tests": [
+        "tests/unit/query/consequences.test.js",
+        "tests/unit/query/impact-counts-edges-not-paths.test.js",
+        "tests/unit/query/companion-header-lookup-does-not-scan.test.js"
+      ],
+      "depends_on": [
+        "indexing-and-freshness"
+      ],
+      "related_to": [
+        "feature-overlay"
+      ],
+      "source": "llm",
+      "confirmed": {
+        "at": "2026-09-18T22:29:27.796Z",
+        "by": "graph-tech-lead (claims checked by an independent reviewer at 8da4353e; two updated at 43ba2975)",
+        "symbols": {
+          "mcp/stdio/query/verbs/impact.js#graphImpact": "18cd755ac764560c",
+          "mcp/stdio/query/verbs/consequences.js#graphConsequences": "c41c856c38e2e54b",
+          "mcp/stdio/query/verbs/consequences.js#findCompanionHeaders": "fe42d93468b1191a"
+        },
+        "files": {
+          "mcp/stdio/query/verbs/impact.js": "3946e2f9baecbf1c",
+          "mcp/stdio/query/verbs/consequences.js": "21d603904d988686"
+        }
+      }
+    },
+    {
+      "id": "context-packets",
+      "label": "Context packets for a task, feature or symbol",
+      "description": "graph_packet resolves feature:<id> or task:<id>; a bare target is tried as feature id or label, task, then a symbol or file mapped to a feature, else a symbol pointer packet. It lists READ FIRST, CONTRACTS, TESTS and RISKS; feature packets add confirmation state. Without live=true it prints LIVE: skipped_under_budget; live=true runs graph_consequences within 2000 ms and adds LAST TOUCHED and CO-CONSUMER FILES; a feature:<id> target reports LIVE: unavailable.",
+      "anchors": {
+        "symbols": [
+          "graphPacket",
+          "buildFeaturePacket",
+          "buildTaskPacket",
+          "parseTarget",
+          "enrichLive"
+        ],
+        "files": [
+          "mcp/stdio/query/verbs/packet.js",
+          "mcp/stdio/query/verbs/packet-overlay.js",
+          "mcp/stdio/query/verbs/packet-input.js",
+          "mcp/stdio/query/verbs/packet-live.js"
+        ]
+      },
+      "tests": [
+        "tests/unit/query/packet-schema.test.js",
+        "tests/unit/query/packet-live.test.js",
+        "tests/unit/query/packet-budget.test.js",
+        "tests/unit/query/packet-confirmation.test.js"
+      ],
+      "depends_on": [
+        "feature-overlay"
+      ],
+      "related_to": [
+        "change-impact"
+      ],
+      "source": "llm",
+      "confirmed": {
+        "at": "2026-09-18T22:29:27.796Z",
+        "by": "graph-tech-lead (claims checked by an independent reviewer at 8da4353e; two updated at 43ba2975)",
+        "symbols": {
+          "mcp/stdio/query/verbs/packet.js#graphPacket": "a54f7450e78dceee",
+          "mcp/stdio/query/verbs/packet-overlay.js#buildFeaturePacket": "1ab25a586a7959b0",
+          "mcp/stdio/query/verbs/packet-overlay.js#buildTaskPacket": "2c096386f3033a1b",
+          "mcp/stdio/query/verbs/packet-input.js#parseTarget": "7dd23a6a47fef5b3",
+          "mcp/stdio/query/verbs/packet-live.js#enrichLive": "9b6eee61cf7461bb"
+        },
+        "files": {
+          "mcp/stdio/query/verbs/packet.js": "162e73bb2953433f",
+          "mcp/stdio/query/verbs/packet-overlay.js": "934eb062f58ca91a",
+          "mcp/stdio/query/verbs/packet-input.js": "b18c999a1447cbd5",
+          "mcp/stdio/query/verbs/packet-live.js": "e8730bd008b19626"
+        }
+      }
+    },
+    {
+      "id": "health-and-trust",
+      "label": "Graph health and trust verdict",
+      "description": "graph_health returns indexed:false with trust 'missing' when graph.sqlite is absent. computeTrustLevel maps trust-relevant unresolved edges to weak (>2000), ok (>500) or strong. buildNextActions returns at most 3 steps, code-intel trust-spine problems first. inspectStorage reports the free-page ratio and offers compaction at 50 MB and 25% free. decideStaleRefusal refuses reads when the server runs outdated code, unless the delta has no executable files or APG_ALLOW_STALE_PROCESS=1.",
+      "anchors": {
+        "symbols": [
+          "graphHealth",
+          "computeTrustLevel",
+          "buildNextActions",
+          "inspectStorage",
+          "decideStaleRefusal"
+        ],
+        "files": [
+          "mcp/stdio/query/verbs/health.js",
+          "mcp/stdio/server-build.js"
+        ]
+      },
+      "tests": [
+        "tests/unit/query/health.test.js",
+        "tests/unit/query/health-next-actions.test.js",
+        "tests/unit/query/health-storage.test.js",
+        "tests/unit/query/server-build-identity.test.js",
+        "tests/integration/stale-process-reaches-every-verb.test.js"
+      ],
+      "depends_on": [
+        "indexing-and-freshness"
+      ],
+      "source": "llm",
+      "confirmed": {
+        "at": "2026-09-18T22:29:27.796Z",
+        "by": "graph-tech-lead (claims checked by an independent reviewer at 8da4353e; two updated at 43ba2975)",
+        "symbols": {
+          "mcp/stdio/query/verbs/health.js#graphHealth": "7195b01495317759",
+          "mcp/stdio/query/verbs/health.js#computeTrustLevel": "4ab24d313f43cc13",
+          "mcp/stdio/query/verbs/health.js#buildNextActions": "7e21cfaf182d6190",
+          "mcp/stdio/query/verbs/health.js#inspectStorage": "3ab2512bdab2d810",
+          "mcp/stdio/server-build.js#decideStaleRefusal": "59573c6fe6703afa"
+        },
+        "files": {
+          "mcp/stdio/query/verbs/health.js": "44e0cabeac23392f",
+          "mcp/stdio/server-build.js": "99d6a3361723532d"
+        }
+      }
+    },
+    {
+      "id": "doc-layer",
+      "label": "Document-to-code links",
+      "description": "During indexing, detectDocLinks emits LINKS_TO edges from Documents to file-level nodes: authored Markdown links at 0.95, inline-code paths at 0.85, unique path-suffix matches at 0.8; bare basenames and ambiguous paths are refused. detectDocRefs emits MENTIONS edges to symbols: qualified names in inline code at 0.9, and a bare name heading a code span on a line naming the declaring file's path at 0.85. Prose and fenced blocks are not admitted.",
+      "anchors": {
+        "symbols": [
+          "detectDocLinks",
+          "resolveDocPath",
+          "detectDocRefs",
+          "resolveSymbolChain"
+        ],
+        "files": [
+          "mcp/stdio/analysis/doc-links.js",
+          "mcp/stdio/analysis/doc-refs.js"
+        ]
+      },
+      "tests": [
+        "tests/unit/ingest/doc-links.test.js",
+        "tests/unit/ingest/doc-refs.test.js",
+        "tests/unit/freshness/doc-links-wired.test.js"
+      ],
+      "depends_on": [
+        "indexing-and-freshness"
+      ],
+      "source": "llm",
+      "confirmed": {
+        "at": "2026-09-18T22:29:27.796Z",
+        "by": "graph-tech-lead (claims checked by an independent reviewer at 8da4353e; two updated at 43ba2975)",
+        "symbols": {
+          "mcp/stdio/analysis/doc-links.js#detectDocLinks": "4629f73cfdffba35",
+          "mcp/stdio/analysis/doc-links.js#resolveDocPath": "b996a3becfa70a77",
+          "mcp/stdio/analysis/doc-refs.js#detectDocRefs": "2b7a273eddee8119",
+          "mcp/stdio/analysis/doc-refs.js#resolveSymbolChain": "4b2ef6b991abcf18"
+        },
+        "files": {
+          "mcp/stdio/analysis/doc-links.js": "4819199d5c76d20f",
+          "mcp/stdio/analysis/doc-refs.js": "f49767789b8820a6"
+        }
+      }
+    },
+    {
+      "id": "live-code-intel",
+      "label": "Live language-server code intel",
+      "description": "code_intel_references and code_intel_hierarchy query a live language server (clangd, typescript-language-server or pyright), choosing the given language, else the file extension, else cpp. getLiveSession keeps one session per language and project root, evicts dead clients and dedupes concurrent starts. References need file and line, and an empty answer is retried once. Hierarchy needs kind callers|callees|subtypes|supertypes and accepts file+line or a symbol resolved via the graph.",
+      "anchors": {
+        "symbols": [
+          "codeIntelReferences",
+          "codeIntelHierarchy",
+          "getLiveSession",
+          "inferLanguage"
+        ],
+        "files": [
+          "mcp/stdio/query/verbs/code_intel_live.js",
+          "mcp/stdio/query/verbs/code_intel_hierarchy.js",
+          "mcp/stdio/code-intel/live.js",
+          "mcp/stdio/code-intel/backends.js"
+        ]
+      },
+      "tests": [
+        "tests/unit/code-intel/live-verbs.test.js",
+        "tests/unit/code-intel/hierarchy-verb.test.js",
+        "tests/integration/code-intel/live-verbs-real.test.js"
+      ],
+      "source": "llm",
+      "confirmed": {
+        "at": "2026-09-18T22:29:27.796Z",
+        "by": "graph-tech-lead (claims checked by an independent reviewer at 8da4353e; two updated at 43ba2975)",
+        "symbols": {
+          "mcp/stdio/query/verbs/code_intel_live.js#codeIntelReferences": "a7a937d0f7f0dcc7",
+          "mcp/stdio/query/verbs/code_intel_hierarchy.js#codeIntelHierarchy": "1f929c8edce15763",
+          "mcp/stdio/code-intel/live.js#getLiveSession": "7db492bae57f3ce9",
+          "mcp/stdio/code-intel/backends.js#inferLanguage": "782de1fae7272fb3"
+        },
+        "files": {
+          "mcp/stdio/query/verbs/code_intel_live.js": "1962d2f7317b322a",
+          "mcp/stdio/query/verbs/code_intel_hierarchy.js": "9d075f6713e3afde",
+          "mcp/stdio/code-intel/live.js": "522a9a4c7ea1a2f0",
+          "mcp/stdio/code-intel/backends.js": "b63b4004c5ac0c21"
+        }
+      }
+    },
+    {
+      "id": "lsp-trust-spine",
+      "label": "Collected LSP evidence (trust spine)",
+      "description": "graph_collect_code_intel runs a language-server collection (language explicit, else inferred from files, repo markers, then cpp; scope defaults to changed; operations default to definitions, references, diagnostics). splitCollectBudget holds 35% of a given budget back for the import when at least 5 s remains for collection. On a non-error result, importV02Collection writes records and LSP_VERIFIED edges into the graph. The response is a summary, not raw records.",
+      "anchors": {
+        "symbols": [
+          "graphCollectCodeIntel",
+          "splitCollectBudget",
+          "importV02Collection"
+        ],
+        "files": [
+          "mcp/stdio/query/verbs/collect_code_intel.js",
+          "mcp/stdio/ingest/code-intel/importer.js"
+        ]
+      },
+      "tests": [
+        "tests/unit/query/collect-code-intel.test.js",
+        "tests/unit/query/collect-budget-covers-import.test.js",
+        "tests/unit/ingest/code-intel/importer-collections.test.js"
+      ],
+      "depends_on": [
+        "indexing-and-freshness"
+      ],
+      "related_to": [
+        "live-code-intel",
+        "callers-and-callees"
+      ],
+      "source": "llm",
+      "confirmed": {
+        "at": "2026-09-18T22:29:27.796Z",
+        "by": "graph-tech-lead (claims checked by an independent reviewer at 8da4353e; two updated at 43ba2975)",
+        "symbols": {
+          "mcp/stdio/query/verbs/collect_code_intel.js#graphCollectCodeIntel": "1e40e4d41ecee7df",
+          "mcp/stdio/query/verbs/collect_code_intel.js#splitCollectBudget": "649a5018c902d1e9",
+          "mcp/stdio/ingest/code-intel/importer.js#importV02Collection": "aef3392dabaf7ef5"
+        },
+        "files": {
+          "mcp/stdio/query/verbs/collect_code_intel.js": "5a6290e242638c7b",
+          "mcp/stdio/ingest/code-intel/importer.js": "d81bfad928a7bc8b"
+        }
+      }
+    },
+    {
+      "id": "feature-overlay",
+      "label": "Feature map overlay and confirmation",
+      "description": "loadFunctionality reads .aify-graph/functionality.json and returns an error field rather than throwing on bad JSON. `apg features confirm <ids>|--all --by <who>` stamps each feature with who, when, and 16-hex sha256 hashes of anchored symbol bodies and literal files; `apg features status` reports. confirmationStatus says unconfirmed, unchanged or changed, judged on symbols when any were stamped; glob file anchors and symbols not found in a literal file are unwatched.",
+      "anchors": {
+        "symbols": [
+          "loadFunctionality",
+          "confirmFeature",
+          "confirmationStatus",
+          "readAnchors",
+          "runFeaturesCmd"
+        ],
+        "files": [
+          "mcp/stdio/overlay/loader.js",
+          "mcp/stdio/overlay/confirmation.js",
+          "mcp/stdio/overlay/features-cmd.js"
+        ],
+        "docs": [
+          "docs/schemas/functionality.schema.json",
+          "docs/evidence/feature-map-pings-2026-09-18/RESULTS-4.md"
+        ]
+      },
+      "tests": [
+        "tests/unit/overlay/loader.test.js",
+        "tests/unit/overlay/confirmation.test.js",
+        "tests/unit/overlay/features-cmd.test.js"
+      ],
+      "source": "llm",
+      "confirmed": {
+        "at": "2026-09-18T22:29:27.796Z",
+        "by": "graph-tech-lead (claims checked by an independent reviewer at 8da4353e; two updated at 43ba2975)",
+        "symbols": {
+          "mcp/stdio/overlay/loader.js#loadFunctionality": "8d7f1faef643b4ec",
+          "mcp/stdio/overlay/confirmation.js#confirmFeature": "e65411f50f51ec83",
+          "mcp/stdio/overlay/confirmation.js#confirmationStatus": "1dc703a3168fdabf",
+          "mcp/stdio/overlay/confirmation.js#readAnchors": "35b01274b26dd821",
+          "mcp/stdio/overlay/features-cmd.js#runFeaturesCmd": "716f72c2e74284ef"
+        },
+        "files": {
+          "mcp/stdio/overlay/loader.js": "55f5e1d9e24f600b",
+          "mcp/stdio/overlay/confirmation.js": "0ae299ea5f8a2ad1",
+          "mcp/stdio/overlay/features-cmd.js": "770276e4b73107cd"
+        }
+      }
+    },
+    {
+      "id": "briefs",
+      "label": "Precomputed orientation briefs",
+      "description": "generateBrief writes brief.md, brief.agent.md, brief.onboard.md, brief.plan.md and brief.json under .aify-graph, rewriting only files whose content changed. If a rebuild commits during assembly on both of its 2 attempts, it writes nothing and returns published:false, and graph_index then says in nextAction that the brief was not regenerated.",
+      "anchors": {
+        "symbols": [
+          "generateBrief",
+          "renderAgentMarkdown",
+          "renderJson"
+        ],
+        "files": [
+          "mcp/stdio/brief/generator.js",
+          "mcp/stdio/brief/render.js"
+        ]
+      },
+      "tests": [
+        "tests/unit/brief/generator.test.js",
+        "tests/unit/brief/brief-detects-a-mid-read-rebuild.test.js",
+        "tests/unit/brief/brief-carries-publication-state.test.js"
+      ],
+      "depends_on": [
+        "indexing-and-freshness"
+      ],
+      "related_to": [
+        "feature-overlay"
+      ],
+      "source": "llm",
+      "confirmed": {
+        "at": "2026-09-18T22:29:27.796Z",
+        "by": "graph-tech-lead (claims checked by an independent reviewer at 8da4353e; two updated at 43ba2975)",
+        "symbols": {
+          "mcp/stdio/brief/generator.js#generateBrief": "fba44b3a1cadad3d",
+          "mcp/stdio/brief/render.js#renderAgentMarkdown": "6dff8aace3ae4f15",
+          "mcp/stdio/brief/render.js#renderJson": "2e23d17ae28128c8"
+        },
+        "files": {
+          "mcp/stdio/brief/generator.js": "8e9d0bda268b2102",
+          "mcp/stdio/brief/render.js": "19ff4e18c3bbf1a4"
+        }
+      }
+    },
+    {
+      "id": "dashboard",
+      "label": "Visual graph dashboard",
+      "description": "graph_dashboard starts one local HTTP server per repo root, bound to 127.0.0.1 on an ephemeral port unless one is given, and answers already_running for a repo that has one. It returns a freshness blocker instead of starting when reads are refused. The server exposes JSON endpoints including /api/graph, /api/graph-multilayer, /api/overlay, /api/impact/ and /api/search. stopAllDashboards shuts them all down.",
+      "anchors": {
+        "symbols": [
+          "graphDashboard",
+          "stopAllDashboards",
+          "startDashboard"
+        ],
+        "files": [
+          "mcp/stdio/query/verbs/dashboard.js",
+          "mcp/stdio/dashboard/server.js"
+        ]
+      },
+      "tests": [
+        "tests/unit/dashboard/repo-root-wiring.test.js",
+        "tests/unit/dashboard/cross-layer-edges.test.js",
+        "tests/unit/dashboard/process-exits-after-dashboard.test.js"
+      ],
+      "depends_on": [
+        "indexing-and-freshness"
+      ],
+      "source": "llm",
+      "confirmed": {
+        "at": "2026-09-18T22:29:27.796Z",
+        "by": "graph-tech-lead (claims checked by an independent reviewer at 8da4353e; two updated at 43ba2975)",
+        "symbols": {
+          "mcp/stdio/query/verbs/dashboard.js#graphDashboard": "401130b265c106aa",
+          "mcp/stdio/query/verbs/dashboard.js#stopAllDashboards": "66beb819b0ec33f4",
+          "mcp/stdio/dashboard/server.js#startDashboard": "fdb49bc131a484bc"
+        },
+        "files": {
+          "mcp/stdio/query/verbs/dashboard.js": "cc711460b72d6642",
+          "mcp/stdio/dashboard/server.js": "6aae62eb9487375b"
+        }
+      }
+    }
+  ]
+}
