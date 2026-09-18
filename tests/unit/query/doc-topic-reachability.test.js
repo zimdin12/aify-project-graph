@@ -233,7 +233,9 @@ describe('the extractor output shape and EXTRACTOR_VERSION move together', () =>
       // version moved because every code-symbol id changed and deployed graphs must re-extract.
       // The guard firing on a version bump with no shape change is the cheap direction of its
       // asymmetry, and updating the pin here is the guard working, not being worked around.
-      .toEqual({ shape: 'headings,summary,title', version: '0.5.0' });
+      // 0.6.0 — module-level calls become CALLS from the File node in every language. Document
+      // shape unchanged again; the version moved so unchanged code files re-extract.
+      .toEqual({ shape: 'headings,summary,title', version: '0.6.0' });
   });
 
   it('★★★ POSITIVE CONTROL: the shape really does move when a field appears', async () => {

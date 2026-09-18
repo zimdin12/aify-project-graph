@@ -563,9 +563,6 @@ export default {
   preParse: blankCppClassHeadMacros,
   postExtract: postExtractCpp,
   normalizeCallTarget: normalizeCppCallTarget,
-  // Attribute file-scope / static-initializer calls to the File node (the C++
-  // self-registration idiom: `static Registrar r = Factory::add(...);`).
-  fileScopeCalls: true,
   extensions: ['.cc', '.cpp', '.cxx', '.hpp', '.hh', '.hxx', '.h'],
   confidence: {
     node: 0.6,

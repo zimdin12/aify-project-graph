@@ -690,14 +690,15 @@ export function extractFile({ filePath, source, config }) {
     const callRule = isInsideParameterList(ancestors)
       ? null
       : matchRule(node, config.refs?.calls, parentNode);
-    // File-scope / static-initializer calls (`static Reg r = doRegister();`,
-    // `int g = compute();`) have no enclosing function, so nextOwner is null and
-    // the edge was silently dropped. For languages that opt in (config.
-    // fileScopeCalls — C/C++, where self-registration statics are a dominant
-    // idiom), attribute these to the File node so "who calls X" surfaces the
-    // registration site. Other languages keep the old behavior (drop) to avoid
-    // perturbing their edge sets.
-    const callOwner = nextOwner ?? (config.fileScopeCalls ? fileNode : null);
+    // A call with no enclosing function (a C++ static initializer, a JS `main()` at the bottom of a
+    // script, a Python `if __name__ == "__main__":` block, a call inside a module-level callback such
+    // as `describe(() => helper())`) is attributed to the File node, in EVERY language.
+    //
+    // ⛔ It used to be C/C++ only, "to avoid perturbing" other languages' edge sets, and the cost was a
+    // wrong zero: `main` in bin/apg.js had no callers while the file ends with `main()`. An edge set
+    // that omits real calls is not stable, it is incomplete, and graph_callers read the gap as an
+    // absence. The edge-count change this caused was measured when it landed (commit message).
+    const callOwner = nextOwner ?? fileNode;
     if (callRule && callOwner) {
       const target = buildCallTarget({
         text: extractTextFromRule(node, source, callRule),

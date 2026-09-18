@@ -92,7 +92,11 @@ import { writeDocLinkMissSidecar } from './doc-link-miss-sidecar.js';
 // exact byte span, so a second symbol spelled like the first is no longer deleted. Old and new
 // identities must not coexist in one attested generation, and a drift here already forces a clean
 // full rebuild below.
-export const EXTRACTOR_VERSION = '0.5.0';
+// 0.6.0 — calls with no enclosing function (JS/Python/Ruby/... module-level calls, calls inside
+// module-level callbacks) are CALLS from the File node in every language, not only C/C++. Before,
+// they were dropped, and graph_callers answered 0 for `main` in bin/apg.js. Unchanged files keep the
+// old, incomplete edges until re-extracted, so this must force the rebuild.
+export const EXTRACTOR_VERSION = '0.6.0';
 export const PARSER_BUNDLE_VERSION = '2026.04.16';
 // Plugin-emitted node types that the per-file extraction loop must NOT reap.
 // They're attributed to non-source files (a Route to routes/web.php, a

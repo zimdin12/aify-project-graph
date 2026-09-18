@@ -394,7 +394,8 @@ describe('generic extractor', () => {
     expect(findRef(result.refs, 'IMPORTS', 'main.rb', 'json')).toBeTruthy();
     expect(findRef(result.refs, 'IMPORTS', 'main.rb', 'lib/worker')).toBeTruthy();
     expect(findRef(result.refs, 'IMPORTS', 'main.rb', 'foo')).toBeFalsy();
-    expect(findRef(result.refs, 'CALLS', 'main.rb', 'foo')).toBeFalsy();
+    // `foo(bar)` is a real call at file scope; it is owned by the File node, not dropped.
+    expect(findRef(result.refs, 'CALLS', 'main.rb', 'foo')).toBeTruthy();
   });
 
   it('supports Rust impl blocks as class containers for methods', () => {
@@ -595,6 +596,38 @@ int g_count = computeCount();
     expect(targets).toContain('computeCount');
     // attributed to the File node, not silently dropped
     expect(calls.every((ref) => ref.from_label === 'Reg.cpp')).toBe(true);
+  });
+
+  // ⛔ THE WRONG ZERO THIS PINS: `main` in bin/apg.js had 0 callers in the graph while the same file ends
+  // with `main().then(...)`. A call with no enclosing function was dropped for every language except C/C++,
+  // so graph_callers answered "nobody calls this" about a live entry point.
+  it('attributes a JS module-level call to the File node', () => {
+    const source = 'async function main() { return 0; }\n\nmain().then((code) => process.exit(code));\n';
+    const calls = extractFile({ filePath: 'bin/tool.js', source, config: javascript }).refs
+      .filter((ref) => ref.relation === 'CALLS' && ref.target === 'main');
+    expect(calls).toHaveLength(1);
+    expect(calls[0].from_label).toBe('tool.js');
+  });
+
+  it('attributes a call inside a module-level callback to the File node', () => {
+    const source = "import { helper } from './h.js';\n\ndescribe('x', () => {\n  helper();\n});\n";
+    const calls = extractFile({ filePath: 'tests/x.test.js', source, config: javascript }).refs
+      .filter((ref) => ref.relation === 'CALLS' && ref.target === 'helper');
+    expect(calls.map((ref) => ref.from_label)).toEqual(['x.test.js']);
+  });
+
+  it('attributes a Python `if __name__ == "__main__"` call to the File node', () => {
+    const source = 'def main():\n    return 0\n\n\nif __name__ == "__main__":\n    main()\n';
+    const calls = extractFile({ filePath: 'tools/run.py', source, config: python }).refs
+      .filter((ref) => ref.relation === 'CALLS' && ref.target === 'main');
+    expect(calls.map((ref) => ref.from_label)).toEqual(['run.py']);
+  });
+
+  it('a call INSIDE a function is still owned by the function, not the file', () => {
+    const source = 'function helper() {}\nfunction outer() {\n  helper();\n}\n';
+    const calls = extractFile({ filePath: 'src/a.js', source, config: javascript }).refs
+      .filter((ref) => ref.relation === 'CALLS' && ref.target === 'helper');
+    expect(calls.map((ref) => ref.from_label)).toEqual(['outer']);
   });
 
   it('template-arg stripping is safe: no bracket leakage on multi-arg / nested templates', () => {
