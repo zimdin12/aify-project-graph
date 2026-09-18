@@ -10,6 +10,31 @@
 // testability", bypassing withSealScope/sealPacketOutput while focused tests stay green.
 import { clampList, boundedList } from './packet-lists.js';
 import { trustTier } from './packet-input.js';
+import { confirmationStatus, CONFIRMATION_STATES } from '../../overlay/confirmation.js';
+
+const CONFIRMATION_CHANGES_SHOWN = 5;
+
+// One line: whether the code this feature is anchored to changed since someone confirmed its description.
+// Reads the anchored files from disk (no SQLite). A failure to read is said, never rendered as unchanged.
+function confirmationLine(repoRoot, feature) {
+  let status;
+  try {
+    status = confirmationStatus(repoRoot, feature);
+  } catch (err) {
+    return `CONFIRMED: unknown (could not read anchors: ${String(err?.message ?? err).slice(0, 80)})`;
+  }
+  if (status.state === CONFIRMATION_STATES.UNCONFIRMED) {
+    return 'CONFIRMED: never — after checking the description against the code, run `apg features confirm <id> --by <you>`';
+  }
+  const since = `${status.at} by ${status.by}`;
+  if (status.state === CONFIRMATION_STATES.UNCHANGED) {
+    const fileNote = status.changes.length ? ` (${status.changes.length} anchored file(s) changed outside the anchored symbols)` : '';
+    return `CONFIRMED: ${since}; anchored ${status.basis} unchanged since${fileNote}`;
+  }
+  const shown = status.changes.slice(0, CONFIRMATION_CHANGES_SHOWN).map((c) => `${c.change} ${c.anchor}`);
+  const more = status.changes.length - shown.length;
+  return `CONFIRMED: ${since}; CHANGED SINCE — re-check the description: ${shown.join('; ')}${more > 0 ? `; +${more} more` : ''}`;
+}
 
 function readFirstFromFeature(feature, briefFeatures) {
   // Prefer the brief's enriched feature data (already has top callers /
@@ -94,7 +119,7 @@ function modeRisks(mode) {
   return [];
 }
 
-export function buildFeaturePacket({ feature, brief, functionality, opts, snapshot }) {
+export function buildFeaturePacket({ feature, brief, functionality, opts, snapshot, repoRoot }) {
   const featureLabels = [feature.id];
   for (const dep of (feature.depends_on || []).slice(0, 3)) featureLabels.push(`dep:${dep}`);
 
@@ -107,6 +132,7 @@ export function buildFeaturePacket({ feature, brief, functionality, opts, snapsh
     `FEATURE: ${feature.label || feature.id}`,
     `MODE: ${opts.mode}`,
     `STATUS: overlay-defined (${feature.source || 'user'} source)`,
+    ...(repoRoot ? [confirmationLine(repoRoot, feature)] : []),
     `FEATURES: ${featureLabels.join(', ')}`,
     snapshot,
     boundedList('READ FIRST', readFirst, (x) => `${x.file} — ${x.why}`),

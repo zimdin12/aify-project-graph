@@ -98,6 +98,34 @@ describe('graph_health — synthesis of graph state signals', () => {
     expect(result.summary).toMatch(/trust=ok \(600 trust-relevant unresolved of 5227 total — see trustBasis.basis\)/);
   });
 
+  it('names features whose anchored code changed since they were confirmed', async () => {
+    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    db.close();
+    await writeFile(join(repoRoot, '.aify-graph', 'manifest.json'), JSON.stringify({
+      commit: 'abc123', indexedAt: new Date().toISOString(),
+      nodes: 0, edges: 0, schemaVersion: 4, extractorVersion: '0.1.0',
+      status: 'ok', dirtyFiles: [], dirtyEdges: [], dirtyEdgeCount: 0,
+    }));
+    await mkdir(join(repoRoot, 'src'), { recursive: true });
+    await writeFile(join(repoRoot, 'src', 'math.js'), 'export function alpha(x) {\n  return x + 1;\n}\n');
+    const { confirmFeature } = await import('../../../mcp/stdio/overlay/confirmation.js');
+    const feature = { id: 'math', anchors: { symbols: ['alpha'], files: ['src/math.js'] } };
+    const confirmed = confirmFeature(repoRoot, feature, { by: 'tester', at: '2026-09-18T20:00:00.000Z' });
+    await writeFile(join(repoRoot, '.aify-graph', 'functionality.json'), JSON.stringify({
+      features: [{ ...feature, confirmed }, { id: 'loose', anchors: { files: ['src/math.js'] } }],
+    }));
+
+    const quiet = await graphHealth({ repoRoot });
+    expect(quiet.overlay.confirmation).toMatchObject({ changed: 0, unchanged: 1, unconfirmed: 1 });
+    expect(quiet.summary).toMatch(/overlay-confirmation: 1 unchanged since confirmed, 1 never confirmed/u);
+
+    await writeFile(join(repoRoot, 'src', 'math.js'), 'export function alpha(x) {\n  return x + 2;\n}\n');
+    const loud = await graphHealth({ repoRoot });
+    expect(loud.overlay.confirmation.changed).toBe(1);
+    expect(loud.overlay.confirmation.changedSample[0]).toMatchObject({ id: 'math' });
+    expect(loud.summary).toMatch(/⚠ overlay-confirmation: 1 feature\(s\) have anchored code changed since last confirmed .* math: changed: src\/math\.js#alpha/u);
+  });
+
   it('reports broken overlay state when functionality.json has broken anchors', async () => {
     const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
     db.close();

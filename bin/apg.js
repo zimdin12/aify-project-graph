@@ -8,6 +8,10 @@ async function main() {
   switch (sub) {
     case 'code-intel':
       return runCodeIntelCmd(argv.slice(1));
+    case 'features': {
+      const { runFeaturesCmd } = await import('../mcp/stdio/overlay/features-cmd.js');
+      return runFeaturesCmd(argv.slice(1));
+    }
     case '--version':
     case '-v': {
       const { readFileSync } = await import('node:fs');
@@ -24,6 +28,7 @@ async function main() {
       console.log('Usage: apg <subcommand>');
       console.log('Subcommands:');
       console.log('  code-intel <op>     Code-intel provider commands (collect, doctor)');
+      console.log('  features <op>       Feature map: status (changed since confirmed), confirm <id>...|--all --by <who>');
       console.log('  --version           Print version');
       return 0;
     default:

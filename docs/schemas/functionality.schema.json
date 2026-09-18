@@ -92,6 +92,18 @@
           "type": "array",
           "items": { "type": "string" },
           "description": "Optional cross-feature contracts this feature publishes or consumes. Free-form doc/symbol refs."
+        },
+        "confirmed": {
+          "type": "object",
+          "description": "Written by `apg features confirm`, not by hand. Who last confirmed this description matches the code, when, and a hash of each anchored symbol (key `file#name`) and literal anchored file at that moment. graph_health and graph_packet report which anchors changed since.",
+          "required": ["at", "by", "symbols", "files"],
+          "properties": {
+            "at": { "type": "string", "description": "ISO-8601 time of the confirmation." },
+            "by": { "type": "string", "description": "Who confirmed: an agent id or a person." },
+            "symbols": { "type": "object", "additionalProperties": { "type": "string" } },
+            "files": { "type": "object", "additionalProperties": { "type": "string" } }
+          },
+          "additionalProperties": true
         }
       },
       "additionalProperties": true

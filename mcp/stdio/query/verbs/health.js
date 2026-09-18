@@ -83,6 +83,7 @@ import { getUnresolvedCounts, explainTrustExclusions } from '../../freshness/unr
 // resolver that enforces it — a re-typed regex already flagged a legitimate PHP namespaced class.
 import { isPlausibleExternalName } from '../../ingest/resolver.js';
 import { loadFunctionality, validateAnchors, hasOverlay } from '../../overlay/loader.js';
+import { readConfirmations } from '../../overlay/confirmation.js';
 import { loadTasksArtifact, lintTaskSchema, summarizeDirtySeams, summarizeOverlayQuality } from '../../overlay/quality.js';
 import { getLatestCollection } from '../../code-intel/query.js';
 import { prepareCompileDb } from '../../code-intel/compile-db.js';
@@ -669,6 +670,7 @@ export async function graphHealth({ repoRoot }) {
           // Legacy/invalid overlay-shape warnings (legacy `paths`, missing
           // anchors, non-kebab ids) — so a silent 0/0 reads as "migrate this".
           ...(lint.length ? { lint, lintCount: lint.length } : {}),
+          confirmation: readConfirmations(repoRoot, features ?? []),
         };
       } finally {
         db.close();
@@ -1813,6 +1815,13 @@ export async function graphHealth({ repoRoot }) {
         ? `overlay=clean (${overlay.checked} features; ${qualityBits.join(', ')})`
         : `overlay=broken ${overlay.broken}/${overlay.checked} (${qualityBits.join(', ')})`,
     );
+    }
+    const conf = overlay.confirmation;
+    if (conf?.error) verdicts.push(`overlay-confirmation=unknown (${conf.error})`);
+    else if (conf && conf.changed > 0) {
+      verdicts.push(`⚠ overlay-confirmation: ${conf.changed} feature(s) have anchored code changed since last confirmed — re-check their descriptions, then \`apg features confirm <id> --by <you>\` (e.g. ${conf.changedSample[0].id}: ${conf.changedSample[0].changes.slice(0, 2).join('; ')})`);
+    } else if (conf && overlayQuality.featureCount > 0) {
+      verdicts.push(`overlay-confirmation: ${conf.unchanged} unchanged since confirmed, ${conf.unconfirmed} never confirmed`);
     }
     if (overlay.lintCount) verdicts.push(`overlay-lint=${overlay.lintCount} (legacy/invalid feature shape — see overlay.lint; e.g. ${overlay.lint[0]})`);
   } else {

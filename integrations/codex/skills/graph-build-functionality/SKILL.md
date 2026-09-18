@@ -54,7 +54,9 @@ Prefer 5-10 clear features over 20 tiny ones.
 - Let docs lead when they are concrete; use hubs/entrypoints as a fallback, not the first source of truth.
 - Prefer folder/package/module boundaries over symbol hubs when they better match the chosen taxonomy axis.
 - Preserve existing ids, labels, descriptions, tags, and any `source: "user"` entries.
-- Prefer globs for `anchors.files` instead of listing every file.
+- Anchor each feature to the few symbols that carry its behaviour, and list the literal file each one lives in.
+  Only literal files and the symbols in them are watched for change (see Confirm); a glob such as `src/auth/*`
+  still attributes files to the feature but is never watched.
 - Only include routes/docs if the repo clearly has them.
 - On repos with one shared test entrypoint, prefer explicit feature-level `tests[]` over pretending there is no test anchor.
 - Add `depends_on` when one feature cannot work without another; add `related_to` for softer cross-links.
@@ -62,6 +64,25 @@ Prefer 5-10 clear features over 20 tiny ones.
 - On large repos, treat overlay richness as part of "done", not polish: a skeletal file/symbol map is not enough if the brief still shows `tests 0/N`, `docs 0/N`, `deps 0/N`, or `related 0/N` for the active seams.
 - Validate anchors before proposing them: symbol exists, file glob matches real files.
 - Show the diff first. Write only after explicit confirmation.
+
+## Confirm, so the map can say when it may be wrong
+
+After the user accepts a feature, and after you have read its anchored code and checked each claim in its
+description, stamp it:
+
+    apg features confirm <id>... --by <your-agent-id>      # or --all
+
+That records who vouched and a hash of each anchored symbol and file. From then on `graph_health` and the
+feature's `graph_packet` name every anchored symbol that changed since (`CHANGED SINCE — re-check the
+description: changed src/auth.js#login`). The ping is a fact about the code, not a verdict: re-read the
+changed code, fix the description if it is wrong, then confirm again to clear it. `apg features status` lists
+every feature's state and what it cannot watch.
+
+Never confirm a feature you did not check against the code: the stamp is the claim "someone looked".
+
+Measured before this shipped (docs/evidence/feature-map-pings-2026-09-18/RESULTS-4.md): on a very active repo,
+the pings caught 8 of 9 features that really went stale, and about a third of features needed a re-check
+each week.
 
 ## Do not
 

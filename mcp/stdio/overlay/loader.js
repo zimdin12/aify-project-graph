@@ -128,6 +128,9 @@ function normalizeFeature(f) {
     contracts: Array.isArray(f.contracts) ? f.contracts.filter(Boolean) : [],
     source: f.source || 'user',
     tags: Array.isArray(f.tags) ? f.tags : [],
+    // Who last confirmed the description, when, and a hash per anchor at that moment. Read by
+    // overlay/confirmation.js to say which anchors changed since; written by `apg features confirm`.
+    confirmed: f.confirmed && typeof f.confirmed === 'object' ? f.confirmed : null,
   };
 }
 

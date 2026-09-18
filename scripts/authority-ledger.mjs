@@ -72,6 +72,7 @@ export const AUTHORITIES = {
     declarations: [
       'readFirstFromFeature', 'readFirstFromTask', 'contractsFromFeature', 'testsFromFeature',
       'risksForFeature', 'risksForTask', 'modeRisks', 'buildFeaturePacket', 'buildTaskPacket',
+      'confirmationLine', 'CONFIRMATION_CHANGES_SHOWN',
     ],
   },
   'packet:legacy-clamp': {

@@ -711,7 +711,7 @@ async function graphPacketInner({ repoRoot, target, mode = 'orient', budget = nu
 
   let lines;
   if (resolvedFeature) {
-    lines = buildFeaturePacket({ feature: resolvedFeature, brief, functionality, opts, snapshot });
+    lines = buildFeaturePacket({ feature: resolvedFeature, brief, functionality, opts, snapshot, repoRoot });
   } else {
     lines = buildTaskPacket({ task: resolvedTask, functionality, brief, opts, snapshot });
   }
