@@ -1,0 +1,230 @@
+{
+  "version": "0.2",
+  "features": [
+    {
+      "id": "agent-registration",
+      "label": "Agent registration",
+      "description": "POST /agents (register_agent) treats a re-register as a full state refresh: session handle and runtime_state come only from the request, while description survives unless passed. Before writing, it runs the cwd, tombstone, driving-mode-switch and same-mode-bridge gates. A resident register with a live terminalId adopts that console. A resident register against a managed row goes to manual takeover. A pi agent registered as resident is marked pi_resident_pending_flip. The handler broadcasts agent_registered.",
+      "anchors": {
+        "symbols": ["register_agent", "_validate_registration_cwd", "_enforce_tombstone_resurrection_gate", "_enforce_driving_mode_switch_gate", "_upsert_registered_agent_row", "_register_via_adopted_console_terminal"],
+        "files": ["service/routers/agents/registration.py", "service/api_core/registration_gates.py", "service/api_core/agent_registration_writes.py"]
+      }
+    },
+    {
+      "id": "direct-message-send",
+      "label": "Direct message send",
+      "description": "POST /messages/send returns 400 without to or toRole. clientNonce makes it idempotent: an existing (from_agent, client_nonce) row returns the original messageId with replayed:true, and INSERT OR IGNORE settles concurrent retries. A fan-out gives each recipient the id '<msgId>-<recipient>'. With trigger, recipients are preflighted; unstartable ones make a new dispatch refuse, but replies (resolved inReplyTo or type 'response') are always persisted.",
+      "anchors": {
+        "symbols": ["send_message", "_preflight_live_send_recipients", "_refuse_send_to_unstartable_recipients"],
+        "files": ["service/routers/dispatch_messages/messages.py", "service/api_core/send_preflight.py", "service/api_core/send_refusal.py"]
+      }
+    },
+    {
+      "id": "reply-threading",
+      "label": "Reply threading onto dispatch runs",
+      "description": "_thread_reply_onto_dispatch_runs closes the run named by a resolved inReplyTo via _link_reply_message_to_dispatch_run. Without one, it calls _link_unthreaded_reply_to_recent_dispatch_run for each recipient, which guesses the most recent run from that sender within _UNTHREADED_HANDOFF_WINDOW_MS (24 hours). A real reply may replace an auto-handoff placeholder: a body starting 'Auto-mirrored dispatch ', or the generated handoff subject and body.",
+      "anchors": {
+        "symbols": ["_thread_reply_onto_dispatch_runs", "_link_reply_message_to_dispatch_run", "_link_unthreaded_reply_to_recent_dispatch_run", "_is_replaceable_auto_handoff_message", "_borrowed_unthreaded_handoff_window_ms"],
+        "files": ["service/api_core/reply_threading.py", "service/api_core/reply_linking.py", "service/api_core/tuning.py"]
+      }
+    },
+    {
+      "id": "inbox-and-read-receipts",
+      "label": "Inbox, search and read receipts",
+      "description": "GET /messages/inbox/{agent_id} filters unread (default), read or all through read_receipts, with limit 200 (max 1000), mode full|headers, and a parentContext (100-character preview) on replies. Unless peek, _settle_inbox_read writes receipts, completes claimed/running dispatch runs for the messages it read, and sets the agent working or idle. POST /messages/{id}/read adds or deletes a receipt and returns 403 when the message is not addressed to agentId.",
+      "anchors": {
+        "symbols": ["get_inbox", "set_message_read_state", "search_messages", "recent_messages", "_settle_inbox_read"],
+        "files": ["service/routers/dispatch_messages/inbox.py", "service/api_core/inbox_read_receipts.py"]
+      }
+    },
+    {
+      "id": "dispatch-runs-and-claim",
+      "label": "Dispatch run creation and long-poll claim",
+      "description": "POST /dispatch creates dispatch_runs, commits, then calls longpoll.notify('dispatch') and notify('control'). POST /dispatch/claim wraps _claim_dispatch_once in longpoll(). That function holds BEGIN IMMEDIATE so two bridges cannot claim the same run. _select_claimable_run returns the first run the bridge can execute and writes a 'skipped' event for each one it passes over. longpoll() waits in 3.0s slices, capped at MAX_WAIT_S=25s, and turns SQLite lock errors into lock_result.",
+      "anchors": {
+        "symbols": ["create_dispatch", "claim_dispatch", "_claim_dispatch_once", "_select_claimable_run", "longpoll", "notify"],
+        "files": ["service/routers/dispatch_messages/dispatch.py", "service/dispatch_claim.py", "service/api_core/claim_run_selection.py", "service/longpoll.py"]
+      }
+    },
+    {
+      "id": "channels",
+      "label": "Channels and fan-out",
+      "description": "POST /channels/{name}/send returns 403 unless the sender is a member. It stores one canonical channel message plus a per-member inbox copy '<msgId>-<member>'. It skips members sent the same type and body directly by the sender within 30s (suppressedDuplicates). silent=true disables triggering. Only preflight-startable members get dispatch runs, with require_reply False. The others appear in notStarted but keep the inbox copy. Join, leave and mark-read live in channel_membership.",
+      "anchors": {
+        "symbols": ["send_channel_message", "_has_recent_direct_delivery_for_channel_fanout", "create_channel", "list_channels", "join_channel", "leave_channel"],
+        "files": ["service/routers/channel_send.py", "service/routers/channels.py", "service/routers/channel_membership.py"]
+      }
+    },
+    {
+      "id": "environment-registry",
+      "label": "Environment registry and heartbeat",
+      "description": "POST /environments/heartbeat upserts the environment. A requested status outside online|degraded|offline becomes online. A forgotten environment stays forgotten unless bridgeStartedAt is newer than forgottenAt. An older bridge cannot displace a newer one, and a newer one queues a stop for the superseded bridge. environment_effective_status ages online/degraded to offline after offline_seconds (default 90, min 15). Controls accept only stop|forget; forget sets status forgotten and clears bridge_id.",
+      "anchors": {
+        "symbols": ["environment_heartbeat", "control_environment", "list_environments", "environment_effective_status", "claim_environment_control", "_claim_environment_control_once"],
+        "files": ["service/routers/environments.py", "service/env_status.py", "service/environment_claim.py"]
+      }
+    },
+    {
+      "id": "spawn-requests",
+      "label": "Spawn requests (service side)",
+      "description": "POST /spawn-requests accepts only mode 'managed-warm' (the default). It returns 404 for an unknown environment, 409 unless the environment is online, and 400 if the environment does not advertise the runtime. The claim is a long poll on scope 'spawn' with a 3.0s fallback. PATCH accepts claimed|starting|running|failed|cancelled, refuses to change a failed or cancelled request, and returns 409 when another bridge holds the claim. _settle_running_spawn handles the 'running' transition.",
+      "anchors": {
+        "symbols": ["create_spawn_request", "claim_spawn_request", "update_spawn_request", "_claim_spawn_request_once", "_settle_running_spawn"],
+        "files": ["service/routers/spawn_requests.py", "service/api_core/spawn_requests_io.py", "service/api_core/running_spawn.py"]
+      }
+    },
+    {
+      "id": "status-engine",
+      "label": "Proof-based agent status engine",
+      "description": "derive() is a pure first-match rule list over StatusInputs. It returns stopped if disabled, and offline for a managed agent whose environment is unreachable. A turn in flight on a live worker gives blocked when awaiting_input, else working. A managed agent that is alive with a worker is online. With a reachable environment it is misconfigured, online (console booting), starting, or available. apply_event folds turn_start, turn_end, blocked and unblocked; POST /agents/{id}/turn-start and /turn-end feed it.",
+      "anchors": {
+        "symbols": ["derive", "apply_event", "StatusInputs", "_gather_status_inputs", "_apply_status_event", "agent_turn_start"],
+        "files": ["service/status_engine.py", "service/api_core/status_inputs.py", "service/api_core/status_events.py", "service/routers/agents/turn_boundaries.py"]
+      }
+    },
+    {
+      "id": "work-loop-contracts",
+      "label": "Work Loop reply contracts and reminders",
+      "description": "_contract_state maps a dispatch run to answered (result_message_id set), failed, missing_reply or closed (completed), working (claimed/running), queued, seen or sent. It becomes overdue when a reply is expected, missing, the run is non-terminal, and its age is at least reply_reminder_minutes (default 10). The category is self_wake when sender equals target, channel for channel sources, otherwise direct. self_wake is never actionable. reply_contracts_enabled=false disables reminders.",
+      "anchors": {
+        "symbols": ["list_work_contracts", "run_contract_reminders", "_contract_state", "_contract_reminder_due", "_message_satisfies_reply_contract"],
+        "files": ["service/routers/contracts.py", "service/api_core/reply_contract.py", "service/api_core/settings.py"]
+      }
+    },
+    {
+      "id": "reconcile-sweep",
+      "label": "Periodic reconcile sweep",
+      "description": "lifespan runs _run_dispatch_reconcile_once once at startup, and a failure there never blocks boot. _periodic_dispatch_reconcile then repeats it every 60s. The sweep commits each step in a fixed order: repair unusable active runs, finalize dead-terminal spawns, close delivered runs, send contract reminders (limit 50), requeue orphaned claims, reap undeliverable queued runs, and stop dead sessions (resident_lease_seconds, default 150). It finishes with PRAGMA wal_checkpoint(TRUNCATE) and returns per-step counts.",
+      "anchors": {
+        "symbols": ["_run_dispatch_reconcile_once", "_periodic_dispatch_reconcile", "lifespan"],
+        "files": ["service/reconcilers/sweep.py", "service/main.py"]
+      }
+    },
+    {
+      "id": "ntfy-phone-notifications",
+      "label": "ntfy phone notifications",
+      "description": "Opt-in via the AIFY_NTFY_URL environment variable. notify_operator is a plain def called after commit. Only message_sent events addressed to 'dashboard', and channel_message events where channel_joined is true, qualify. Repeats with the same event|sender|subject key within 90s are coalesced before the queue. The queue holds 256 items and drops when full. One background worker POSTs with a 5s timeout and never retries. The URL leaves only through redact_url.",
+      "anchors": {
+        "symbols": ["NtfyRelay", "notify_operator", "qualifies", "coalesce_key", "redact_url", "get_relay"],
+        "files": ["service/ntfy.py"]
+      }
+    },
+    {
+      "id": "session-mode-switch",
+      "label": "Resident/managed mode switch",
+      "description": "PATCH /agents/{id}/session-mode accepts only resident|managed (400 otherwise). It returns 410 for a tombstoned agent and 404 for an unknown one. Without force=true, an active dispatch run gives 409, while a missing managed backing adds only a warning. Resident to managed tries to eager-spawn a wrapper PTY; managed to resident flips the managed PTY to 'stopping'. The switch is audited as a dispatch_events row of type mode_switch_<old>_to_<new>.",
+      "anchors": {
+        "symbols": ["switch_agent_session_mode", "_enforce_switch_not_blocked_by_active_run", "_start_managed_backing_after_switch"],
+        "files": ["service/routers/agents/session_mode.py", "service/api_core/session_mode_gates.py"]
+      }
+    },
+    {
+      "id": "agent-console-tail",
+      "label": "Agent console tail and input",
+      "description": "GET /agents/{id}/console (lines default 40) is read-only and never starts a worker. With a live console it returns the rendered screen and live:true. Without one, it returns the last recorded output with live:false, historical:true and a failureLine chosen by meaningful_failure_line. POST /agents/{id}/console/input types only into a live console; otherwise it replies that there is no live console and a message must be sent to start it first.",
+      "anchors": {
+        "symbols": ["get_agent_console", "post_agent_console_input", "meaningful_failure_line", "failure_tail", "render_snapshot", "render_live_screen"],
+        "files": ["service/routers/agents/console.py", "service/terminal_diagnostics.py", "service/terminal_snapshot.py"]
+      }
+    },
+    {
+      "id": "terminal-controls-and-console-delivery",
+      "label": "Terminal controls and console delivery",
+      "description": "Bridges POST PTY bytes to /terminals/{id}/output. POST /terminals/{id}/input (404 for an unknown terminal) records an 'input' terminal control, and resize clamps to TERMINAL_MAX_COLS/ROWS. Bridges claim controls at /terminals/controls/claim. When a recipient's session is a TUI console, a message is delivered as an 'input' control by _queue_console_dispatch_inputs, and _record_terminal_delivery_contract writes the run that tracks the reply.",
+      "anchors": {
+        "symbols": ["append_terminal_output", "send_terminal_input", "resize_terminal", "claim_terminal_controls", "_queue_console_dispatch_inputs", "_record_terminal_delivery_contract"],
+        "files": ["service/routers/terminals.py", "service/routers/terminal_controls.py", "service/api_core/console_input_queue.py"]
+      }
+    },
+    {
+      "id": "usage-quota",
+      "label": "Usage and quota pools",
+      "description": "The bridge collector reports anthropic-claude-max from api.anthropic.com/api/oauth/usage and openai-chatgpt-codex from the latest codex rollout's rate_limits. On errors it returns unknown:true, never a fake 0%. POST /usage caches pools, and usage_get blanks stale ones (STALE_AFTER_SECONDS=420). GET /usage also calls collect_openai_pool (chatgpt.com/backend-api/wham/usage) service-side, caches it for 120s, and lets that fresh reading replace the bridge-posted OpenAI pool.",
+      "anchors": {
+        "symbols": ["get_usage", "post_usage", "usage_get", "collect_openai_pool", "fetchAnthropicUsage", "collectOnce"],
+        "files": ["service/routers/usage.py", "service/usage_cache.py", "service/usage_openai.py", "mcp/stdio/usage-collector.js"]
+      }
+    },
+    {
+      "id": "dashboard-next",
+      "label": "Dashboard Next SPA",
+      "description": "new_dashboard_app serves the SPA on port 8801, with a revalidate_static middleware that makes browsers revalidate HTML, JS and CSS. app.js calls the REST API under <apiOrigin>/api/v1. The realtime WebSocket reconnects with backoff min(30000, 1500*2^attempts). refresh() coalesces concurrent runs, refreshSoon debounces by 250ms, and the poll interval is max(5, dashboard_refresh_seconds or 15) seconds. A desktop channel alert fires only if 'dashboard' is a channel member.",
+      "anchors": {
+        "symbols": ["revalidate_static", "refreshSoon","connectRealtimeSocket", "initRealtimeSocket", "armRefreshTimer", "toggleNotifications"],
+        "files": ["service/new_dashboard_app.py", "service/new_dashboard/app.js", "service/new_dashboard/realtime-socket.mjs", "service/new_dashboard/notifications.mjs"]
+      }
+    },
+    {
+      "id": "mcp-tool-surface",
+      "label": "MCP stdio bridge tool surface",
+      "description": "server.js builds McpServer 'aify-comms-mcp', and registerAllTools registers every comms_* tool group: registration, environment, usage, compact, send, dispatch and console. comms_send requires to or toRole. It mints one randomUUID clientNonce per call and POSTs /messages/send, with steer defaulting to true unless queueIfBusy. Without AIFY_SERVER_URL (IS_REMOTE false), messages go to a local filesystem bus under .messages/ (agents.json, inbox/, shared/).",
+      "anchors": {
+        "symbols": ["registerAllTools", "registerSendTools", "readInbox", "deliverMessage", "readAgents"],
+        "files": ["mcp/stdio/server.js", "mcp/stdio/register-tools.mjs", "mcp/stdio/send-tools.mjs", "mcp/stdio/local-store.mjs"]
+      }
+    },
+    {
+      "id": "environment-bridge-loops",
+      "label": "Environment bridge heartbeat and spawn loop",
+      "description": "These loops run only for a remote environment bridge. heartbeatEnvironment POSTs /environments/heartbeat every AIFY_ENVIRONMENT_HEARTBEAT_MS (default 30000, min 5000) and adopts the returned cwdRoots. Bootstrap registers first, then sweeps survivors and tombstoned markers, syncs managed agents and starts the spawn loop. runSpawnPass PATCHes a claimed request to failed if workspaceWithinRoots rejects the workspace ('/' matches all, '~' expands). Otherwise it goes to starting, then running, and calls ensureDispatchLoop.",
+      "anchors": {
+        "symbols": ["heartbeatEnvironment", "bootstrapEnvironmentBridge", "ensureEnvironmentHeartbeat", "runSpawnPass", "workspaceWithinRoots", "runEnvironmentControlPass"],
+        "files": ["mcp/stdio/server.js", "mcp/stdio/spawn-loop.mjs", "mcp/stdio/environment-identity.mjs", "mcp/stdio/environment-control-loop.mjs"]
+      }
+    },
+    {
+      "id": "bridge-dispatch-loop",
+      "label": "Bridge dispatch claim loop",
+      "description": "For each hosted agent, runDispatchPass claims up to 20 runs from POST /dispatch/claim and merges them into one turn. Only the first claim long-polls, and only on a single-agent bridge. A 404 triggers an automatic re-register, and a 410 forgets the agent. Other errors are counted, and a re-register happens after AUTO_REREGISTER_AFTER_FAILURES. Runs launch through launchRuntimeRun, progress and results are PATCHed to /dispatch/runs/{id}, and the failure PATCH is retried up to 3 times.",
+      "anchors": {
+        "symbols": ["runDispatchPass", "runDispatchLoop", "supportedExecutionModes", "wrapperChildExecutionModes"],
+        "files": ["mcp/stdio/dispatch-loop.mjs", "mcp/stdio/dispatch-execution.js"]
+      }
+    },
+    {
+      "id": "runtime-adapters",
+      "label": "Runtime adapters and launch",
+      "description": "adapterFor maps aliases (claude to claude-code, omp/oh-my-pi to pi, hermes-agent to hermes) onto five adapter classes in a lazily built registry. It throws 'Unknown runtime' for anything else. launchRuntimeRun resolves the adapter and calls controllerFor with executionMode (the run's mode, then the agent's session mode, then 'managed'). It attaches onReady before start(), and returns failedRuntimeController when the adapter or mode is unsupported. PiAdapter.supportsResident is false.",
+      "anchors": {
+        "symbols": ["adapterFor", "RuntimeAdapter", "PiAdapter", "launchRuntimeRun", "failedRuntimeController"],
+        "files": ["mcp/stdio/adapters/index.js", "mcp/stdio/adapters/base.js", "mcp/stdio/adapters/pi.js", "mcp/stdio/runtimes.js"]
+      }
+    },
+    {
+      "id": "claude-channel-sidecar",
+      "label": "Claude channel sidecar",
+      "description": "claude-channel.js is a per-agent MCP sidecar with bridge id 'channel-<machine>-...' that beats /agents/{id}/heartbeat every 30s, except when its parent claude process is dead. It claims up to 20 runs (executionModes channel|resident, bridgeKind channel-sidecar) and emits them as one notifications/claude/channel notification. On a stopped or release response it goes dormant for RELEASE_RECHECK_MS (default 60s). Delivery PATCHes the run to 'delivered' if requireReply, else 'completed'.",
+      "anchors": {
+        "symbols": ["pollLoop", "emitChannel", "markDispatchDelivered", "channelBridgeId", "dispatchContent", "decideRepulse"],
+        "files": ["mcp/stdio/claude-channel.js", "mcp/stdio/claude-channel-content.js"]
+      }
+    },
+    {
+      "id": "codex-app-server-session",
+      "label": "Managed Codex app-server sessions",
+      "description": "CodexSession keeps one persistent 'codex app-server' child per agentId (getOrCreateCodexSession). It tries thread/resume for a saved thread and heals to thread/start. Each turn uses turn/start, steering uses turn/steer, and cancellation uses turn/interrupt. The idle timeout defaults to 24h (runtimeConfig codexIdleTimeoutMs or AIFY_CODEX_IDLE_TIMEOUT_MS), and startup times out after 60000ms. shutdownAllCodexSessions stops the pool on bridge exit. PiSession runs 'omp --mode rpc' the same way.",
+      "anchors": {
+        "symbols": ["CodexSession", "getOrCreateCodexSession", "shutdownAllCodexSessions", "idleTimeoutFor", "PiSession"],
+        "files": ["mcp/stdio/codex-session.js", "mcp/stdio/pi-session.js"]
+      }
+    },
+    {
+      "id": "hermes-gateway-host",
+      "label": "Hermes gateway host lifecycle",
+      "description": "ensureGatewayHost spawns the hermes host on 127.0.0.1:<port> and waits for the index token. By default (AIFY_HERMES_VERIFY_WS not '0') it also proves ws://.../api/ws?token= opens within 5000ms before declaring ready. maybeReEnsureGatewayHost treats a probe that throws as dead and re-ensures. nextReEnsureBudget decrements per re-ensure and resets to MAX_REENSURE_WITHOUT_RECOVERY=3 on recovery. teardownGatewayHost is idempotent through shared teardown state.",
+      "anchors": {
+        "symbols": ["ensureGatewayHost", "maybeReEnsureGatewayHost", "nextReEnsureBudget", "teardownGatewayHost", "installShutdownTeardown", "openGatewayWsClient"],
+        "files": ["mcp/stdio/hermes-gateway.mjs"]
+      }
+    },
+    {
+      "id": "aify-doctor",
+      "label": "aify-comms doctor install verifier",
+      "description": "doctor.js checks the running system rather than files. checkService compares /version sha against the checkout and fails 'unknown-build' when no sha is stamped. Further checks cover the native bridge, running bridges, agent identity, wrappers, runtimes, the env bridge, usage (a live OpenAI call) and installed skills. --json prints machine output, --repo picks the checkout, and --strict exits 1 on any failure. doctor-predicates holds the verdicts; ENV_STALE_AFTER_MS is 10 minutes.",
+      "anchors": {
+        "symbols": ["checkService", "checkRunningBridges", "checkEnvBridge", "serviceBuildVerdict", "bridgeInstallVerdict", "openAiUsageVerdict"],
+        "files": ["mcp/stdio/doctor.js", "mcp/stdio/doctor-predicates.js"]
+      }
+    }
+  ]
+}

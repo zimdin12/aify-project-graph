@@ -1,0 +1,36 @@
+{
+ "features": 25,
+ "symbols": 132,
+ "symbols_unresolved_at_W": [],
+ "negative_control": "W vs W: 0 pings",
+ "weekly": [
+  {
+   "slice": "d28->d21",
+   "F": 15,
+   "S": 6
+  },
+  {
+   "slice": "d21->d14",
+   "F": 24,
+   "S": 18
+  },
+  {
+   "slice": "d14->d7",
+   "F": 12,
+   "S": 8
+  },
+  {
+   "slice": "d7->d0",
+   "F": 6,
+   "S": 2
+  }
+ ],
+ "weekly_rate": {
+  "F": 0.57,
+  "S": 0.34
+ },
+ "cumulative": {
+  "F": 24,
+  "S": 20
+ }
+}

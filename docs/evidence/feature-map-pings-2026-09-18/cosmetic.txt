@@ -1,0 +1,18 @@
+{
+ "d28->d21": {
+  "S_real": 6,
+  "S_cosmetic_only": 0
+ },
+ "d21->d14": {
+  "S_real": 18,
+  "S_cosmetic_only": 0
+ },
+ "d14->d7": {
+  "S_real": 8,
+  "S_cosmetic_only": 0
+ },
+ "d7->d0": {
+  "S_real": 1,
+  "S_cosmetic_only": 1
+ }
+}

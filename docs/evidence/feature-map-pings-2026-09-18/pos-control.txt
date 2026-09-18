@@ -1,0 +1,4 @@
+changed ('_rewrite_agent_references_for_rename', 'service/api_core/agent_rename_writes.py') same ('_record_registered_session_handle', 'service/api_core/agent_registration_writes.py')
+changed S= True F= True [{'symbol': '_rewrite_agent_references_for_rename', 'gone': False}]
+same S= False F= True []
+unresolvable ['zzqNotASymbol']

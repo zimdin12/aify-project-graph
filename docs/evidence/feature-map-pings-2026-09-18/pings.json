@@ -1,0 +1,1638 @@
+{
+ "features": 25,
+ "symbols": 132,
+ "symbols_unresolved_at_W": [],
+ "negative_control": "W vs W: 0 pings",
+ "weekly": [
+  {
+   "slice": "d28->d21",
+   "F": 15,
+   "S": 6
+  },
+  {
+   "slice": "d21->d14",
+   "F": 24,
+   "S": 18
+  },
+  {
+   "slice": "d14->d7",
+   "F": 12,
+   "S": 8
+  },
+  {
+   "slice": "d7->d0",
+   "F": 6,
+   "S": 2
+  }
+ ],
+ "per_feature": {
+  "agent-registration": {
+   "d28->d21": {
+    "F": true,
+    "S": false,
+    "files": [
+     "service/api_core/agent_registration_writes.py"
+    ],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d21->d14": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/routers/agents/registration.py",
+     "service/api_core/registration_gates.py"
+    ],
+    "symbols": [
+     {
+      "symbol": "register_agent",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   },
+   "d14->d7": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d7->d0": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "cumulative": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/routers/agents/registration.py",
+     "service/api_core/registration_gates.py",
+     "service/api_core/agent_registration_writes.py"
+    ],
+    "symbols": [
+     {
+      "symbol": "register_agent",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   }
+  },
+  "direct-message-send": {
+   "d28->d21": {
+    "F": true,
+    "S": false,
+    "files": [
+     "service/api_core/send_preflight.py"
+    ],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d21->d14": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/api_core/send_preflight.py"
+    ],
+    "symbols": [
+     {
+      "symbol": "_preflight_live_send_recipients",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   },
+   "d14->d7": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d7->d0": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "cumulative": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/api_core/send_preflight.py"
+    ],
+    "symbols": [
+     {
+      "symbol": "_preflight_live_send_recipients",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   }
+  },
+  "reply-threading": {
+   "d28->d21": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d21->d14": {
+    "F": true,
+    "S": false,
+    "files": [
+     "service/api_core/tuning.py"
+    ],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d14->d7": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d7->d0": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "cumulative": {
+    "F": true,
+    "S": false,
+    "files": [
+     "service/api_core/tuning.py"
+    ],
+    "symbols": [],
+    "unresolved_at_W": []
+   }
+  },
+  "inbox-and-read-receipts": {
+   "d28->d21": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d21->d14": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/routers/dispatch_messages/inbox.py"
+    ],
+    "symbols": [
+     {
+      "symbol": "get_inbox",
+      "gone": false
+     },
+     {
+      "symbol": "recent_messages",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   },
+   "d14->d7": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/routers/dispatch_messages/inbox.py"
+    ],
+    "symbols": [
+     {
+      "symbol": "recent_messages",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   },
+   "d7->d0": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "cumulative": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/routers/dispatch_messages/inbox.py"
+    ],
+    "symbols": [
+     {
+      "symbol": "get_inbox",
+      "gone": false
+     },
+     {
+      "symbol": "recent_messages",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   }
+  },
+  "dispatch-runs-and-claim": {
+   "d28->d21": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d21->d14": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/routers/dispatch_messages/dispatch.py",
+     "service/longpoll.py"
+    ],
+    "symbols": [
+     {
+      "symbol": "longpoll",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   },
+   "d14->d7": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d7->d0": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "cumulative": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/routers/dispatch_messages/dispatch.py",
+     "service/longpoll.py"
+    ],
+    "symbols": [
+     {
+      "symbol": "longpoll",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   }
+  },
+  "channels": {
+   "d28->d21": {
+    "F": true,
+    "S": false,
+    "files": [
+     "service/routers/channels.py"
+    ],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d21->d14": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/routers/channels.py"
+    ],
+    "symbols": [
+     {
+      "symbol": "list_channels",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   },
+   "d14->d7": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d7->d0": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "cumulative": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/routers/channels.py"
+    ],
+    "symbols": [
+     {
+      "symbol": "list_channels",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   }
+  },
+  "environment-registry": {
+   "d28->d21": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/environment_claim.py"
+    ],
+    "symbols": [
+     {
+      "symbol": "_claim_environment_control_once",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   },
+   "d21->d14": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/routers/environments.py",
+     "service/env_status.py"
+    ],
+    "symbols": [
+     {
+      "symbol": "environment_heartbeat",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   },
+   "d14->d7": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/routers/environments.py"
+    ],
+    "symbols": [
+     {
+      "symbol": "environment_heartbeat",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   },
+   "d7->d0": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "cumulative": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/routers/environments.py",
+     "service/env_status.py",
+     "service/environment_claim.py"
+    ],
+    "symbols": [
+     {
+      "symbol": "environment_heartbeat",
+      "gone": false
+     },
+     {
+      "symbol": "_claim_environment_control_once",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   }
+  },
+  "spawn-requests": {
+   "d28->d21": {
+    "F": true,
+    "S": false,
+    "files": [
+     "service/api_core/running_spawn.py"
+    ],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d21->d14": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/routers/spawn_requests.py",
+     "service/api_core/spawn_requests_io.py",
+     "service/api_core/running_spawn.py"
+    ],
+    "symbols": [
+     {
+      "symbol": "create_spawn_request",
+      "gone": false
+     },
+     {
+      "symbol": "update_spawn_request",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   },
+   "d14->d7": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/routers/spawn_requests.py"
+    ],
+    "symbols": [
+     {
+      "symbol": "create_spawn_request",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   },
+   "d7->d0": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/routers/spawn_requests.py"
+    ],
+    "symbols": [
+     {
+      "symbol": "create_spawn_request",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   },
+   "cumulative": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/routers/spawn_requests.py",
+     "service/api_core/spawn_requests_io.py",
+     "service/api_core/running_spawn.py"
+    ],
+    "symbols": [
+     {
+      "symbol": "create_spawn_request",
+      "gone": false
+     },
+     {
+      "symbol": "update_spawn_request",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   }
+  },
+  "status-engine": {
+   "d28->d21": {
+    "F": true,
+    "S": false,
+    "files": [
+     "service/api_core/status_inputs.py"
+    ],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d21->d14": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/status_engine.py",
+     "service/api_core/status_inputs.py",
+     "service/api_core/status_events.py",
+     "service/routers/agents/turn_boundaries.py"
+    ],
+    "symbols": [
+     {
+      "symbol": "apply_event",
+      "gone": false
+     },
+     {
+      "symbol": "_gather_status_inputs",
+      "gone": false
+     },
+     {
+      "symbol": "_apply_status_event",
+      "gone": false
+     },
+     {
+      "symbol": "agent_turn_start",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   },
+   "d14->d7": {
+    "F": true,
+    "S": false,
+    "files": [
+     "service/api_core/status_inputs.py"
+    ],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d7->d0": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "cumulative": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/status_engine.py",
+     "service/api_core/status_inputs.py",
+     "service/api_core/status_events.py",
+     "service/routers/agents/turn_boundaries.py"
+    ],
+    "symbols": [
+     {
+      "symbol": "apply_event",
+      "gone": false
+     },
+     {
+      "symbol": "_gather_status_inputs",
+      "gone": false
+     },
+     {
+      "symbol": "_apply_status_event",
+      "gone": false
+     },
+     {
+      "symbol": "agent_turn_start",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   }
+  },
+  "work-loop-contracts": {
+   "d28->d21": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d21->d14": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/routers/contracts.py",
+     "service/api_core/reply_contract.py"
+    ],
+    "symbols": [
+     {
+      "symbol": "list_work_contracts",
+      "gone": false
+     },
+     {
+      "symbol": "_contract_state",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   },
+   "d14->d7": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d7->d0": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "cumulative": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/routers/contracts.py",
+     "service/api_core/reply_contract.py"
+    ],
+    "symbols": [
+     {
+      "symbol": "list_work_contracts",
+      "gone": false
+     },
+     {
+      "symbol": "_contract_state",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   }
+  },
+  "reconcile-sweep": {
+   "d28->d21": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/reconcilers/sweep.py"
+    ],
+    "symbols": [
+     {
+      "symbol": "_run_dispatch_reconcile_once",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   },
+   "d21->d14": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/reconcilers/sweep.py",
+     "service/main.py"
+    ],
+    "symbols": [
+     {
+      "symbol": "_run_dispatch_reconcile_once",
+      "gone": false
+     },
+     {
+      "symbol": "_periodic_dispatch_reconcile",
+      "gone": false
+     },
+     {
+      "symbol": "lifespan",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   },
+   "d14->d7": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/reconcilers/sweep.py",
+     "service/main.py"
+    ],
+    "symbols": [
+     {
+      "symbol": "_run_dispatch_reconcile_once",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   },
+   "d7->d0": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "cumulative": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/reconcilers/sweep.py",
+     "service/main.py"
+    ],
+    "symbols": [
+     {
+      "symbol": "_run_dispatch_reconcile_once",
+      "gone": false
+     },
+     {
+      "symbol": "_periodic_dispatch_reconcile",
+      "gone": false
+     },
+     {
+      "symbol": "lifespan",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   }
+  },
+  "ntfy-phone-notifications": {
+   "d28->d21": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d21->d14": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/ntfy.py"
+    ],
+    "symbols": [
+     {
+      "symbol": "NtfyRelay",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   },
+   "d14->d7": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d7->d0": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "cumulative": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/ntfy.py"
+    ],
+    "symbols": [
+     {
+      "symbol": "NtfyRelay",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   }
+  },
+  "session-mode-switch": {
+   "d28->d21": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d21->d14": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/api_core/session_mode_gates.py"
+    ],
+    "symbols": [
+     {
+      "symbol": "_enforce_switch_not_blocked_by_active_run",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   },
+   "d14->d7": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d7->d0": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "cumulative": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/api_core/session_mode_gates.py"
+    ],
+    "symbols": [
+     {
+      "symbol": "_enforce_switch_not_blocked_by_active_run",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   }
+  },
+  "agent-console-tail": {
+   "d28->d21": {
+    "F": true,
+    "S": false,
+    "files": [
+     "service/terminal_diagnostics.py"
+    ],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d21->d14": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/routers/agents/console.py",
+     "service/terminal_diagnostics.py",
+     "service/terminal_snapshot.py"
+    ],
+    "symbols": [
+     {
+      "symbol": "get_agent_console",
+      "gone": false
+     },
+     {
+      "symbol": "meaningful_failure_line",
+      "gone": false
+     },
+     {
+      "symbol": "render_snapshot",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   },
+   "d14->d7": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d7->d0": {
+    "F": true,
+    "S": false,
+    "files": [
+     "service/terminal_snapshot.py"
+    ],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "cumulative": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/routers/agents/console.py",
+     "service/terminal_diagnostics.py",
+     "service/terminal_snapshot.py"
+    ],
+    "symbols": [
+     {
+      "symbol": "get_agent_console",
+      "gone": false
+     },
+     {
+      "symbol": "meaningful_failure_line",
+      "gone": false
+     },
+     {
+      "symbol": "render_snapshot",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   }
+  },
+  "terminal-controls-and-console-delivery": {
+   "d28->d21": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d21->d14": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/routers/terminals.py",
+     "service/api_core/console_input_queue.py"
+    ],
+    "symbols": [
+     {
+      "symbol": "append_terminal_output",
+      "gone": false
+     },
+     {
+      "symbol": "_queue_console_dispatch_inputs",
+      "gone": false
+     },
+     {
+      "symbol": "_record_terminal_delivery_contract",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   },
+   "d14->d7": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/routers/terminals.py",
+     "service/routers/terminal_controls.py",
+     "service/api_core/console_input_queue.py"
+    ],
+    "symbols": [
+     {
+      "symbol": "append_terminal_output",
+      "gone": false
+     },
+     {
+      "symbol": "_record_terminal_delivery_contract",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   },
+   "d7->d0": {
+    "F": true,
+    "S": false,
+    "files": [
+     "service/routers/terminals.py"
+    ],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "cumulative": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/routers/terminals.py",
+     "service/routers/terminal_controls.py",
+     "service/api_core/console_input_queue.py"
+    ],
+    "symbols": [
+     {
+      "symbol": "append_terminal_output",
+      "gone": false
+     },
+     {
+      "symbol": "_queue_console_dispatch_inputs",
+      "gone": false
+     },
+     {
+      "symbol": "_record_terminal_delivery_contract",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   }
+  },
+  "usage-quota": {
+   "d28->d21": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d21->d14": {
+    "F": true,
+    "S": false,
+    "files": [
+     "service/usage_cache.py",
+     "service/usage_openai.py",
+     "mcp/stdio/usage-collector.js"
+    ],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d14->d7": {
+    "F": true,
+    "S": false,
+    "files": [
+     "service/usage_cache.py",
+     "mcp/stdio/usage-collector.js"
+    ],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d7->d0": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "cumulative": {
+    "F": true,
+    "S": false,
+    "files": [
+     "service/usage_cache.py",
+     "service/usage_openai.py",
+     "mcp/stdio/usage-collector.js"
+    ],
+    "symbols": [],
+    "unresolved_at_W": []
+   }
+  },
+  "dashboard-next": {
+   "d28->d21": {
+    "F": true,
+    "S": false,
+    "files": [
+     "service/new_dashboard_app.py"
+    ],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d21->d14": {
+    "F": true,
+    "S": false,
+    "files": [
+     "service/new_dashboard_app.py",
+     "service/new_dashboard/app.js",
+     "service/new_dashboard/realtime-socket.mjs"
+    ],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d14->d7": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/new_dashboard/app.js",
+     "service/new_dashboard/realtime-socket.mjs"
+    ],
+    "symbols": [
+     {
+      "symbol": "connectRealtimeSocket",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   },
+   "d7->d0": {
+    "F": true,
+    "S": false,
+    "files": [
+     "service/new_dashboard/app.js",
+     "service/new_dashboard/realtime-socket.mjs"
+    ],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "cumulative": {
+    "F": true,
+    "S": true,
+    "files": [
+     "service/new_dashboard_app.py",
+     "service/new_dashboard/app.js",
+     "service/new_dashboard/realtime-socket.mjs"
+    ],
+    "symbols": [
+     {
+      "symbol": "connectRealtimeSocket",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   }
+  },
+  "mcp-tool-surface": {
+   "d28->d21": {
+    "F": true,
+    "S": true,
+    "files": [
+     "mcp/stdio/server.js",
+     "mcp/stdio/send-tools.mjs"
+    ],
+    "symbols": [
+     {
+      "symbol": "registerSendTools",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   },
+   "d21->d14": {
+    "F": true,
+    "S": true,
+    "files": [
+     "mcp/stdio/server.js",
+     "mcp/stdio/send-tools.mjs"
+    ],
+    "symbols": [
+     {
+      "symbol": "registerSendTools",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   },
+   "d14->d7": {
+    "F": true,
+    "S": false,
+    "files": [
+     "mcp/stdio/server.js",
+     "mcp/stdio/send-tools.mjs"
+    ],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d7->d0": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "cumulative": {
+    "F": true,
+    "S": true,
+    "files": [
+     "mcp/stdio/server.js",
+     "mcp/stdio/send-tools.mjs"
+    ],
+    "symbols": [
+     {
+      "symbol": "registerSendTools",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   }
+  },
+  "environment-bridge-loops": {
+   "d28->d21": {
+    "F": true,
+    "S": true,
+    "files": [
+     "mcp/stdio/server.js"
+    ],
+    "symbols": [
+     {
+      "symbol": "heartbeatEnvironment",
+      "gone": false
+     },
+     {
+      "symbol": "bootstrapEnvironmentBridge",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   },
+   "d21->d14": {
+    "F": true,
+    "S": true,
+    "files": [
+     "mcp/stdio/server.js",
+     "mcp/stdio/environment-identity.mjs"
+    ],
+    "symbols": [
+     {
+      "symbol": "heartbeatEnvironment",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   },
+   "d14->d7": {
+    "F": true,
+    "S": true,
+    "files": [
+     "mcp/stdio/server.js",
+     "mcp/stdio/spawn-loop.mjs",
+     "mcp/stdio/environment-identity.mjs",
+     "mcp/stdio/environment-control-loop.mjs"
+    ],
+    "symbols": [
+     {
+      "symbol": "heartbeatEnvironment",
+      "gone": true
+     },
+     {
+      "symbol": "bootstrapEnvironmentBridge",
+      "gone": true
+     },
+     {
+      "symbol": "ensureEnvironmentHeartbeat",
+      "gone": true
+     },
+     {
+      "symbol": "runSpawnPass",
+      "gone": true
+     },
+     {
+      "symbol": "workspaceWithinRoots",
+      "gone": true
+     },
+     {
+      "symbol": "runEnvironmentControlPass",
+      "gone": true
+     }
+    ],
+    "unresolved_at_W": []
+   },
+   "d7->d0": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "cumulative": {
+    "F": true,
+    "S": true,
+    "files": [
+     "mcp/stdio/server.js",
+     "mcp/stdio/spawn-loop.mjs",
+     "mcp/stdio/environment-identity.mjs",
+     "mcp/stdio/environment-control-loop.mjs"
+    ],
+    "symbols": [
+     {
+      "symbol": "heartbeatEnvironment",
+      "gone": true
+     },
+     {
+      "symbol": "bootstrapEnvironmentBridge",
+      "gone": true
+     },
+     {
+      "symbol": "ensureEnvironmentHeartbeat",
+      "gone": true
+     },
+     {
+      "symbol": "runSpawnPass",
+      "gone": true
+     },
+     {
+      "symbol": "workspaceWithinRoots",
+      "gone": true
+     },
+     {
+      "symbol": "runEnvironmentControlPass",
+      "gone": true
+     }
+    ],
+    "unresolved_at_W": []
+   }
+  },
+  "bridge-dispatch-loop": {
+   "d28->d21": {
+    "F": true,
+    "S": true,
+    "files": [
+     "mcp/stdio/dispatch-loop.mjs"
+    ],
+    "symbols": [
+     {
+      "symbol": "runDispatchPass",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   },
+   "d21->d14": {
+    "F": true,
+    "S": true,
+    "files": [
+     "mcp/stdio/dispatch-loop.mjs"
+    ],
+    "symbols": [
+     {
+      "symbol": "runDispatchPass",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   },
+   "d14->d7": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d7->d0": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "cumulative": {
+    "F": true,
+    "S": true,
+    "files": [
+     "mcp/stdio/dispatch-loop.mjs"
+    ],
+    "symbols": [
+     {
+      "symbol": "runDispatchPass",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   }
+  },
+  "runtime-adapters": {
+   "d28->d21": {
+    "F": true,
+    "S": false,
+    "files": [
+     "mcp/stdio/runtimes.js"
+    ],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d21->d14": {
+    "F": true,
+    "S": false,
+    "files": [
+     "mcp/stdio/runtimes.js"
+    ],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d14->d7": {
+    "F": true,
+    "S": false,
+    "files": [
+     "mcp/stdio/runtimes.js"
+    ],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d7->d0": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "cumulative": {
+    "F": true,
+    "S": false,
+    "files": [
+     "mcp/stdio/runtimes.js"
+    ],
+    "symbols": [],
+    "unresolved_at_W": []
+   }
+  },
+  "claude-channel-sidecar": {
+   "d28->d21": {
+    "F": true,
+    "S": true,
+    "files": [
+     "mcp/stdio/claude-channel.js"
+    ],
+    "symbols": [
+     {
+      "symbol": "pollLoop",
+      "gone": false
+     },
+     {
+      "symbol": "markDispatchDelivered",
+      "gone": true
+     }
+    ],
+    "unresolved_at_W": []
+   },
+   "d21->d14": {
+    "F": true,
+    "S": false,
+    "files": [
+     "mcp/stdio/claude-channel.js"
+    ],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d14->d7": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d7->d0": {
+    "F": true,
+    "S": true,
+    "files": [
+     "mcp/stdio/claude-channel.js"
+    ],
+    "symbols": [
+     {
+      "symbol": "pollLoop",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   },
+   "cumulative": {
+    "F": true,
+    "S": true,
+    "files": [
+     "mcp/stdio/claude-channel.js"
+    ],
+    "symbols": [
+     {
+      "symbol": "pollLoop",
+      "gone": false
+     },
+     {
+      "symbol": "markDispatchDelivered",
+      "gone": true
+     }
+    ],
+    "unresolved_at_W": []
+   }
+  },
+  "codex-app-server-session": {
+   "d28->d21": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d21->d14": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d14->d7": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d7->d0": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "cumulative": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   }
+  },
+  "hermes-gateway-host": {
+   "d28->d21": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d21->d14": {
+    "F": true,
+    "S": false,
+    "files": [
+     "mcp/stdio/hermes-gateway.mjs"
+    ],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d14->d7": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d7->d0": {
+    "F": false,
+    "S": false,
+    "files": [],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "cumulative": {
+    "F": true,
+    "S": false,
+    "files": [
+     "mcp/stdio/hermes-gateway.mjs"
+    ],
+    "symbols": [],
+    "unresolved_at_W": []
+   }
+  },
+  "aify-doctor": {
+   "d28->d21": {
+    "F": true,
+    "S": false,
+    "files": [
+     "mcp/stdio/doctor.js",
+     "mcp/stdio/doctor-predicates.js"
+    ],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "d21->d14": {
+    "F": true,
+    "S": true,
+    "files": [
+     "mcp/stdio/doctor.js",
+     "mcp/stdio/doctor-predicates.js"
+    ],
+    "symbols": [
+     {
+      "symbol": "checkService",
+      "gone": true
+     },
+     {
+      "symbol": "serviceBuildVerdict",
+      "gone": false
+     },
+     {
+      "symbol": "bridgeInstallVerdict",
+      "gone": false
+     },
+     {
+      "symbol": "openAiUsageVerdict",
+      "gone": true
+     }
+    ],
+    "unresolved_at_W": []
+   },
+   "d14->d7": {
+    "F": true,
+    "S": true,
+    "files": [
+     "mcp/stdio/doctor.js",
+     "mcp/stdio/doctor-predicates.js"
+    ],
+    "symbols": [
+     {
+      "symbol": "checkEnvBridge",
+      "gone": false
+     }
+    ],
+    "unresolved_at_W": []
+   },
+   "d7->d0": {
+    "F": true,
+    "S": false,
+    "files": [
+     "mcp/stdio/doctor.js",
+     "mcp/stdio/doctor-predicates.js"
+    ],
+    "symbols": [],
+    "unresolved_at_W": []
+   },
+   "cumulative": {
+    "F": true,
+    "S": true,
+    "files": [
+     "mcp/stdio/doctor.js",
+     "mcp/stdio/doctor-predicates.js"
+    ],
+    "symbols": [
+     {
+      "symbol": "checkService",
+      "gone": true
+     },
+     {
+      "symbol": "checkEnvBridge",
+      "gone": false
+     },
+     {
+      "symbol": "serviceBuildVerdict",
+      "gone": false
+     },
+     {
+      "symbol": "bridgeInstallVerdict",
+      "gone": false
+     },
+     {
+      "symbol": "openAiUsageVerdict",
+      "gone": true
+     }
+    ],
+    "unresolved_at_W": []
+   }
+  }
+ },
+ "weekly_rate": {
+  "F": 0.57,
+  "S": 0.34
+ },
+ "cumulative": {
+  "F": 24,
+  "S": 20
+ }
+}
