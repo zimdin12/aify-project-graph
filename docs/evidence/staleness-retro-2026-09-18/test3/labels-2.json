@@ -1,0 +1,1074 @@
+{
+ "README.md#0": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "README.md#1": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "README.md#2": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "README.md#3": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "README.md#4": {
+  "status": "current",
+  "reason": "States current rule: no verb licenses absence claims."
+ },
+ "README.md#5": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "README.md#6": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "README.md#7": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "README.md#8": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "README.md#9": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "README.md#10": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "README.md#11": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "README.md#12": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "README.md#13": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "README.md#14": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "README.md#15": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "README.md#16": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "README.md#17": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "README.md#18": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "README.md#19": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "README.md#20": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "README.md#21": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "README.md#22": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "README.md#23": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "README.md#24": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "README.md#25": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "README.md#26": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "README.md#27": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "README.md#28": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "README.md#29": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "README.md#30": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "README.md#31": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "README.md#32": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "README.md#33": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "README.md#34": {
+  "status": "current",
+  "reason": "Token-cost economics presented as current, with open substitution caveat."
+ },
+ "README.md#35": {
+  "status": "history",
+  "reason": "Cold rebuild numbers from the 2026-04-18 dogfood run."
+ },
+ "README.md#36": {
+  "status": "history",
+  "reason": "Lists artifacts of past 2026-04-18 A/B runs."
+ },
+ "README.md#37": {
+  "status": "history",
+  "reason": "Reports results of past lean-profile A/B run."
+ },
+ "README.md#38": {
+  "status": "history",
+  "reason": "Measurement report of the 2026-04-18 full-profile run."
+ },
+ "README.md#39": {
+  "status": "history",
+  "reason": "Dated per-repo snapshot from 2026-04-18."
+ },
+ "README.md#40": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "README.md#41": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "README.md#42": {
+  "status": "current",
+  "reason": "Open limitations remaining now."
+ },
+ "README.md#43": {
+  "status": "history",
+  "reason": "Dated dogfood rebuild measurements, 2026-04-18."
+ },
+ "README.md#44": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "README.md#45": {
+  "status": "current",
+  "reason": "Describes current behaviour, usage or instructions."
+ },
+ "install.hermes.md#0": {
+  "status": "current",
+  "reason": "Install instruction or current behaviour for Hermes."
+ },
+ "install.hermes.md#1": {
+  "status": "current",
+  "reason": "Install instruction or current behaviour for Hermes."
+ },
+ "install.hermes.md#2": {
+  "status": "current",
+  "reason": "Install instruction or current behaviour for Hermes."
+ },
+ "install.hermes.md#3": {
+  "status": "current",
+  "reason": "Install instruction or current behaviour for Hermes."
+ },
+ "install.hermes.md#4": {
+  "status": "current",
+  "reason": "Install instruction or current behaviour for Hermes."
+ },
+ "install.hermes.md#5": {
+  "status": "current",
+  "reason": "Install instruction or current behaviour for Hermes."
+ },
+ "install.hermes.md#6": {
+  "status": "current",
+  "reason": "Install instruction or current behaviour for Hermes."
+ },
+ "install.hermes.md#7": {
+  "status": "current",
+  "reason": "Install instruction or current behaviour for Hermes."
+ },
+ "install.hermes.md#8": {
+  "status": "current",
+  "reason": "Install instruction or current behaviour for Hermes."
+ },
+ "install.hermes.md#9": {
+  "status": "current",
+  "reason": "Install instruction or current behaviour for Hermes."
+ },
+ "install.hermes.md#10": {
+  "status": "current",
+  "reason": "Install instruction or current behaviour for Hermes."
+ },
+ "install.hermes.md#11": {
+  "status": "current",
+  "reason": "Install instruction or current behaviour for Hermes."
+ },
+ "install.hermes.md#12": {
+  "status": "current",
+  "reason": "Install instruction or current behaviour for Hermes."
+ },
+ "install.hermes.md#13": {
+  "status": "current",
+  "reason": "States present-day user-level-only managed-session install."
+ },
+ "install.hermes.md#14": {
+  "status": "current",
+  "reason": "Install instruction or current behaviour for Hermes."
+ },
+ "install.hermes.md#15": {
+  "status": "current",
+  "reason": "Instruction: resolve HERMES_HOME, do not assume default."
+ },
+ "install.hermes.md#16": {
+  "status": "history",
+  "reason": "Comment line narrating a past 2026-08-07 install incident."
+ },
+ "install.hermes.md#17": {
+  "status": "history",
+  "reason": "Comment line narrating a past 2026-08-07 install incident."
+ },
+ "install.hermes.md#18": {
+  "status": "history",
+  "reason": "Comment line narrating a past 2026-08-07 install incident."
+ },
+ "install.hermes.md#19": {
+  "status": "history",
+  "reason": "Comment line narrating a past 2026-08-07 install incident."
+ },
+ "install.hermes.md#20": {
+  "status": "history",
+  "reason": "Comment line narrating a past 2026-08-07 install incident."
+ },
+ "install.hermes.md#21": {
+  "status": "history",
+  "reason": "Comment line narrating a past 2026-08-07 install incident."
+ },
+ "install.hermes.md#22": {
+  "status": "current",
+  "reason": "Install instruction or current behaviour for Hermes."
+ },
+ "install.hermes.md#23": {
+  "status": "current",
+  "reason": "Install instruction or current behaviour for Hermes."
+ },
+ "install.hermes.md#24": {
+  "status": "current",
+  "reason": "Install instruction or current behaviour for Hermes."
+ },
+ "install.hermes.md#25": {
+  "status": "current",
+  "reason": "Install instruction or current behaviour for Hermes."
+ },
+ "install.hermes.md#26": {
+  "status": "current",
+  "reason": "Install instruction or current behaviour for Hermes."
+ },
+ "install.hermes.md#27": {
+  "status": "current",
+  "reason": "Install instruction or current behaviour for Hermes."
+ },
+ "install.hermes.md#28": {
+  "status": "current",
+  "reason": "Install instruction or current behaviour for Hermes."
+ },
+ "install.hermes.md#29": {
+  "status": "current",
+  "reason": "Install instruction or current behaviour for Hermes."
+ },
+ "install.hermes.md#30": {
+  "status": "current",
+  "reason": "Install instruction or current behaviour for Hermes."
+ },
+ "docs/dogfood/ab-results-2026-04-20-cross-tester.md#0": {
+  "status": "history",
+  "reason": "Dated 2026-04-20 A/B measurement report of past runs."
+ },
+ "docs/dogfood/ab-results-2026-04-20-cross-tester.md#1": {
+  "status": "history",
+  "reason": "Dated 2026-04-20 A/B measurement report of past runs."
+ },
+ "docs/dogfood/ab-results-2026-04-20-cross-tester.md#2": {
+  "status": "history",
+  "reason": "Dated 2026-04-20 A/B measurement report of past runs."
+ },
+ "docs/dogfood/ab-results-2026-04-20-cross-tester.md#3": {
+  "status": "history",
+  "reason": "Dated 2026-04-20 A/B measurement report of past runs."
+ },
+ "docs/dogfood/ab-results-2026-04-20-cross-tester.md#4": {
+  "status": "history",
+  "reason": "Dated 2026-04-20 A/B measurement report of past runs."
+ },
+ "docs/dogfood/ab-results-2026-04-20-cross-tester.md#5": {
+  "status": "history",
+  "reason": "Dated 2026-04-20 A/B measurement report of past runs."
+ },
+ "docs/dogfood/ab-results-2026-04-20-cross-tester.md#6": {
+  "status": "history",
+  "reason": "Dated 2026-04-20 A/B measurement report of past runs."
+ },
+ "docs/dogfood/ab-results-2026-04-20-cross-tester.md#7": {
+  "status": "history",
+  "reason": "Dated 2026-04-20 A/B measurement report of past runs."
+ },
+ "docs/dogfood/ab-results-2026-04-20-cross-tester.md#8": {
+  "status": "history",
+  "reason": "Dated 2026-04-20 A/B measurement report of past runs."
+ },
+ "docs/dogfood/ab-results-2026-04-20-cross-tester.md#9": {
+  "status": "history",
+  "reason": "Dated 2026-04-20 A/B measurement report of past runs."
+ },
+ "docs/dogfood/ab-results-2026-04-20-cross-tester.md#10": {
+  "status": "history",
+  "reason": "Dated 2026-04-20 A/B measurement report of past runs."
+ },
+ "docs/dogfood/ab-results-2026-04-20-cross-tester.md#11": {
+  "status": "history",
+  "reason": "Dated 2026-04-20 A/B measurement report of past runs."
+ },
+ "docs/dogfood/ab-results-2026-04-20-cross-tester.md#12": {
+  "status": "history",
+  "reason": "Dated 2026-04-20 A/B measurement report of past runs."
+ },
+ "docs/dogfood/ab-results-2026-04-20-cross-tester.md#13": {
+  "status": "history",
+  "reason": "Dated 2026-04-20 A/B measurement report of past runs."
+ },
+ "docs/dogfood/ab-results-2026-04-20-cross-tester.md#14": {
+  "status": "history",
+  "reason": "Dated 2026-04-20 A/B measurement report of past runs."
+ },
+ "docs/dogfood/ab-results-2026-04-20-cross-tester.md#15": {
+  "status": "history",
+  "reason": "Dated 2026-04-20 A/B measurement report of past runs."
+ },
+ "docs/dogfood/ab-results-2026-04-20-cross-tester.md#16": {
+  "status": "history",
+  "reason": "Dated 2026-04-20 A/B measurement report of past runs."
+ },
+ "docs/dogfood/ab-results-2026-04-20-cross-tester.md#17": {
+  "status": "history",
+  "reason": "Dated 2026-04-20 A/B measurement report of past runs."
+ },
+ "docs/dogfood/ab-results-2026-04-20-cross-tester.md#18": {
+  "status": "history",
+  "reason": "Record of launch posture; blockers listed as already fixed."
+ },
+ "docs/dogfood/ab-results-2026-04-20-cross-tester.md#19": {
+  "status": "history",
+  "reason": "Dated 2026-04-20 A/B measurement report of past runs."
+ },
+ "docs/dogfood/ab-results-2026-04-20-cross-tester.md#20": {
+  "status": "history",
+  "reason": "Dated 2026-04-20 A/B measurement report of past runs."
+ },
+ "AGENTS.md#0": {
+  "status": "current",
+  "reason": "Current install/usage guidance for agents."
+ },
+ "AGENTS.md#1": {
+  "status": "current",
+  "reason": "Current install/usage guidance for agents."
+ },
+ "AGENTS.md#2": {
+  "status": "current",
+  "reason": "Current install/usage guidance for agents."
+ },
+ "AGENTS.md#3": {
+  "status": "current",
+  "reason": "Current install/usage guidance for agents."
+ },
+ "AGENTS.md#4": {
+  "status": "current",
+  "reason": "Current install/usage guidance for agents."
+ },
+ "AGENTS.md#5": {
+  "status": "current",
+  "reason": "Current install/usage guidance for agents."
+ },
+ "AGENTS.md#6": {
+  "status": "current",
+  "reason": "Current install/usage guidance for agents."
+ },
+ "AGENTS.md#7": {
+  "status": "current",
+  "reason": "Current install/usage guidance for agents."
+ },
+ "AGENTS.md#8": {
+  "status": "current",
+  "reason": "Current install/usage guidance for agents."
+ },
+ "AGENTS.md#9": {
+  "status": "current",
+  "reason": "Current install/usage guidance for agents."
+ },
+ "AGENTS.md#10": {
+  "status": "current",
+  "reason": "Current install/usage guidance for agents."
+ },
+ "AGENTS.md#11": {
+  "status": "current",
+  "reason": "Current install/usage guidance for agents."
+ },
+ "AGENTS.md#12": {
+  "status": "current",
+  "reason": "Current install/usage guidance for agents."
+ },
+ "AGENTS.md#13": {
+  "status": "current",
+  "reason": "Current install/usage guidance for agents."
+ },
+ "AGENTS.md#14": {
+  "status": "current",
+  "reason": "Current install/usage guidance for agents."
+ },
+ "AGENTS.md#15": {
+  "status": "current",
+  "reason": "Current install/usage guidance for agents."
+ },
+ "AGENTS.md#16": {
+  "status": "current",
+  "reason": "Current install/usage guidance for agents."
+ },
+ "AGENTS.md#17": {
+  "status": "current",
+  "reason": "Current install/usage guidance for agents."
+ },
+ "AGENTS.md#18": {
+  "status": "current",
+  "reason": "Current install/usage guidance for agents."
+ },
+ "install.claude.md#0": {
+  "status": "current",
+  "reason": "Current Claude Code install instruction."
+ },
+ "install.claude.md#1": {
+  "status": "current",
+  "reason": "Current Claude Code install instruction."
+ },
+ "install.claude.md#2": {
+  "status": "current",
+  "reason": "Current Claude Code install instruction."
+ },
+ "install.claude.md#3": {
+  "status": "current",
+  "reason": "Current Claude Code install instruction."
+ },
+ "install.claude.md#4": {
+  "status": "current",
+  "reason": "Current Claude Code install instruction."
+ },
+ "install.claude.md#5": {
+  "status": "current",
+  "reason": "Current Claude Code install instruction."
+ },
+ "install.claude.md#6": {
+  "status": "current",
+  "reason": "Current Claude Code install instruction."
+ },
+ "install.claude.md#7": {
+  "status": "current",
+  "reason": "Current Claude Code install instruction."
+ },
+ "install.claude.md#8": {
+  "status": "current",
+  "reason": "Current instruction: update skills and server together."
+ },
+ "install.claude.md#9": {
+  "status": "current",
+  "reason": "Current Claude Code install instruction."
+ },
+ "install.claude.md#10": {
+  "status": "current",
+  "reason": "Current Claude Code install instruction."
+ },
+ "install.claude.md#11": {
+  "status": "current",
+  "reason": "Current Claude Code install instruction."
+ },
+ "install.claude.md#12": {
+  "status": "current",
+  "reason": "Current Claude Code install instruction."
+ },
+ "install.claude.md#13": {
+  "status": "current",
+  "reason": "Current Claude Code install instruction."
+ },
+ "install.claude.md#14": {
+  "status": "current",
+  "reason": "Current Claude Code install instruction."
+ },
+ "install.claude.md#15": {
+  "status": "current",
+  "reason": "Current Claude Code install instruction."
+ },
+ "install.claude.md#16": {
+  "status": "current",
+  "reason": "Current Claude Code install instruction."
+ },
+ "install.claude.md#17": {
+  "status": "current",
+  "reason": "Current Claude Code install instruction."
+ },
+ "install.claude.md#18": {
+  "status": "current",
+  "reason": "Current Claude Code install instruction."
+ },
+ "docs/dogfood/ab-results-2026-04-20-improvement-analysis.md#0": {
+  "status": "current",
+  "reason": "Proposes unresolved improvement; no superseded/resolved banner."
+ },
+ "docs/dogfood/ab-results-2026-04-20-improvement-analysis.md#1": {
+  "status": "current",
+  "reason": "Proposes unresolved improvement; no superseded/resolved banner."
+ },
+ "docs/dogfood/ab-results-2026-04-20-improvement-analysis.md#2": {
+  "status": "current",
+  "reason": "Proposes unresolved improvement; no superseded/resolved banner."
+ },
+ "docs/dogfood/ab-results-2026-04-20-improvement-analysis.md#3": {
+  "status": "current",
+  "reason": "Proposes unresolved improvement; no superseded/resolved banner."
+ },
+ "docs/dogfood/ab-results-2026-04-20-improvement-analysis.md#4": {
+  "status": "current",
+  "reason": "Proposes unresolved improvement; no superseded/resolved banner."
+ },
+ "docs/dogfood/ab-results-2026-04-20-improvement-analysis.md#5": {
+  "status": "current",
+  "reason": "Proposes unresolved improvement; no superseded/resolved banner."
+ },
+ "docs/dogfood/ab-results-2026-04-20-improvement-analysis.md#6": {
+  "status": "current",
+  "reason": "Proposes unresolved improvement; no superseded/resolved banner."
+ },
+ "docs/dogfood/ab-results-2026-04-20-improvement-analysis.md#7": {
+  "status": "current",
+  "reason": "Proposes unresolved improvement; no superseded/resolved banner."
+ },
+ "docs/dogfood/ab-results-2026-04-20-improvement-analysis.md#8": {
+  "status": "current",
+  "reason": "Proposes unresolved improvement; no superseded/resolved banner."
+ },
+ "docs/dogfood/ab-results-2026-04-20-improvement-analysis.md#9": {
+  "status": "current",
+  "reason": "Proposes unresolved improvement; no superseded/resolved banner."
+ },
+ "docs/dogfood/ab-results-2026-04-20-improvement-analysis.md#10": {
+  "status": "current",
+  "reason": "Proposes unresolved improvement; no superseded/resolved banner."
+ },
+ "docs/dogfood/ab-results-2026-04-20-improvement-analysis.md#11": {
+  "status": "current",
+  "reason": "Proposes unresolved improvement; no superseded/resolved banner."
+ },
+ "docs/dogfood/ab-results-2026-04-20-improvement-analysis.md#12": {
+  "status": "current",
+  "reason": "Proposes unresolved improvement; no superseded/resolved banner."
+ },
+ "docs/dogfood/ab-results-2026-04-20-improvement-analysis.md#13": {
+  "status": "current",
+  "reason": "Proposes unresolved improvement; no superseded/resolved banner."
+ },
+ "docs/dogfood/ab-results-2026-04-20-improvement-analysis.md#14": {
+  "status": "current",
+  "reason": "Proposes unresolved improvement; no superseded/resolved banner."
+ },
+ "docs/dogfood/ab-results-2026-04-20-improvement-analysis.md#15": {
+  "status": "current",
+  "reason": "Proposes unresolved improvement; no superseded/resolved banner."
+ },
+ "docs/dogfood/ab-results-2026-04-20-improvement-analysis.md#16": {
+  "status": "current",
+  "reason": "States pending cross-tester confirmation, unresolved."
+ },
+ "integrations/claude-code/skills/graph-build-intelligence/prompts/architecture-layer-assigner.md#0": {
+  "status": "current",
+  "reason": "Current prompt instructions for layer assignment."
+ },
+ "integrations/claude-code/skills/graph-build-intelligence/prompts/architecture-layer-assigner.md#1": {
+  "status": "current",
+  "reason": "Current prompt instructions for layer assignment."
+ },
+ "integrations/claude-code/skills/graph-build-intelligence/prompts/architecture-layer-assigner.md#2": {
+  "status": "current",
+  "reason": "Current prompt instructions for layer assignment."
+ },
+ "integrations/claude-code/skills/graph-build-intelligence/prompts/architecture-layer-assigner.md#3": {
+  "status": "current",
+  "reason": "Current prompt instructions for layer assignment."
+ },
+ "integrations/claude-code/skills/graph-build-intelligence/prompts/architecture-layer-assigner.md#4": {
+  "status": "current",
+  "reason": "Current prompt instructions for layer assignment."
+ },
+ "integrations/claude-code/skills/graph-build-intelligence/prompts/architecture-layer-assigner.md#5": {
+  "status": "current",
+  "reason": "Current prompt instructions for layer assignment."
+ },
+ "integrations/claude-code/skills/graph-build-intelligence/prompts/architecture-layer-assigner.md#6": {
+  "status": "current",
+  "reason": "Current prompt instructions for layer assignment."
+ },
+ "integrations/claude-code/skills/graph-build-intelligence/prompts/architecture-layer-assigner.md#7": {
+  "status": "current",
+  "reason": "Current prompt instructions for layer assignment."
+ },
+ "integrations/claude-code/skills/graph-build-intelligence/prompts/architecture-layer-assigner.md#8": {
+  "status": "current",
+  "reason": "Current prompt instructions for layer assignment."
+ },
+ "integrations/claude-code/skills/graph-build-intelligence/prompts/architecture-layer-assigner.md#9": {
+  "status": "current",
+  "reason": "Current prompt instructions for layer assignment."
+ },
+ "integrations/claude-code/skills/graph-build-intelligence/prompts/architecture-layer-assigner.md#10": {
+  "status": "current",
+  "reason": "Current prompt instructions for layer assignment."
+ },
+ "integrations/claude-code/skills/graph-build-intelligence/prompts/architecture-layer-assigner.md#11": {
+  "status": "current",
+  "reason": "Current prompt instructions for layer assignment."
+ },
+ "integrations/claude-code/skills/graph-build-intelligence/prompts/architecture-layer-assigner.md#12": {
+  "status": "current",
+  "reason": "Current prompt instructions for layer assignment."
+ },
+ "integrations/claude-code/skills/graph-build-intelligence/prompts/architecture-layer-assigner.md#13": {
+  "status": "current",
+  "reason": "Current prompt instructions for layer assignment."
+ },
+ "install.opencode.md#0": {
+  "status": "current",
+  "reason": "Current OpenCode install instruction."
+ },
+ "install.opencode.md#1": {
+  "status": "current",
+  "reason": "Current OpenCode install instruction."
+ },
+ "install.opencode.md#2": {
+  "status": "current",
+  "reason": "Current OpenCode install instruction."
+ },
+ "install.opencode.md#3": {
+  "status": "current",
+  "reason": "Current OpenCode install instruction."
+ },
+ "install.opencode.md#4": {
+  "status": "current",
+  "reason": "Current OpenCode install instruction."
+ },
+ "install.opencode.md#5": {
+  "status": "current",
+  "reason": "Current OpenCode install instruction."
+ },
+ "install.opencode.md#6": {
+  "status": "current",
+  "reason": "Current OpenCode install instruction."
+ },
+ "install.opencode.md#7": {
+  "status": "current",
+  "reason": "Current OpenCode install instruction."
+ },
+ "install.opencode.md#8": {
+  "status": "current",
+  "reason": "Current OpenCode install instruction."
+ },
+ "install.opencode.md#9": {
+  "status": "current",
+  "reason": "Current OpenCode install instruction."
+ },
+ "install.opencode.md#10": {
+  "status": "current",
+  "reason": "Current OpenCode install instruction."
+ },
+ "install.opencode.md#11": {
+  "status": "current",
+  "reason": "Current OpenCode install instruction."
+ },
+ "integrations/claude-code/skills/cpp-inner-loop/SKILL.md#0": {
+  "status": "current",
+  "reason": "Current skill guidance for C++ inner loop."
+ },
+ "integrations/claude-code/skills/cpp-inner-loop/SKILL.md#1": {
+  "status": "current",
+  "reason": "Current skill guidance for C++ inner loop."
+ },
+ "integrations/claude-code/skills/cpp-inner-loop/SKILL.md#2": {
+  "status": "history",
+  "reason": "Heading marks the claim this skill used to make, replaced."
+ },
+ "integrations/claude-code/skills/cpp-inner-loop/SKILL.md#3": {
+  "status": "current",
+  "reason": "Current skill guidance for C++ inner loop."
+ },
+ "integrations/claude-code/skills/cpp-inner-loop/SKILL.md#4": {
+  "status": "current",
+  "reason": "Current skill guidance for C++ inner loop."
+ },
+ "integrations/claude-code/skills/cpp-inner-loop/SKILL.md#5": {
+  "status": "current",
+  "reason": "Current skill guidance for C++ inner loop."
+ },
+ "integrations/claude-code/skills/cpp-inner-loop/SKILL.md#6": {
+  "status": "current",
+  "reason": "Current skill guidance for C++ inner loop."
+ },
+ "integrations/claude-code/skills/cpp-inner-loop/SKILL.md#7": {
+  "status": "current",
+  "reason": "Current skill guidance for C++ inner loop."
+ },
+ "integrations/claude-code/skills/cpp-inner-loop/SKILL.md#8": {
+  "status": "current",
+  "reason": "Current skill guidance for C++ inner loop."
+ },
+ "integrations/claude-code/skills/cpp-inner-loop/SKILL.md#9": {
+  "status": "current",
+  "reason": "Current skill guidance for C++ inner loop."
+ },
+ "integrations/claude-code/skills/cpp-inner-loop/SKILL.md#10": {
+  "status": "current",
+  "reason": "Current skill guidance for C++ inner loop."
+ },
+ "integrations/claude-code/skills/cpp-inner-loop/SKILL.md#11": {
+  "status": "current",
+  "reason": "Current caveats; per-task value still not measured."
+ },
+ "docs/superpowers/specs/2026-05-09-superplan-completion-summary.md#0": {
+  "status": "history",
+  "reason": "Dated 2026-05-09 completion summary header."
+ },
+ "docs/superpowers/specs/2026-05-09-superplan-completion-summary.md#1": {
+  "status": "history",
+  "reason": "Records what shipped in past plans."
+ },
+ "docs/superpowers/specs/2026-05-09-superplan-completion-summary.md#2": {
+  "status": "history",
+  "reason": "Reports results of a past A/B demo run."
+ },
+ "docs/superpowers/specs/2026-05-09-superplan-completion-summary.md#3": {
+  "status": "current",
+  "reason": "Instructions for how to dogfood."
+ },
+ "docs/superpowers/specs/2026-05-09-superplan-completion-summary.md#4": {
+  "status": "current",
+  "reason": "Dogfood command instructions."
+ },
+ "docs/superpowers/specs/2026-05-09-superplan-completion-summary.md#5": {
+  "status": "current",
+  "reason": "Dogfood import instructions."
+ },
+ "docs/superpowers/specs/2026-05-09-superplan-completion-summary.md#6": {
+  "status": "history",
+  "reason": "Narrates what changed in that session."
+ },
+ "docs/superpowers/specs/2026-05-09-superplan-completion-summary.md#7": {
+  "status": "history",
+  "reason": "Record of invariants enforced at completion."
+ },
+ "docs/superpowers/specs/2026-05-09-superplan-completion-summary.md#8": {
+  "status": "history",
+  "reason": "Past test-run counts at completion."
+ },
+ "docs/superpowers/specs/2026-05-09-superplan-completion-summary.md#9": {
+  "status": "current",
+  "reason": "Lists open deferred follow-ups."
+ },
+ "docs/superpowers/specs/2026-05-09-superplan-completion-summary.md#10": {
+  "status": "history",
+  "reason": "Commit log of a past session."
+ },
+ "docs/dogfood/baseline-2026-04-16.md#0": {
+  "status": "history",
+  "reason": "Dated pre-hardening 2026-04-16 baseline measurement."
+ },
+ "docs/dogfood/baseline-2026-04-16.md#1": {
+  "status": "history",
+  "reason": "Dated pre-hardening 2026-04-16 baseline measurement."
+ },
+ "docs/dogfood/baseline-2026-04-16.md#2": {
+  "status": "history",
+  "reason": "Dated pre-hardening 2026-04-16 baseline measurement."
+ },
+ "docs/dogfood/baseline-2026-04-16.md#3": {
+  "status": "history",
+  "reason": "Dated pre-hardening 2026-04-16 baseline measurement."
+ },
+ "docs/dogfood/baseline-2026-04-16.md#4": {
+  "status": "history",
+  "reason": "Dated pre-hardening 2026-04-16 baseline measurement."
+ },
+ "docs/dogfood/baseline-2026-04-16.md#5": {
+  "status": "history",
+  "reason": "Dated pre-hardening 2026-04-16 baseline measurement."
+ },
+ "docs/dogfood/baseline-2026-04-16.md#6": {
+  "status": "history",
+  "reason": "Dated pre-hardening 2026-04-16 baseline measurement."
+ },
+ "docs/dogfood/baseline-2026-04-16.md#7": {
+  "status": "history",
+  "reason": "Dated pre-hardening 2026-04-16 baseline measurement."
+ },
+ "docs/dogfood/baseline-2026-04-16.md#8": {
+  "status": "history",
+  "reason": "Dated pre-hardening 2026-04-16 baseline measurement."
+ },
+ "docs/dogfood/baseline-2026-04-16.md#9": {
+  "status": "history",
+  "reason": "Dated pre-hardening 2026-04-16 baseline measurement."
+ },
+ "docs/dogfood/baseline-2026-04-16.md#10": {
+  "status": "history",
+  "reason": "Dated pre-hardening 2026-04-16 baseline measurement."
+ },
+ "integrations/claude-code/skills/graph-build-intelligence/prompts/file-summarizer.md#0": {
+  "status": "current",
+  "reason": "Current prompt instructions for file summaries."
+ },
+ "integrations/claude-code/skills/graph-build-intelligence/prompts/file-summarizer.md#1": {
+  "status": "current",
+  "reason": "Current prompt instructions for file summaries."
+ },
+ "integrations/claude-code/skills/graph-build-intelligence/prompts/file-summarizer.md#2": {
+  "status": "current",
+  "reason": "Current prompt instructions for file summaries."
+ },
+ "integrations/claude-code/skills/graph-build-intelligence/prompts/file-summarizer.md#3": {
+  "status": "current",
+  "reason": "Current prompt instructions for file summaries."
+ },
+ "integrations/claude-code/skills/graph-build-intelligence/prompts/file-summarizer.md#4": {
+  "status": "current",
+  "reason": "Current prompt instructions for file summaries."
+ },
+ "integrations/claude-code/skills/graph-build-intelligence/prompts/file-summarizer.md#5": {
+  "status": "current",
+  "reason": "Current prompt instructions for file summaries."
+ },
+ "integrations/claude-code/skills/graph-build-intelligence/prompts/file-summarizer.md#6": {
+  "status": "current",
+  "reason": "Current prompt instructions for file summaries."
+ },
+ "integrations/claude-code/skills/graph-build-intelligence/prompts/file-summarizer.md#7": {
+  "status": "current",
+  "reason": "Current prompt instructions for file summaries."
+ },
+ "integrations/claude-code/skills/graph-build-intelligence/prompts/file-summarizer.md#8": {
+  "status": "current",
+  "reason": "Current prompt instructions for file summaries."
+ },
+ "integrations/claude-code/skills/graph-build-intelligence/prompts/file-summarizer.md#9": {
+  "status": "current",
+  "reason": "Current prompt instructions for file summaries."
+ },
+ "integrations/claude-code/skills/graph-build-intelligence/prompts/file-summarizer.md#10": {
+  "status": "current",
+  "reason": "Current prompt instructions for file summaries."
+ },
+ "install.pi.md#0": {
+  "status": "current",
+  "reason": "Current Pi install instruction."
+ },
+ "install.pi.md#1": {
+  "status": "current",
+  "reason": "Current Pi install instruction."
+ },
+ "install.pi.md#2": {
+  "status": "current",
+  "reason": "Current Pi install instruction."
+ },
+ "install.pi.md#3": {
+  "status": "current",
+  "reason": "Current Pi install instruction."
+ },
+ "install.pi.md#4": {
+  "status": "current",
+  "reason": "Current Pi install instruction."
+ },
+ "install.pi.md#5": {
+  "status": "current",
+  "reason": "Current Pi install instruction."
+ },
+ "install.pi.md#6": {
+  "status": "current",
+  "reason": "Current Pi install instruction."
+ },
+ "install.pi.md#7": {
+  "status": "current",
+  "reason": "Current Pi install instruction."
+ },
+ "install.pi.md#8": {
+  "status": "current",
+  "reason": "Current Pi install instruction."
+ },
+ "install.pi.md#9": {
+  "status": "current",
+  "reason": "Current Pi install instruction."
+ },
+ "integrations/claude-code/skills/graph-feature-edit/SKILL.md#0": {
+  "status": "current",
+  "reason": "Current skill procedure for feature edits."
+ },
+ "integrations/claude-code/skills/graph-feature-edit/SKILL.md#1": {
+  "status": "current",
+  "reason": "Current skill procedure for feature edits."
+ },
+ "integrations/claude-code/skills/graph-feature-edit/SKILL.md#2": {
+  "status": "current",
+  "reason": "Current skill procedure for feature edits."
+ },
+ "integrations/claude-code/skills/graph-feature-edit/SKILL.md#3": {
+  "status": "current",
+  "reason": "Current skill procedure for feature edits."
+ },
+ "integrations/claude-code/skills/graph-feature-edit/SKILL.md#4": {
+  "status": "current",
+  "reason": "Current skill procedure for feature edits."
+ },
+ "integrations/claude-code/skills/graph-feature-edit/SKILL.md#5": {
+  "status": "current",
+  "reason": "Current skill procedure for feature edits."
+ },
+ "integrations/claude-code/skills/graph-feature-edit/SKILL.md#6": {
+  "status": "current",
+  "reason": "Current skill procedure for feature edits."
+ },
+ "integrations/claude-code/skills/graph-feature-edit/SKILL.md#7": {
+  "status": "current",
+  "reason": "Current skill procedure for feature edits."
+ },
+ "ATTRIBUTION.md#0": {
+  "status": "current",
+  "reason": "Standing attribution of borrowed patterns."
+ },
+ "ATTRIBUTION.md#1": {
+  "status": "current",
+  "reason": "Standing attribution of borrowed patterns."
+ },
+ "ATTRIBUTION.md#2": {
+  "status": "current",
+  "reason": "Standing attribution of borrowed patterns."
+ },
+ "ATTRIBUTION.md#3": {
+  "status": "current",
+  "reason": "Standing attribution of borrowed patterns."
+ },
+ "ATTRIBUTION.md#4": {
+  "status": "current",
+  "reason": "Standing attribution of borrowed patterns."
+ },
+ "ATTRIBUTION.md#5": {
+  "status": "current",
+  "reason": "Standing attribution of borrowed patterns."
+ },
+ "ATTRIBUTION.md#6": {
+  "status": "current",
+  "reason": "Standing attribution of borrowed patterns."
+ },
+ "integrations/claude-code/skills/blast-radius/SKILL.md#0": {
+  "status": "current",
+  "reason": "Current blast-radius skill guidance."
+ },
+ "integrations/claude-code/skills/blast-radius/SKILL.md#1": {
+  "status": "current",
+  "reason": "Current blast-radius skill guidance."
+ },
+ "integrations/claude-code/skills/blast-radius/SKILL.md#2": {
+  "status": "current",
+  "reason": "Current blast-radius skill guidance."
+ },
+ "integrations/claude-code/skills/blast-radius/SKILL.md#3": {
+  "status": "current",
+  "reason": "Current blast-radius skill guidance."
+ },
+ "integrations/claude-code/skills/blast-radius/SKILL.md#4": {
+  "status": "current",
+  "reason": "Current blast-radius skill guidance."
+ },
+ "integrations/claude-code/skills/blast-radius/SKILL.md#5": {
+  "status": "current",
+  "reason": "Current blast-radius skill guidance."
+ },
+ "integrations/claude-code/skills/blast-radius/SKILL.md#6": {
+  "status": "current",
+  "reason": "Current blast-radius skill guidance."
+ },
+ "integrations/claude-code/skills/find-the-doc/SKILL.md#0": {
+  "status": "current",
+  "reason": "Current find-the-doc skill guidance."
+ },
+ "integrations/claude-code/skills/find-the-doc/SKILL.md#1": {
+  "status": "current",
+  "reason": "Current find-the-doc skill guidance."
+ },
+ "integrations/claude-code/skills/find-the-doc/SKILL.md#2": {
+  "status": "current",
+  "reason": "Current find-the-doc skill guidance."
+ },
+ "integrations/claude-code/skills/find-the-doc/SKILL.md#3": {
+  "status": "current",
+  "reason": "Current find-the-doc skill guidance."
+ },
+ "integrations/claude-code/skills/find-the-doc/SKILL.md#4": {
+  "status": "current",
+  "reason": "Current find-the-doc skill guidance."
+ },
+ "integrations/claude-code/skills/find-the-doc/SKILL.md#5": {
+  "status": "current",
+  "reason": "Current find-the-doc skill guidance."
+ },
+ "integrations/claude-code/skills/graph-pull-context/SKILL.md#0": {
+  "status": "current",
+  "reason": "Current graph-pull-context skill guidance."
+ },
+ "integrations/claude-code/skills/graph-pull-context/SKILL.md#1": {
+  "status": "current",
+  "reason": "Current graph-pull-context skill guidance."
+ },
+ "integrations/claude-code/skills/graph-pull-context/SKILL.md#2": {
+  "status": "current",
+  "reason": "Current graph-pull-context skill guidance."
+ },
+ "integrations/claude-code/skills/graph-pull-context/SKILL.md#3": {
+  "status": "current",
+  "reason": "Current graph-pull-context skill guidance."
+ },
+ "integrations/claude-code/skills/graph-pull-context/SKILL.md#4": {
+  "status": "current",
+  "reason": "Current graph-pull-context skill guidance."
+ },
+ "integrations/claude-code/skills/graph-pull-context/SKILL.md#5": {
+  "status": "current",
+  "reason": "Current graph-pull-context skill guidance."
+ }
+}

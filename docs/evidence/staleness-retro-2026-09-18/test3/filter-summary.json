@@ -1,0 +1,16 @@
+{
+ "labels": {
+  "current": 474,
+  "history": 63,
+  "unclear": 0
+ },
+ "flags": 12,
+ "flags_on_current": 8,
+ "current_by_class": {
+  "GONE": 1,
+  "DEAD_NAME": 7
+ },
+ "current_notes_flagged": 7,
+ "current_notes_flagged_gone": 1,
+ "graded": 8
+}

@@ -1,0 +1,3 @@
+{'other': 1781, 'pathlike': 353, 'identlike': 822}
+tool-verb tokens 404 distinct 45
+verb names defined by the definition patterns at HEAD: 11 of 45

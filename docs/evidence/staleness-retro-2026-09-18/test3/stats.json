@@ -1,0 +1,19 @@
+{
+ "docs": 36,
+ "notes": 537,
+ "notes_with_anchors": 145,
+ "anchors": 340,
+ "flags": 12,
+ "by_rule": {
+  "S1d": 1,
+  "S1r": 0,
+  "S2f": 11,
+  "S3a": 0,
+  "S4a": 0
+ },
+ "by_class": {
+  "GONE": 1,
+  "DEAD_NAME": 11
+ },
+ "notes_flagged": 10
+}

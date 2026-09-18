@@ -1,0 +1,10 @@
+[
+ {"id": 1, "q1": "FALSE", "q2": "YES", "evidence": "README names the borrowed pattern only. clampToBudget still defined packet-text-budget.js:97, re-exported packet.js:58; same skeletonize-before-drop ladder lives in production clampOccurrences (packet-lists.js:538). No file claim to go stale."},
+ {"id": 2, "q1": "FALSE", "q2": "NO", "evidence": "README.md:187 `HEAD` is the git ref ('indexed vs HEAD'), not a code symbol; no code definition named HEAD in generator.js or extract.js (only comments). Detector matched a git term."},
+ {"id": 3, "q1": "TRUE", "q2": "NO", "evidence": "deprecation-probe.js deleted in 1b9784fd; AGENTS.md:98 still says it 'maps' graph_report to brief.agent.md. Core advice holds (graph_report still hidden, hidden-tools.js:34), but the cited mechanism no longer exists."},
+ {"id": 4, "q1": "FALSE", "q2": "YES", "evidence": "ATTRIBUTION.md:40-41 places clampToBudget in packet.js; body moved to packet-text-budget.js:97 (9252af79) but packet.js:55-58 re-exports it with a pointer comment. Attribution substance still holds."},
+ {"id": 5, "q1": "FALSE", "q2": "YES", "evidence": "code_intel_replay still a live verb: query/verbs/code_intel_replay.js, schema.js:208, hidden-tools.js:47. SKILL.md:101 lists it as unlisted, still true. Its old home deprecation-probe.js only referenced it."},
+ {"id": 6, "q1": "FALSE", "q2": "YES", "evidence": "code_intel_analyze still live: query/verbs/code_intel_analyze.js, schema.js:223, hidden-tools.js:48, used by packet.js:491. SKILL.md:101 claim (outside default profile) still holds."},
+ {"id": 7, "q1": "FALSE", "q2": "YES", "evidence": "waitForReadyMs is a live parameter: schema.js:165, code_intel_live.js:699/852 awaitFreshness; 'stale' freshness still emitted lsp-client.js:481. SKILL.md:223 advice is accurate."},
+ {"id": 8, "q1": "FALSE", "q2": "NO", "evidence": "graph-dashboard SKILL.md:46 'changed vs `HEAD`' is the git ref for git diff, not a code symbol; no code definition named HEAD exists. Detector matched a git term."}
+]

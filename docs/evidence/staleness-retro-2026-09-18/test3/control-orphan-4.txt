@@ -1,0 +1,9 @@
+HEAD 7678acf359
+_default_console_command {'kind': 'symbol', 'cls': 'GONE', 'rule': 'S3a', 'code_referrers_then': ['service/api_core/managed_pty_for_dispatch.py', 'service/routers/session_console.py'], 'defined_now': ['service/api_core/capabilities.py']}
+extractTerminalSessionHandle {'kind': 'symbol', 'cls': 'GONE', 'rule': 'S3a', 'code_referrers_then': ['mcp/stdio/terminal-control-loop.mjs'], 'defined_now': ['mcp/stdio/server.js']}
+pickSessionForKey {'kind': 'symbol', 'cls': 'GONE', 'rule': 'S3a', 'code_referrers_then': ['mcp/stdio/hermes-managed-host.js'], 'defined_now': ['mcp/stdio/hermes-gateway-protocol.js']}
+TURN_BUSY_STALE_SECONDS {'kind': 'symbol', 'cls': 'DEAD_NAME', 'rule': 'S2f', 'defined_then': ['service/routers/api_v2.py'], 'defined_now_elsewhere': ['service/api_core/turn_state.py']}
+terminalChildEnv {'kind': 'symbol', 'cls': 'GONE', 'rule': 'S3a', 'code_referrers_then': ['install.sh', 'mcp/stdio/terminal-control-loop.mjs'], 'defined_now': ['mcp/stdio/terminal-env.js']}
+mcp/stdio/reap-managed-claude.js {'kind': 'path', 'cls': 'GONE', 'rule': 'S4a', 'then': 'mcp/stdio/reap-managed-claude.js', 'code_referrers_then': ['install.sh', 'mcp/stdio/terminal-runtime.js']}
+hermes-single-shot-controller.js {'kind': 'path', 'cls': 'GONE', 'rule': 'S4a', 'then': 'mcp/stdio/controllers/hermes-single-shot-controller.js', 'code_referrers_then': ['mcp/stdio/controllers/hermes-controller.js']}
+zzqNotASymbol None

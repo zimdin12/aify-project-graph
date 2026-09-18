@@ -1,0 +1,74 @@
+[
+ {
+  "id": 1,
+  "doc": "README.md",
+  "line": 161,
+  "anchor": "clampToBudget",
+  "class": "DEAD_NAME",
+  "written_in": "075a8e775e",
+  "detector_claim": "`clampToBudget` was defined in mcp/stdio/query/verbs/packet.js when this line was written and is no longer defined in that file (or its renamed successor); definitions elsewhere now: mcp/stdio/query/verbs/packet-text-budget.js"
+ },
+ {
+  "id": 2,
+  "doc": "README.md",
+  "line": 187,
+  "anchor": "HEAD",
+  "class": "DEAD_NAME",
+  "written_in": "42063ec807",
+  "detector_claim": "`HEAD` was defined in mcp/stdio/brief/generator.js when this line was written and is no longer defined in that file (or its renamed successor); definitions elsewhere now: docs/evidence/staleness-retro-2026-09-18/detect.py, mcp/stdio/brief/extract.js, tests/unit/gated-push-refuses-unmeasured.test.js, tests/unit/query/stale-collection-not-exhaustive.test.js"
+ },
+ {
+  "id": 3,
+  "doc": "AGENTS.md",
+  "line": 98,
+  "anchor": "deprecation-probe.js",
+  "class": "GONE",
+  "written_in": "754223f202",
+  "detector_claim": "the file mcp/stdio/deprecation-probe.js existed when this line was written and is gone at HEAD (not renamed)"
+ },
+ {
+  "id": 4,
+  "doc": "ATTRIBUTION.md",
+  "line": 40,
+  "anchor": "clampToBudget",
+  "class": "DEAD_NAME",
+  "written_in": "fee3309eb1",
+  "detector_claim": "`clampToBudget` was defined in mcp/stdio/query/verbs/packet.js when this line was written and is no longer defined in that file (or its renamed successor); definitions elsewhere now: mcp/stdio/query/verbs/packet-text-budget.js"
+ },
+ {
+  "id": 5,
+  "doc": "integrations/claude-code/skills/cpp-inner-loop/SKILL.md",
+  "line": 101,
+  "anchor": "code_intel_replay",
+  "class": "DEAD_NAME",
+  "written_in": "754223f202",
+  "detector_claim": "`code_intel_replay` was defined in mcp/stdio/deprecation-probe.js when this line was written and is no longer defined in that file (or its renamed successor); definitions elsewhere now: none found"
+ },
+ {
+  "id": 6,
+  "doc": "integrations/claude-code/skills/cpp-inner-loop/SKILL.md",
+  "line": 101,
+  "anchor": "code_intel_analyze",
+  "class": "DEAD_NAME",
+  "written_in": "754223f202",
+  "detector_claim": "`code_intel_analyze` was defined in mcp/stdio/deprecation-probe.js when this line was written and is no longer defined in that file (or its renamed successor); definitions elsewhere now: none found"
+ },
+ {
+  "id": 7,
+  "doc": "integrations/claude-code/skills/cpp-inner-loop/SKILL.md",
+  "line": 223,
+  "anchor": "waitForReadyMs",
+  "class": "DEAD_NAME",
+  "written_in": "cf2133714a",
+  "detector_claim": "`waitForReadyMs` was defined in mcp/stdio/server.js when this line was written and is no longer defined in that file (or its renamed successor); definitions elsewhere now: mcp/stdio/tools/schema.js, tests/integration/code-intel/live-verbs-real.test.js"
+ },
+ {
+  "id": 8,
+  "doc": "integrations/claude-code/skills/graph-dashboard/SKILL.md",
+  "line": 46,
+  "anchor": "HEAD",
+  "class": "DEAD_NAME",
+  "written_in": "2688210c55",
+  "detector_claim": "`HEAD` was defined in mcp/stdio/brief/generator.js when this line was written and is no longer defined in that file (or its renamed successor); definitions elsewhere now: docs/evidence/staleness-retro-2026-09-18/detect.py, mcp/stdio/brief/extract.js, tests/unit/gated-push-refuses-unmeasured.test.js, tests/unit/query/stale-collection-not-exhaustive.test.js"
+ }
+]

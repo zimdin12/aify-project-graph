@@ -1,0 +1,9 @@
+HEAD 6ec850afea
+neg defs HEAD: ()
+captureStructuralDigest defs at 8e29b5cef2 ('mcp/stdio/storage/structural-digest-store.js',)
+captureStructuralDigest defs HEAD: ()
+evaluate retired symbol written at old: {'kind': 'symbol', 'cls': 'DEAD_NAME', 'rule': 'S2f', 'defined_then': ['mcp/stdio/storage/structural-digest-store.js'], 'defined_now_elsewhere': []}
+evaluate live symbol managed? buildNextActions: {'kind': 'symbol'}
+rename count old->HEAD: 0 []
+rename positive control: True -> docs/evidence/m1a-step-c/compile_commands.SOURCE-not-consumed.json
+evaluate renamed path: {'kind': 'path', 'cls': 'DEAD_NAME', 'rule': 'S1r', 'then': 'docs/evidence/m1a-step-c/compile_commands.as-consumed.json', 'now': 'docs/evidence/m1a-step-c/compile_commands.SOURCE-not-consumed.json'}
