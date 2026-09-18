@@ -1,0 +1,4 @@
+FEATURE: Environment registry and heartbeat
+STATUS: overlay-defined (user source)
+CONFIRMED: 2026-09-18T20:42:15.415Z by graph-tech-lead; CHANGED SINCE — re-check the description: changed service/environment_claim.py#_claim_environment_control_once; changed service/environment_claim.py
+FEATURES: environment-registry

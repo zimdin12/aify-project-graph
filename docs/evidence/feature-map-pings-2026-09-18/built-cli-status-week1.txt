@@ -1,0 +1,52 @@
+25 features: 6 changed since confirmed, 19 unchanged, 0 never confirmed
+agent-registration: unchanged (confirmed 2026-09-18T20:42:15.415Z by graph-tech-lead)
+  changed: service/api_core/agent_registration_writes.py
+direct-message-send: unchanged (confirmed 2026-09-18T20:42:15.415Z by graph-tech-lead)
+  changed: service/api_core/send_preflight.py
+reply-threading: unchanged (confirmed 2026-09-18T20:42:15.415Z by graph-tech-lead)
+inbox-and-read-receipts: unchanged (confirmed 2026-09-18T20:42:15.415Z by graph-tech-lead)
+dispatch-runs-and-claim: unchanged (confirmed 2026-09-18T20:42:15.415Z by graph-tech-lead)
+channels: unchanged (confirmed 2026-09-18T20:42:15.415Z by graph-tech-lead)
+  changed: service/routers/channels.py
+environment-registry: changed (confirmed 2026-09-18T20:42:15.415Z by graph-tech-lead)
+  changed: service/environment_claim.py#_claim_environment_control_once
+  changed: service/environment_claim.py
+spawn-requests: unchanged (confirmed 2026-09-18T20:42:15.415Z by graph-tech-lead)
+  changed: service/api_core/running_spawn.py
+status-engine: unchanged (confirmed 2026-09-18T20:42:15.415Z by graph-tech-lead)
+  changed: service/api_core/status_inputs.py
+work-loop-contracts: unchanged (confirmed 2026-09-18T20:42:15.415Z by graph-tech-lead)
+reconcile-sweep: changed (confirmed 2026-09-18T20:42:15.415Z by graph-tech-lead)
+  changed: service/reconcilers/sweep.py#_run_dispatch_reconcile_once
+  changed: service/reconcilers/sweep.py
+ntfy-phone-notifications: unchanged (confirmed 2026-09-18T20:42:15.415Z by graph-tech-lead)
+session-mode-switch: unchanged (confirmed 2026-09-18T20:42:15.415Z by graph-tech-lead)
+agent-console-tail: unchanged (confirmed 2026-09-18T20:42:15.415Z by graph-tech-lead)
+  changed: service/terminal_diagnostics.py
+terminal-controls-and-console-delivery: unchanged (confirmed 2026-09-18T20:42:15.415Z by graph-tech-lead)
+usage-quota: unchanged (confirmed 2026-09-18T20:42:15.415Z by graph-tech-lead)
+dashboard-next: unchanged (confirmed 2026-09-18T20:42:15.415Z by graph-tech-lead)
+  changed: service/new_dashboard_app.py
+mcp-tool-surface: changed (confirmed 2026-09-18T20:42:15.415Z by graph-tech-lead)
+  changed: mcp/stdio/send-tools.mjs#registerSendTools
+  changed: mcp/stdio/server.js
+  changed: mcp/stdio/send-tools.mjs
+environment-bridge-loops: changed (confirmed 2026-09-18T20:42:15.415Z by graph-tech-lead)
+  changed: mcp/stdio/server.js#heartbeatEnvironment
+  changed: mcp/stdio/server.js#bootstrapEnvironmentBridge
+  changed: mcp/stdio/server.js
+bridge-dispatch-loop: changed (confirmed 2026-09-18T20:42:15.415Z by graph-tech-lead)
+  changed: mcp/stdio/dispatch-loop.mjs#runDispatchPass
+  changed: mcp/stdio/dispatch-loop.mjs
+runtime-adapters: unchanged (confirmed 2026-09-18T20:42:15.415Z by graph-tech-lead)
+  changed: mcp/stdio/runtimes.js
+claude-channel-sidecar: changed (confirmed 2026-09-18T20:42:15.415Z by graph-tech-lead)
+  changed: mcp/stdio/claude-channel.js#pollLoop
+  gone: mcp/stdio/claude-channel.js#markDispatchDelivered
+  changed: mcp/stdio/claude-channel.js
+  not watched: markDispatchDelivered (not defined in any literal anchored file)
+codex-app-server-session: unchanged (confirmed 2026-09-18T20:42:15.415Z by graph-tech-lead)
+hermes-gateway-host: unchanged (confirmed 2026-09-18T20:42:15.415Z by graph-tech-lead)
+aify-doctor: unchanged (confirmed 2026-09-18T20:42:15.415Z by graph-tech-lead)
+  changed: mcp/stdio/doctor.js
+  changed: mcp/stdio/doctor-predicates.js
