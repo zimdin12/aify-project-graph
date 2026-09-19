@@ -33,10 +33,10 @@ The second is whether the failure reproduces in isolation.
 
 | | |
 |---|---|
-| **Observed** | One red, eight green historically. Passing in recent runs, including the `8d1288b1` pre-commit run. |
-| **Mechanism** | **UNKNOWN.** Never reproduced. |
-| **⛔ NOT established** | Anything. There is no diagnosis here at all, only a count. |
-| **What would close it** | Check whether a reindex is ALIVE during the run when it next fails. That is the standing hypothesis and it has never been tested, because the failure has not returned. |
+| **Observed** | One red, eight green historically, then RED again at `335306d8` (2026-09-20, 2 failed of 4138: both caller sets came back EMPTY). GREEN 5 of 5 run alone immediately after. |
+| **Mechanism** | **A reindex WAS alive during the run this time.** The standing hypothesis below was finally testable, and the timestamps meet it: the commit landed 00:34:25 +0300 (21:34:25Z), its post-commit hook reindexed for 15.5s (`.aify-graph/hook.log`, 21:35:21.574Z entry, so it ran to ~21:35:37Z), and the suite started 00:35:12 local (21:35:12Z). The reindex and the suite's first ~25 seconds overlap. |
+| **⛔ NOT established** | That the overlap CAUSED it. The test indexes its own temp repo, and apg's write lock is per repository, so no lock is shared; the plausible path is CPU contention during this test's own `graphIndex`, and nobody has instrumented that. One overlap observed once is a correlation. |
+| **What would close it** | Run the suite twice with a reindex deliberately running alongside, and twice without, and compare. If the failure only appears under an overlapping reindex, either the suite runner must refuse to start while one is alive, or this test must not index under load. |
 
 ---
 
