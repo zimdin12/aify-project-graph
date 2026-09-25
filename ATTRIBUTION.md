@@ -2,7 +2,21 @@
 
 ## graphify
 
-Patterns adapted from [safishamsi/graphify](https://github.com/safishamsi/graphify), MIT licensed.
+⛔ **LICENCE, CORRECTED 2026-09-25.** This section said "MIT licensed", which was true when it was
+written and is not true of the project now. graphify **relicensed to Apache-2.0 at `ba7f9ea`,
+2026-07-22** ("chore: relicense from MIT to Apache-2.0"), ships LICENSE + NOTICE stating Apache-2.0,
+and retains LICENSE-MIT because contributions made before that date remain available under MIT.
+
+The patterns below were adapted from commits dated **2026-06-11** (`6dc23db`, `8401c50`), when the
+project was MIT, so the original claim described the material accurately. **Anything taken from
+graphify from 2026-07-22 onward is Apache-2.0 and its NOTICE must travel with it.**
+
+⚠ Read the licence from the project's own LICENSE file, never from this file or any other index of
+ours. The 2026-06-12 audit corrected graphify's licence on 2026-08-19 and the correction never reached
+here, so for five weeks the only attribution file in the repo understated an obligation. Understating
+is the expensive direction. `docs/reference-corpus.md` is generated from the clones for that reason.
+
+Patterns adapted from [safishamsi/graphify](https://github.com/safishamsi/graphify):
 
 Specifically:
 - The compact NODE/EDGE line response format
@@ -22,8 +36,8 @@ graphify's `symbol_resolution.py`.
 JS/TS import-specifier resolution heuristics in
 `mcp/stdio/ingest/import-resolution.js` and `mcp/stdio/ingest/js-import-evidence.js`
 are reimplemented from
-[agent-understand-anything](https://github.com/) `extract-import-map.mjs`, MIT
-licensed. Specifically:
+[agent-understand-anything](https://github.com/Lum1104/Understand-Anything)
+`extract-import-map.mjs`, MIT licensed. Specifically:
 - Extension/index-ladder probing of import specifiers against the candidate
   file set.
 - tsconfig/jsconfig `compilerOptions.paths` + `baseUrl` alias matching, with the
@@ -53,7 +67,8 @@ From **codegraph** (MIT), patterns reimplemented (no code copied):
   become methods, data fields don't (`languages/_js_symbols.js`).
 - Windows backslash path args in verbs (0171785) — `mcp/stdio/util/paths.js`.
 
-From **graphify** (MIT): renamed default-export resolution (6dc23db) and
+From **graphify** (MIT at the time of these commits — see the licence note in the graphify section
+above; the project is Apache-2.0 from 2026-07-22): renamed default-export resolution (6dc23db) and
 extractor-version cache invalidation (8401c50) — `ingest/resolver.js`,
 `freshness/orchestrator.js`; HTML-output hardening (#1357) — escape dashboard
 node labels/types/relations rendered into innerHTML.
