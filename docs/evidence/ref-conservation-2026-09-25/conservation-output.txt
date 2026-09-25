@@ -1,0 +1,118 @@
+FRESHNESS: graph indexed at e3c25113ba, HEAD e3c25113ba -> SAME TREE
+MANIFEST: generation 548, extractor 0.6.0, nodes 7733, edges 36635
+RECORDED: 30961 keys from edges, 49929 including unresolved_refs, across 1919 source files
+POPULATION: 974 files the indexer's own enumeration would extract
+
+NEGATIVE CONTROL: fabricated target zzqNotARealSymbolHere -> MISSING, as it must be
+POSITIVE CONTROL: 41519 of 46033 emitted keys are recorded (90.19%)
+FILES: 974 extracted, 0 unreadable or failed
+⚠ NOT COUNTED AS LOSS — 1 file(s) emit refs but have NO recorded key at all (never processed, or wholly lost; this instrument cannot tell which)
+    scripts/audit-ref-conservation.mjs  147 refs emitted
+
+RESULT: 4514 emitted ref keys, in files the pipeline demonstrably processed, are in NEITHER edges NOR unresolved_refs.
+
+BY RELATION:
+  IMPORTS        4488
+  CALLS          17
+  CONTAINS       9
+
+TOP FILES:
+     94  mcp/stdio/freshness/orchestrator.js
+     78  mcp/stdio/tools/schema.js
+     66  mcp/stdio/brief/generator.js
+     57  mcp/stdio/query/verbs/packet.js
+     55  mcp/stdio/query/verbs/health.js
+     42  mcp/stdio/query/verbs/callers.js
+     41  scripts/verb-correctness-probe.mjs
+     38  mcp/stdio/query/verbs/preflight.js
+     37  mcp/stdio/query/verbs/callees.js
+     36  mcp/stdio/query/verbs/change_plan.js
+     34  mcp/stdio/query/verbs/impact.js
+     31  mcp/stdio/query/verbs/consequences.js
+     29  mcp/stdio/code-intel/providers/cpp-clangd.js
+     29  mcp/stdio/query/verbs/trace.js
+     27  mcp/stdio/query/verbs/pull.js
+     27  tests/unit/query/ambiguous-symbol-guards.test.js
+     26  tests/unit/scripts/arm-isolation.test.js
+     25  mcp/stdio/query/verbs/code_intel_live.js
+     25  tests/integration/verbs.test.js
+     25  tests/unit/eval/regression-invariants.test.js
+     23  mcp/stdio/query/verbs/code_intel_hierarchy.js
+     23  mcp/stdio/query/verbs/neighbors.js
+     23  tests/unit/query/query.test.js
+     20  mcp/stdio/query/verbs/collect_code_intel.js
+     20  mcp/stdio/query/verbs/status.js
+
+LOST REFS, UP TO 40 PER RELATION:
+
+  CONTAINS — 9 lost:
+    tests/fixtures/identity-callers/src/widgets.cpp:4 -> 0f52849d9e1ad6f17593220c6e2faa8e7f204317
+    tests/fixtures/identity-callers/src/widgets.cpp:8 -> d679ead150a39e6dd613c058258f03bce70068ce
+    tests/fixtures/identity-hostile/src/shapes.cpp:6 -> 33ffde7ac18c627ecda9e2bbf7a65019c322ce53
+    tests/fixtures/identity-hostile/src/shapes.cpp:8 -> 5ffe38076f6fc65b447558fc4e50cb5b9c025fb6
+    tests/fixtures/identity-hostile/src/shapes.cpp:24 -> 6dcb29c4f65300507b1174b216616780726ebad9
+    tests/fixtures/identity-nested/src/nested.cpp:17 -> 5cf62715b88212fa8dbe2428bc3fbaed9ed097f1
+    tests/fixtures/identity-nested/src/nested.cpp:23 -> e1670c2e91c8da88b1e20b19ddcac8b83e3b61bf
+    tests/fixtures/ingest/tiny-cpp-methods/Foo.cpp:3 -> ace788d94bb88de123237855a9e0d4844d378d26
+    tests/fixtures/ingest/tiny-cpp-methods/FooTemplate.cpp:2 -> b0e8679beef0acaf19503d53aadb4144aef8d242
+
+  CALLS — 17 lost:
+    mcp/stdio/ingest/code-intel/schema.js:220 -> validateV02Collection
+    mcp/stdio/ingest/code-intel/schema.js:221 -> validateV02Record
+    mcp/stdio/intelligence/overlays.js:50 -> validateSemantic
+    mcp/stdio/intelligence/overlays.js:63 -> validateArchitecture
+    scripts/suite-receipt.mjs:56 -> graphIdentityOf
+    tests/fixtures/code-intel/cpp-fixture-repo/src/bar.cpp:2 -> ns.foo
+    tests/fixtures/identity-callers-js/src/callers.js:8 -> AlphaWidget
+    tests/fixtures/identity-callers-js/src/callers.js:14 -> BetaWidget
+    tests/unit/intelligence/validators.test.js:65 -> validateSemantic
+    tests/unit/intelligence/validators.test.js:146 -> validateArchitecture
+    tests/unit/query/every-capped-verb-reports-its-floor.test.js:134 -> build
+    tests/unit/query/recompile-surface-termination.test.js:92 -> build
+    tests/unit/query/server-build-identity.test.js:311 -> build
+    tests/unit/scripts/baseline-publication.test.js:34 -> publishBaseline
+    tests/unit/scripts/refusal-presentation.test.js:23 -> printRefusal
+    tests/unit/scripts/volatile-line-exclusion.test.js:29 -> splitVolatile
+    tests/unit/scripts/volatile-line-exclusion.test.js:99 -> volatileShapeOk
+
+  IMPORTS — 4488 lost, first 40:
+    bin/aify-code-intel.js:4 -> mcp/stdio/code-intel/cli/code-intel-cmd.js
+    bin/aify-code-intel.js:4 -> mcp/stdio/code-intel/cli/code-intel-cmd.js.runCodeIntelCmd
+    bin/apg.js:2 -> mcp/stdio/code-intel/cli/code-intel-cmd.js
+    bin/apg.js:2 -> mcp/stdio/code-intel/cli/code-intel-cmd.js.runCodeIntelCmd
+    launch-dash.mjs:1 -> mcp/stdio/storage/db.js
+    launch-dash.mjs:1 -> mcp/stdio/storage/db.js.openExistingDb
+    launch-dash.mjs:2 -> mcp/stdio/dashboard/server.js
+    launch-dash.mjs:2 -> mcp/stdio/dashboard/server.js.startDashboard
+    mcp/stdio/analysis/doc-links.js:47 -> mcp/stdio/storage/taxonomy.js
+    mcp/stdio/analysis/doc-links.js:47 -> mcp/stdio/storage/taxonomy.js.FILE_LEVEL_TYPES
+    mcp/stdio/analysis/doc-links.js:48 -> mcp/stdio/storage/edge-classes.js
+    mcp/stdio/analysis/doc-links.js:48 -> mcp/stdio/storage/edge-classes.js.ownedEdgesPredicate
+    mcp/stdio/analysis/doc-refs.js:47 -> mcp/stdio/analysis/doc-links.js
+    mcp/stdio/analysis/doc-refs.js:47 -> mcp/stdio/analysis/doc-links.js.buildIndex
+    mcp/stdio/analysis/doc-refs.js:47 -> mcp/stdio/analysis/doc-links.js.resolveDocPath
+    mcp/stdio/analysis/doc-refs.js:47 -> mcp/stdio/analysis/doc-links.js.FILE_LEVEL_TYPES
+    mcp/stdio/analysis/doc-refs.js:48 -> mcp/stdio/storage/edge-classes.js
+    mcp/stdio/analysis/doc-refs.js:48 -> mcp/stdio/storage/edge-classes.js.edgeClass
+    mcp/stdio/analysis/doc-refs.js:48 -> mcp/stdio/storage/edge-classes.js.ownedEdgesPredicate
+    mcp/stdio/brief/artifacts.js:18 -> mcp/stdio/overlay/task-status.js
+    mcp/stdio/brief/artifacts.js:18 -> mcp/stdio/overlay/task-status.js.isTaskOpen
+    mcp/stdio/brief/artifacts.js:19 -> mcp/stdio/overlay/quality.js
+    mcp/stdio/brief/artifacts.js:19 -> mcp/stdio/overlay/quality.js.taskFeatureRefs
+    mcp/stdio/brief/artifacts.js:19 -> mcp/stdio/overlay/quality.js.taskLinkStrength
+    mcp/stdio/brief/extract.js:15 -> mcp/stdio/overlay/loader.js
+    mcp/stdio/brief/extract.js:15 -> mcp/stdio/overlay/loader.js.loadFunctionality
+    mcp/stdio/brief/extract.js:15 -> mcp/stdio/overlay/loader.js.validateAnchors
+    mcp/stdio/brief/extract.js:15 -> mcp/stdio/overlay/loader.js.hasOverlay
+    mcp/stdio/brief/extract.js:15 -> mcp/stdio/overlay/loader.js.featuresForFile
+    mcp/stdio/brief/extract.js:15 -> mcp/stdio/overlay/loader.js.validateFeatureEdges
+    mcp/stdio/brief/generator.js:17 -> mcp/stdio/overlay/task-status.js
+    mcp/stdio/brief/generator.js:17 -> mcp/stdio/overlay/task-status.js.isTaskOpen
+    mcp/stdio/brief/generator.js:20 -> mcp/stdio/brief/artifacts.js
+    mcp/stdio/brief/generator.js:20 -> mcp/stdio/brief/artifacts.js.computeCoverage
+    mcp/stdio/brief/generator.js:20 -> mcp/stdio/brief/artifacts.js.openTasksByFeature
+    mcp/stdio/brief/generator.js:20 -> mcp/stdio/brief/artifacts.js.completedTaskCountsByFeature
+    mcp/stdio/brief/generator.js:20 -> mcp/stdio/brief/artifacts.js.openTasksWithoutFeatures
+    mcp/stdio/brief/generator.js:29 -> mcp/stdio/brief/graph-shape.js
+    mcp/stdio/brief/generator.js:29 -> mcp/stdio/brief/graph-shape.js.q
+    mcp/stdio/brief/generator.js:29 -> mcp/stdio/brief/graph-shape.js.count

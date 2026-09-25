@@ -50,6 +50,19 @@ Test: inserted a comment above the definition in `packet.js`, ran ONE incrementa
 **The 18 caller edges survived.** The hypothesis is wrong, the file was reverted, and the tree is clean.
 Something else produced the zero. It is not guessed at here.
 
+> ⛔ **WITHDRAWN 2026-09-25, later the same day. That test exercised nothing.** Two things measured
+> afterwards kill it: an uncommitted edit does not reindex at all (a manual reindex over a dirty tree
+> reported `from e3c25113 to e3c25113`, generation unchanged, counts identical to the byte), and a
+> comment-only edit does not re-extract even when committed (four comment lines above a function left
+> its `start_line` and its node id untouched). So the probe above may never have re-extracted the file
+> it edited, and a test that cannot exercise its subject cannot refute anything. It reported a null
+> that agreed with expectation, so nothing prompted a check — and it had no action control.
+>
+> The hypothesis was re-tested properly, WITH an action control, in
+> `docs/evidence/ref-conservation-2026-09-25/FINDING.md` §3, and it is refuted there on evidence:
+> a real symbol inserted above the definition re-minted the node id and the cross-file caller edges
+> survived two subsequent index runs. Cite that, not this paragraph.
+
 ### Why this matters more than the count
 
 `d0132af2` fixed one cause of empty caller sets (calls at file scope, dropped for every language except
@@ -99,6 +112,13 @@ wrong-zero class is closed is a claim about what agents are told.
 2. **Re-run this audit with a FILE-SCOPED instrument** instead of a name-based one, so the nine
    unclassified candidates resolve either way.
 3. Only then discuss whether the class is closed.
+
+> **Superseded the same day, and step 1 was the wrong instrument.** A rebuild diff treats the rebuild
+> as ground truth, which nothing had established: if both builds lose the same ref the diff is empty
+> and reads as clean. `docs/evidence/ref-conservation-2026-09-25/FINDING.md` replaces it with a check
+> against the extractor's own output, upstream of both builds. That check found four further verified
+> specimens with no rebuild involved, and it is also the answer to step 2 — file-scoped, not
+> name-scoped. The class is still open; the mechanism is still not identified.
 
 ## Claim ceiling
 
