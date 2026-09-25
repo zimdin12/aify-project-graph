@@ -38,6 +38,23 @@ The second is whether the failure reproduces in isolation.
 | **⛔ NOT established** | That the overlap CAUSED it. The test indexes its own temp repo, and apg's write lock is per repository, so no lock is shared; the plausible path is CPU contention during this test's own `graphIndex`, and nobody has instrumented that. One overlap observed once is a correlation. |
 | **What would close it** | Run the suite twice with a reindex deliberately running alongside, and twice without, and compare. If the failure only appears under an overlapping reindex, either the suite runner must refuse to start while one is alive, or this test must not index under load. |
 
+## 3. `tests/integration/code-intel/scoped-collect-survives-real.test.js`
+
+*"a one-file scoped collect does NOT wipe the repo-wide trust spine"*
+
+⚠ **This entry is weaker than the two above and says so.** It reproduced, but never on a quiet machine,
+so it is not yet established as a flake OR as a defect. It is filed to stop the observation living only
+in a session.
+
+| | |
+|---|---|
+| **Observed** | RED in a full 514-file run at `877943ca` (2026-09-25), `afterScoped` 2 against `afterFull` 1. RED again run alone immediately after, but at a DIFFERENT assertion in the same test: the non-vacuity guard, `expected 1 to be greater than 1`. Both runs agree on the underlying number: **the full collect produced 1 verified edge.** |
+| **Run was valid** | Yes. Exit 1, not the integrity guard's exit 3, so the tree held still and the verdict belongs to the commit it names. |
+| **Causal path from that commit** | **None, and this one is measured rather than argued.** `git diff 4597755c..HEAD` — from the last commit whose suite was GREEN to the RED tip — is four markdown files, the suite log, and one new script. The script is imported by nothing: a search for it finds only the two evidence files that name it, and the same search shape finds 16 real importers of `ingest/resolver.js` as its positive control. **The code under test is byte-identical to the commit that ran green four hours earlier.** |
+| **⛔ NOT established, and this is the important row** | That it is load. **No quiet-machine run has been observed.** During both runs the host carried ~154 `node` processes from other agents' sessions (65 aify, 82 unclassified, 7 apg, zero vitest — so not leftover workers of mine). The full suite took **2147s against 758s for byte-identical code earlier the same day, 2.8×**, which is evidence of contention and not of a cause. |
+| **⛔ Also not established** | That it is a defect. The failing quantity is how much a REAL clangd collected, and a short collect under contention is indistinguishable here from a collect that is wrong. |
+| **What would close it** | Run it alone when the host is quiet — no other agent sessions — and read the verified-edge count from the FULL collect, which is the number both failures turn on. If a quiet full collect still yields 1, the test's premise or the collect is wrong and this is a defect, not a flake. If it yields more, the entry becomes the same load story as entries 1 and 2 and the fix is the same question: these real-language-server tests may not belong in a shared run. |
+
 ---
 
 ## What a new entry needs
