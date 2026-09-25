@@ -1,0 +1,10 @@
+default              tools= 16  bytes=  25818  ~tokens=  6455  schema=69%  desc=25%
+full                 tools= 32  bytes=  46131  ~tokens= 11533  schema=70%  desc=23%
+lean                 tools=  6  bytes=  11771  ~tokens=  2943  schema=58%  desc=37%
+code-intel           tools= 11  bytes=  22158  ~tokens=  5540  schema=61%  desc=34%
+not-a-real-profile   tools= 16  bytes=  25818  ~tokens=  6455  schema=69%  desc=25%
+
+POSITIVE CONTROL: every profile returned a non-empty list? YES
+NEGATIVE CONTROL: an unknown profile falls back to `default`? YES (16 tools, same as default)
+
+DEFAULT vs FULL: 16 vs 32 tools, 25818 vs 46131 bytes (default is 56% of full)

@@ -1,0 +1,82 @@
+FRESHNESS: graph indexed at d257f8e5d6, HEAD d257f8e5d6 -> SAME TREE
+POPULATION: 121 functions/methods with NO caller edge, 1444 with at least one (non-test, non-script, non-reference files)
+
+NEGATIVE CONTROL: fabricated name 'zzqNotARealSymbolHere' -> 0 call-shaped occurrences
+POSITIVE CONTROL: 10 of 10 functions the graph says HAVE callers show call-shaped occurrences here
+
+SAMPLE of 25 zero-caller functions (seed 20260925):
+  enrich                             mcp/stdio/ingest/frameworks/python_web.js:145   27 call-shaped  CANDIDATE WRONG ZERO
+  capabilities                       mcp/stdio/code-intel/providers/pyright.js:35    1 call-shaped  CANDIDATE WRONG ZERO
+  graphPacket                        mcp/stdio/query/verbs/packet.js:929   83 call-shaped  CANDIDATE WRONG ZERO
+  childText                          mcp/stdio/ingest/walker.js:36    0 call-shaped  no call sites found — zero agrees
+  enumeratePyFiles                   mcp/stdio/code-intel/providers/pyright.js:27    0 call-shaped  no call sites found — zero agrees
+  extractCppFunctionSymbol           mcp/stdio/ingest/languages/cpp.js:316    0 call-shaped  no call sites found — zero agrees
+  graphCycles                        mcp/stdio/query/verbs/analytics_verbs.js:97    0 call-shaped  no call sites found — zero agrees
+  getNodesByType                     mcp/stdio/storage/nodes.js:46    0 call-shaped  no call sites found — zero agrees
+  tick                               mcp/stdio/code-intel/lsp-client.js:165    6 call-shaped  CANDIDATE WRONG ZERO
+  _disclosureRenderCount             mcp/stdio/query/verbs/packet-lists.js:68    0 call-shaped  no call sites found — zero agrees
+  rowToRecord                        mcp/stdio/query/verbs/code_intel_replay.js:25    0 call-shaped  no call sites found — zero agrees
+  enrich                             mcp/stdio/ingest/frameworks/cpp_frameworks.js:150   27 call-shaped  CANDIDATE WRONG ZERO
+  untrackedPaths                     mcp/stdio/freshness/worktree-state.js:72    0 call-shaped  no call sites found — zero agrees
+  extractImportTargets               mcp/stdio/ingest/languages/typescript.js:17    0 call-shaped  no call sites found — zero agrees
+  fileExistsRepoRel                  mcp/stdio/ingest/import-resolution.js:232    0 call-shaped  no call sites found — zero agrees
+  defaultRealpath                    mcp/stdio/code-intel/document-snapshot.js:51    0 call-shaped  no call sites found — zero agrees
+  countNodeType                      mcp/stdio/intelligence/analytics.js:679    0 call-shaped  no call sites found — zero agrees
+  detect                             mcp/stdio/ingest/frameworks/laravel.js:226   19 call-shaped  CANDIDATE WRONG ZERO
+  add                                mcp/stdio/brief/generator.js:341  219 call-shaped  CANDIDATE WRONG ZERO
+  identOf                            mcp/stdio/ingest/frameworks/node_web.js:50    0 call-shaped  no call sites found — zero agrees
+  start                              mcp/stdio/code-intel/lsp-client.js:184   33 call-shaped  CANDIDATE WRONG ZERO
+  detect                             mcp/stdio/ingest/frameworks/rails.js:158   19 call-shaped  CANDIDATE WRONG ZERO
+  headKnown                          mcp/stdio/freshness/worktree-state.js:48    0 call-shaped  no call sites found — zero agrees
+  dirtyKnown                         mcp/stdio/freshness/worktree-state.js:50    0 call-shaped  no call sites found — zero agrees
+  expand                             mcp/stdio/query/verbs/code_intel_hierarchy.js:604    6 call-shaped  CANDIDATE WRONG ZERO
+
+RESULT: 10 of 25 sampled zero-caller functions have call-shaped occurrences in code.
+
+  enrich (mcp/stdio/ingest/frameworks/python_web.js:145)
+    tests/unit/ingest/frameworks/rails-target-is-qualified.test.js:41  const out = await railsPlugin.enrich({ repoRoot: root, result: { nodes: [], edges: [], refs: [] } });
+    tests/unit/ingest/frameworks/laravel-middleware-tokens.test.js:52  const out = await laravelRoutesPlugin.enrich({ repoRoot: root, result: { nodes: [], edges: [], refs: [] } });
+    tests/unit/ingest/frameworks/cmake.test.js:38  const out = await cmakePlugin.enrich({ repoRoot, result: empty() });
+
+  capabilities (mcp/stdio/code-intel/providers/pyright.js:35)
+    tests/unit/code-intel/providers/cpp-clangd.test.js:31  const caps = p.capabilities();
+
+  graphPacket (mcp/stdio/query/verbs/packet.js:929)
+    scripts/demo-verify-ab.mjs:54  const baselineVerify = await graphPacket({ repoRoot: baselineDir, mode: 'verify', files: ['src/bar.cpp'] });
+    scripts/demo-verify-ab.mjs:55  const codeIntelVerify = await graphPacket({ repoRoot: codeIntelDir, mode: 'verify', files: ['src/bar.cpp'] });
+    scripts/demo-verify-ab.mjs:56  const codeIntelVerifyAudited = await graphPacket({ repoRoot: codeIntelDir, mode: 'verify', files: ['src/bar.cpp'], audit
+
+  tick (mcp/stdio/code-intel/lsp-client.js:165)
+    tests/unit/ingest/generic.test.js:495  void tick();
+    tests/unit/ingest/generic.test.js:499  void ChunkManager::tick() {
+    tests/unit/ingest/generic.test.js:534  World::Mgr<int>::tick();
+
+  enrich (mcp/stdio/ingest/frameworks/cpp_frameworks.js:150)
+    tests/unit/ingest/shader-bindings.test.js:114  const out = await shaderBindingsPlugin.enrich({ repoRoot: repo, result: { nodes: [], edges: [], refs: [] } });
+    tests/unit/ingest/shader-bindings.test.js:140  const out = await shaderBindingsPlugin.enrich({ repoRoot: repo, result: { nodes: [], edges: [], refs: [] } });
+    tests/unit/ingest/shader-bindings.test.js:159  const out = await shaderBindingsPlugin.enrich({ repoRoot: repo, result: { nodes: [], edges: [], refs: [] } });
+
+  detect (mcp/stdio/ingest/frameworks/laravel.js:226)
+    tests/unit/ingest/shader-bindings.test.js:106  expect(await shaderBindingsPlugin.detect({ repoRoot: repo })).toBe(true);
+    mcp/stdio/code-intel/resolve-clangd.js:200  const wsl = detect({ env });
+    tests/unit/ingest/frameworks.test.js:44  expect(await pythonWebPlugin.detect({ repoRoot: repo })).toBe(true);
+
+  add (mcp/stdio/brief/generator.js:341)
+    mcp/stdio/analysis/doc-refs.js:379  if (p && symbolsByFile.has(p)) { scopes.add(p); scopingRanges.push(w); }
+    mcp/stdio/analysis/doc-links.js:224  if (rootRel && index.byPath.has(rootRel)) candidates.add(index.byPath.get(rootRel).id);
+    mcp/stdio/analysis/doc-links.js:226  if (docRel && index.byPath.has(docRel)) candidates.add(index.byPath.get(docRel).id);
+
+  start (mcp/stdio/code-intel/lsp-client.js:184)
+    tests/unit/sync/watcher.test.js:61  const w = start({
+    tests/unit/sync/watcher.test.js:75  const w = start({
+    tests/unit/sync/watcher.test.js:87  const w = start({ repoRoot: dir, onChange: () => {} });
+
+  detect (mcp/stdio/ingest/frameworks/rails.js:158)
+    tests/unit/ingest/every-framework-ref-carries-a-language.test.js:136  if (!(await plugin.detect({ repoRoot: root }))) { silent.push(`${file} did not DETECT its fixture`); continue; }
+    tests/unit/ingest/every-framework-ref-carries-a-language.test.js:151  if (!(await plugin.detect({ repoRoot: root }))) continue;
+    tests/unit/ingest/django-routes.test.js:30  expect(await djangoPlugin.detect({ repoRoot: dir })).toBe(true);
+
+  expand (mcp/stdio/query/verbs/code_intel_hierarchy.js:604)
+    tests/unit/ingest/symbol-site-identity.test.js:80  '  return expand(root, root, 0);',
+    tests/unit/ingest/symbol-site-identity.test.js:84  '  return expand(root, root, 0);',
+    mcp/stdio/query/verbs/code_intel_hierarchy.js:589  await expand(childItem, child, level + 1);
