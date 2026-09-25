@@ -15,7 +15,7 @@
 // a harness summary. A harness notification has twice reported "exit code 0" for a RED suite in this
 // project, so the log carries VITEST_EXIT and the log is the authority.
 import { spawn, execFileSync } from 'node:child_process';
-import { createWriteStream, mkdirSync, copyFileSync, appendFileSync } from 'node:fs';
+import { createWriteStream, mkdirSync, copyFileSync, appendFileSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -24,6 +24,19 @@ import { classifyRunIntegrity } from './lib/suite-run-integrity.mjs';
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DEST = join(REPO, 'docs/evidence/suite/latest.log');
 const SCRATCH = join(tmpdir(), `apg-suite-${process.pid}-${Date.now()}.log`);
+// ⛔ A SKIP IS A SILENCE, AND THE LOG USED TO COUNT IT WITHOUT NAMING IT.
+//
+// The summary line read `4 skipped (4138)` and nothing said which four. A test that starts skipping
+// for a CONDITION — a language server missing, a collect the producer declared partial — is then
+// indistinguishable from one that passes, because a digit changing from 4 to 5 in a 4138-test summary
+// is not something anyone reads. A red gets looked at; a skip count does not.
+//
+// The dot reporter cannot name them, so a json reporter runs alongside it purely to be parsed here.
+//
+// ⚠ WHAT THIS DOES NOT DO: escalate. A test that skips run after run is failing, and nothing here
+// notices that, because noticing needs a recorded baseline across runs and this script has no memory.
+// Naming them is the half that makes the other half possible; it is not the other half.
+const RESULTS_JSON = join(tmpdir(), `apg-suite-${process.pid}-${Date.now()}.json`);
 
 mkdirSync(dirname(DEST), { recursive: true });
 
@@ -83,12 +96,40 @@ if (trackedDirty.length > 0) {
   process.exit(2);
 }
 
+// Every skipped test by name, read from the json reporter's output.
+//
+// ⚠ IT REPORTS ITS OWN FAILURE RATHER THAN NOTHING. If the file is missing or unparseable the section
+// says so, because "no skipped tests" and "the reporter did not run" would otherwise render the same
+// way — which is the exact substitution this section exists to prevent, one level up.
+function namedSkips() {
+  let report;
+  try {
+    report = JSON.parse(readFileSync(RESULTS_JSON, 'utf8'));
+  } catch (err) {
+    return `\nSKIPPED TESTS: UNKNOWN — could not read the json reporter output (${err.message}).`
+      + ' This is NOT a claim that none were skipped.\n';
+  }
+  const skipped = [];
+  for (const file of report.testResults ?? []) {
+    for (const t of file.assertionResults ?? []) {
+      if (t.status === 'passed' || t.status === 'failed') continue;
+      skipped.push(`  [${t.status}] ${file.name ?? '?'} > ${t.fullName ?? t.title ?? '?'}`);
+    }
+  }
+  if (skipped.length === 0) return '\nSKIPPED TESTS: none.\n';
+  return `\nSKIPPED TESTS (${skipped.length}) — a skip is not a pass:\n${skipped.join('\n')}\n`;
+}
+
 // Strip ANSI: no raw escape codes may reach a tracked file, and a stripped log stays greppable.
 const ANSI = /\x1b\[[0-9;]*m/g;
 const out = createWriteStream(SCRATCH);
 const write = (chunk) => out.write(String(chunk).replace(ANSI, ''));
 
-const child = spawn('npx', ['vitest', 'run', '--reporter=dot'], {
+const child = spawn('npx', [
+  'vitest', 'run',
+  '--reporter=dot',
+  '--reporter=json', `--outputFile.json=${RESULTS_JSON}`,
+], {
   cwd: REPO, shell: process.platform === 'win32',
 });
 child.stdout.on('data', write);
@@ -97,6 +138,7 @@ child.stderr.on('data', write);
 child.on('close', (code) => {
   out.end();
   out.on('finish', () => {
+    appendFileSync(SCRATCH, namedSkips());
     appendFileSync(SCRATCH, `\nSUITE FOR COMMIT ${headAtStart}\nFINISHED ${new Date().toISOString()}\nVITEST_EXIT=${code}\n`);
     copyFileSync(SCRATCH, DEST);
     console.log(`suite exit ${code} — log copied to docs/evidence/suite/latest.log`);
