@@ -130,6 +130,60 @@ describe('freshness orchestrator', () => {
     expect(manifest.parserBundleVersion).toBe(PARSER_BUNDLE_VERSION);
   });
 
+  it('★★★ forces a full rebuild when the manifest versions are HIGHER than ours, not just lower', async () => {
+    // THE MIRROR OF THE TEST ABOVE, AND THE ONE THAT PROVES THE PROPERTY RATHER THAN THE HABIT.
+    // Freshness here is EQUALITY: a difference in EITHER direction rebuilds. The stale-version test
+    // passes just as happily against `(manifest.schemaVersion ?? 1) >= SCHEMA_VERSION`, which reads as
+    // a reasonable optimisation and silently makes the index QUIET whenever the stored value can be
+    // higher — a graph written by a newer build, a restored backup, a checkout backwards. A quiet index
+    // keeps answering and stops learning, so nothing is observably wrong.
+    //
+    // aify-dashboard shipped exactly that shape on 2026-09-26: `revision <= known` against a counter
+    // that resets on restart, connection chip reading live, refetch returning 200, every update ignored.
+    // dashboard-manager asked whether apg had it; this is the test that answers, rather than a grep.
+    await writeFile(join(repoRoot, 'src', 'helper.py'), 'def helper():\n    return 1\n');
+    await mkdir(join(repoRoot, '.aify-graph'), { recursive: true });
+    const seed = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    seed.close();
+    // Everything else says FRESH: commit equals HEAD, status ok, nothing dirty. The versions are the
+    // only difference, and they are ahead of ours rather than behind.
+    await writeFile(join(repoRoot, '.aify-graph', 'manifest.json'), JSON.stringify({
+      commit: 'head-future-versions', indexedAt: '2099-01-01T00:00:00.000Z',
+      nodes: 0, edges: 0, schemaVersion: 9999,
+      extractorVersion: '9999.0.0', parserBundleVersion: '9999.99.99',
+      status: 'ok', dirtyFiles: [], dirtyEdges: [], dirtyEdgeCount: 0, trustDirtyEdgeCount: 0,
+    }));
+
+    getHeadCommit.mockResolvedValue('head-future-versions');
+    getDirtyFileEntries.mockResolvedValue([]);
+    getDirtyFiles.mockResolvedValue([]);
+    getChangedFiles.mockResolvedValue([]);
+
+    const { ensureFresh, EXTRACTOR_VERSION, PARSER_BUNDLE_VERSION } =
+      await import('../../../mcp/stdio/freshness/orchestrator.js');
+    const result = await ensureFresh({ repoRoot });
+    expect(result.indexed).toBe(true);
+
+    // The discriminator, same as the stale case: no files are dirty or changed, so an ordering test
+    // that decided "already at or past, nothing to do" would leave the seeded EMPTY db empty. A real
+    // rebuild re-extracts the repo, so `helper` exists.
+    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    try {
+      const fns = db.all("SELECT label FROM nodes WHERE type = 'Function'").map((r) => r.label);
+      expect(fns, 'a HIGHER stored version was treated as "no work needed" — the index went quiet')
+        .toContain('helper');
+    } finally {
+      db.close();
+    }
+    // And the future values must not survive, in both directions of the same property: the manifest
+    // now carries OUR versions, not the ones it was seeded with.
+    const manifest = JSON.parse(await readFile(join(repoRoot, '.aify-graph', 'manifest.json'), 'utf8'));
+    expect(manifest.extractorVersion, 'the future seeded version survived').not.toBe('9999.0.0');
+    expect(manifest.extractorVersion).toBe(EXTRACTOR_VERSION);
+    expect(manifest.parserBundleVersion).toBe(PARSER_BUNDLE_VERSION);
+    expect(manifest.schemaVersion, 'the future schema version survived').not.toBe(9999);
+  });
+
   it('ignores build-prefixed scratch trees during a full rebuild', async () => {
     await mkdir(join(repoRoot, 'build-linux-techlead', 'generated'), { recursive: true });
     await writeFile(join(repoRoot, 'src', 'main.py'), 'def main():\n    return 1\n');

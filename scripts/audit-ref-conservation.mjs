@@ -22,6 +22,13 @@
 //   2. It cannot distinguish a file the pipeline never processed from a file whose every ref was
 //      lost. Both show zero recorded keys. Those files are reported SEPARATELY, never folded into
 //      the loss count, because folding them in lets a population error masquerade as a defect.
+//   3. ⛔⛔ IT CANNOT TELL YOU THAT EXTRACTION WAS EVER ASKED TO RUN. Conservation proves nothing was
+//      lost between extraction and storage. An index that went QUIET — that stopped re-extracting and
+//      kept answering — conserves refs perfectly, because nothing changed them. **A quiet index and a
+//      correct one produce the same conservation reading, and the quiet one looks better.** So the
+//      figure below is meaningless without a fact about the run that built the graph, which is why the
+//      LAST INDEX RUN block is printed above it and not in a footnote. (Limit identified by
+//      dashboard-manager, 2026-09-26, from a live instance of the class in their own product.)
 //
 // KEY: (source_file, relation, target-name). Extraction can emit several refs for one target in one
 // file and the ingest path collapses them, so the check is EXISTENCE per key, not count equality —
@@ -102,6 +109,22 @@ try {
 const sameTree = Boolean(indexed) && Boolean(head) && indexed.slice(0, 10) === head.slice(0, 10);
 console.log(`FRESHNESS: graph indexed at ${indexed.slice(0, 10)}, HEAD ${head.slice(0, 10)} -> ${sameTree ? 'SAME TREE' : 'DIFFERENT — the comparison spans two trees'}`);
 console.log(`MANIFEST: generation ${manifest.generation}, extractor ${manifest.extractorVersion}, nodes ${manifest.nodes}, edges ${manifest.edges}`);
+
+// ⛔ THE LIVENESS FACTS, PRINTED BEFORE THE CONSERVATION FIGURE AND NOT AFTER IT.
+// A conservation reading describes a graph. If nothing rebuilt that graph, the reading is perfect and
+// worthless. These are the last index run's OWN numbers: absent or zero means the figure below is
+// uninterpretable rather than reassuring, so the reader meets that before meeting the percentage.
+const sweepSeen = manifest.sweepCounts?.seen;
+console.log('LAST INDEX RUN (the graph this figure describes was built by it):');
+console.log(`  indexedAt ${manifest.indexedAt ?? 'ABSENT'}`);
+console.log(`  files the sweep saw ${sweepSeen ?? 'ABSENT — no per-run count, so nothing here shows the run did work'}`);
+console.log(`  status ${manifest.status ?? 'ABSENT'}, skipped ${manifest.skippedFileCount ?? 'ABSENT'}`);
+if (!sweepSeen) {
+  console.log('  ⛔ NO PER-RUN WORK COUNT. A quiet index conserves refs perfectly. Treat the figure below as UNINTERPRETABLE.');
+}
+// ⚠ And the limit on the liveness facts themselves, since they are a manifest read and not a probe:
+// they say the last run reported doing work, not that it re-extracted the files this audit covers.
+console.log('  ⚠ These describe the LAST run as a whole. They do not show that any particular file was re-extracted.');
 
 const recorded = new Set();
 const recordedFiles = new Set();

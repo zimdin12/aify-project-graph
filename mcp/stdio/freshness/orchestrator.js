@@ -1,3 +1,26 @@
+// ⛔⛔ FRESHNESS COMPARISONS ARE EQUALITY. A DIFFERENCE IN EITHER DIRECTION REBUILDS.
+//
+// This file never asks WHICH SIDE IS NEWER. It asks whether the stored value differs from the live
+// one, and any difference — forwards, backwards, or unresolvable — means MORE work, never a skip.
+// `manifest.commit === commit`, `schemaVersion !== SCHEMA_VERSION`, `extractorVersion !== …` so a
+// downgrade rebuilds too, the changed set from a git diff of two named commits, and an indexed commit
+// git cannot resolve falling through to a full rebuild.
+//
+// ⚠ DO NOT "OPTIMISE" ANY OF THOSE INTO AN ORDERING TEST. `(manifest.schemaVersion ?? 1) >= X` reads
+// as "we are already at or past this, nothing to do" and is the bug: the moment the stored value can
+// be HIGHER than the live one — an older commit, a fresh clone whose counters restart, a checkout
+// backwards — the index goes QUIET. It keeps answering and stops learning, which is worse than
+// answering wrongly because nothing is observably broken. aify-dashboard shipped this exact shape on
+// 2026-09-26 (`revision <= known` against a counter that resets on restart): the connection chip said
+// live, the refetch returned 200, and the page ignored every update from that moment on.
+//
+// ⭐ THE INVARIANT HAS BEEN OBSERVED HOLDING, not merely argued: on 2026-09-25 a disposable worktree
+// full-indexed to `generation: 1` while this repo's own graph sat at `generation: 548` at the SAME
+// commit, and nothing compared them, because `generation` appears in no comparison anywhere.
+//
+// `tests/unit/freshness/freshness-comparisons-are-equality.test.js` fails if an ordering comparison
+// against a stored freshness field appears in this file. It guards the place the decision is made; it
+// cannot see one added in a module this file calls.
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
