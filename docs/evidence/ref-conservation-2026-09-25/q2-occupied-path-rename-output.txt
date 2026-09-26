@@ -1,0 +1,23 @@
+==============================================================================================
+Q2: rename ONTO AN OCCUPIED PATH — git mv -f src/a.js src/b.js (b.js already exists)
+==============================================================================================
+  BASELINE files   : ["src/a.js","src/b.js","src/refA.js","src/refB.js"]
+  BASELINE symbols : {"src/a.js":["fa","src.a"],"src/b.js":["fb","src.b"],"src/refA.js":["refA","src.refA"],"src/refB.js":["refB","src.refB"]}
+  BASELINE pairs   : ["src/refA.js -> src/a.js","src/refB.js -> src/b.js"]
+  POSITIVE  a.js/fa and b.js/fb both present at baseline: YES
+
+  AFTER files      : ["src/b.js","src/refA.js","src/refB.js"]
+  AFTER symbols    : {"src/b.js":["fa","src.b"],"src/refA.js":["refA","src.refA"],"src/refB.js":["refB","src.refB"]}
+  AFTER pairs      : ["src/refB.js -> src/b.js"]
+  REBUILD symbols  : {"src/b.js":["fa","src.b"],"src/refA.js":["refA","src.refA"],"src/refB.js":["refB","src.refB"]}
+
+  ok  src/a.js is gone from the graph
+  ok  src/b.js defines only 'fa' — the symbol sets did NOT merge
+  UNRESOLVED       : ["src/refA.js IMPORTS src/a.js","src/refA.js IMPORTS src/a.js.fa"]
+  ok  refA.js's dangling './a.js' import is retained as an unresolved ref, not dropped
+  info incremental agrees with forced rebuild: true  (reported, NOT the pass condition — both paths can be wrong identically)
+
+  SELF-CONTROL  planted 'fb' back onto src/b.js: ["fa","fb","src.b"]
+  SELF-CONTROL  the merge discriminator WOULD have fired: YES — the clean result above is a real negative
+
+VERDICT: 0 failures — occupied-path rename is CLEAN
