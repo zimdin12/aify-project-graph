@@ -1,7 +1,7 @@
 # Plan: resolved-ref evidence, so conservation stops being reconstructed
 
 **Status:** ⛔ **A RECORD OF DECISIONS AND OPEN CONTROLS — NOT AN APPROVED PLAN, AND NOT PERMISSION TO
-WRITE DDL.** Revision 8, 2026-09-26. Nothing is implemented. **Every control here is UNRUN and its
+WRITE DDL.** Revision 9, 2026-09-26. Nothing is implemented. **Every control here is UNRUN and its
 outcome is UNKNOWN.** The point-in-time binding class count and its residue remain **HELD**, and the
 88/0 producer-collision census **cannot be independently rederived** from what is committed.
 
@@ -295,15 +295,41 @@ the write path does not create one, there is no guard — it is an agreement wit
     (c) every CONTRIBUTION references a LIVE edge
     (d) every ADDRESS record has >= 1 LIVE CONTRIBUTION LINK
     (e) every LINK joins a contribution and an address belonging to the SAME edge
-    (f) all of the above maintained in ONE transaction with the edge write or delete
+    (f) every LIVE REF CONTRIBUTION has >= 1 LINK to an ADDRESS of the SAME edge
+    (g) all of the above maintained in ONE transaction with the edge write or delete
+
+⛔ **LIMB (f) IS NEW IN REVISION 9, AND WITHOUT IT (a)–(e) MISS A LOST PRODUCER LINK ENTIRELY.**
+graph-senior-dev's counterexample, in this document's own GLSL shape: live edge `E`, one address
+`A = common.glsl`, two live REF contributions `P = glsl` and `Q = shader-bindings`, links `P→A` and
+`Q→A`. **Delete only `Q→A`.** Then (a) `A` still references live `E`; (b) `E` has contributions and
+one address; (c) `Q` still references live `E`; (d) `A` still has `P`'s link; (e) the surviving link
+is same-edge. **Every limb passes, and the store has silently lost the fact that `Q` emitted `A`.**
+
+The consequence is not cosmetic: reindex `P` next, and the writer's *last link removed ⇒ delete the
+address* rule can delete `A` **while `Q` is still emitting it** — the exact erroneous state the
+both-insert-orders GLSL control exists to prevent.
+
+⚠ **AND (g) CANNOT RESCUE IT.** Transactional write intent says how records are written; it cannot
+make a static preflight notice a link that is *already* missing. Every limb from (a) to (e) is an
+obligation on addresses, contributions or links that **exist** — none is a positive obligation that
+a contribution **have** a link. That is the asymmetry (f) closes, and it is the same
+alternate-satisfier shape as the rest of this arc: `P→A` satisfies the address's requirement, so
+`Q→A` can vanish unobserved.
+
+⛔ **THE PREFLIGHT MUST NAME EVERY VIOLATED LIMB, NOT THE FIRST.** With (f) present, more than one
+limb legitimately fires on the same planted state — control 5a below trips (b) *and* (f) together.
+A checker that short-circuits on the first failure would let 5a's limb-specific assertion pass or
+fail for the wrong reason, which is the defect this plan has now produced three times.
 
 The audit runs these as a **precondition** and REFUSES, naming the limb, rather than reporting a
 figure over a broken store.
 
 **Planted-violation arms — because an invariant nobody can violate in a test is an invariant nobody
 has tested:** planted orphan ADDRESS ⇒ refuse (a)/(d); planted orphan CONTRIBUTION ⇒ refuse (c);
-planted CROSS-EDGE LINK ⇒ refuse (e); planted ORPHAN LINK ⇒ refuse (e). The last two are distinct
-shapes and neither may rely on another control's refusal for its coverage.
+planted CROSS-EDGE LINK ⇒ refuse (e); planted ORPHAN LINK ⇒ refuse (e); **planted LINKLESS REF
+CONTRIBUTION on a still-addressed edge ⇒ refuse (f)** — the shared-address case above, and the one
+arm that fails if (f) is ever dropped. Each is a distinct shape and none may rely on another
+control's refusal for its coverage.
 
 ## Control 5 is two populations, not one test
 
@@ -325,14 +351,19 @@ different sections interact — not by executing anything.
 **Corrected:**
 
 - **5a.** single-address ref edge; delete the address **and all its LINK rows ATOMICALLY**, retaining
-  the edge and the independent CONTRIBUTION witness ⇒ limb (b) fails **specifically**: the witness is
-  still there, so the edge is still ref-origin, and the missing address is the only thing wrong. The
-  audit **REFUSES**, not a quiet UNKNOWN.
-- **5b.** edge with addresses `A` and `B`; delete `B` **and all of `B`'s LINK rows atomically** ⇒ `A`
-  and its links remain and `(a)`–`(e)` genuinely pass. ⚠ **That pass is NOT the finding.** It
-  establishes only that the store is consistent; attribution requires *source-still-emits-`B`* plus
-  the across-run baseline `(B, e)`. 5b is the case that proves the preflight is a floor, not the
-  measurement.
+  the edge and the independent CONTRIBUTION witness ⇒ the edge is still ref-origin with no address,
+  so **limb (b) fails**, and the retained contribution now has no link, so **limb (f) fails too**.
+  The audit **REFUSES**, not a quiet UNKNOWN, and must **NAME BOTH**. ⚠ **Revision 9 changed what
+  this arm may assert:** before (f) existed, 5a claimed (b) fails *specifically*. It can no longer
+  claim (b) is the ONLY limb — the assertion is that **(b) is among the named limbs**, which is why
+  the preflight must report the complete set rather than short-circuit.
+- **5b.** edge with addresses `A` and `B`; delete `B` **and all of `B`'s LINK rows atomically**,
+  **with every contribution retaining a link to `A`** ⇒ `A` and its links remain and `(a)`–`(g)`
+  genuinely pass. ⚠ **That construction is now load-bearing:** a contribution linked only to `B`
+  would be left linkless and trip (f), so 5b would refuse instead of passing and could not do its
+  one job. ⚠ **And the pass is NOT the finding.** It establishes only that the store is consistent;
+  attribution requires *source-still-emits-`B`* plus the across-run baseline `(B, e)`. 5b is the case
+  that proves the preflight is a floor, not the measurement.
 - **limb (e) gets its OWN arm:** a planted **orphan LINK** (pointing at a deleted address or
   contribution) ⇒ **REFUSAL naming (e)**. It must not borrow 5a's refusal for its coverage.
 
@@ -350,10 +381,19 @@ freezing its source.
 | remove one contributor, other still emitting | unchanged | **CONSERVED**, still one address |
 | supported deletion of edge + records | **bytes frozen, ref population asserted unchanged** | **ONE** candidate loss, NAMED |
 | source edit removing the `#include` | import deleted | **NONE** named — **AND** the recorded key is **absent post-edit**, **AND** the classifier returns REMOVED_AT_SOURCE |
+| **5th, revision 9: `Q→A` link deleted, THEN `P` reindexed** | **both still emit `common.glsl`** | **step 1:** preflight **REFUSES naming (f)** before any reindex runs. **step 2, if the reindex is forced past it:** `A` must **still exist**, because `Q` emits it — an `A` deleted here is the two-step producer-link loss, NOT a legitimate cleanup |
 
 Both insert orders for the two producers. The fourth arm is the negative control that proves the
 third is not simply a check that shouts whenever a record disappears. The denominator counts
 **addresses** and never producers, so producer count cannot move it.
+
+⛔ **THE FIFTH ARM IS THE ONLY ONE THAT EXERCISES THE CONSEQUENCE, AND IT IS NOT REDUNDANT WITH LIMB
+(f).** (f) catches the *state* — a contribution with no link — at the next preflight. The fifth arm
+asks the separate question of whether that state, if it survives a preflight, **destroys an address
+a live producer is still emitting**. Step 1 and step 2 fail differently: a checker that never runs
+(f) passes step 1 by silence, so step 2 forces the reindex anyway and asserts on `A` itself. ⚠ Both
+steps required — step 1 alone would be satisfied by a refusal for any reason, and step 2 alone
+cannot tell a missing guard from a working one that simply was not reached.
 
 ⛔ **WHY THE FOURTH ARM NEEDS ALL THREE ASSERTIONS, AND WHY "NONE NAMED" ALONE IS A FALSE PASS.**
 Revision 7 wrote this arm as "NONE named — REMOVED_AT_SOURCE" without requiring that the store
@@ -376,8 +416,10 @@ not only the headline count. Found by graph-senior-dev.
 ## Population and transitions
 
 **Row states:** `REF_EDGE_ADDRESSED` · `REF_EDGE_UNADDRESSED` (a defect under a valid seal, UNKNOWN
-without one) · `NON_REF_EDGE` · `ORPHAN_ADDRESS` · `ORPHAN_CONTRIBUTION` · `CROSS_EDGE_LINK` (the last
-three violate the invariant — the audit must REFUSE) · `LEGACY_UNSEALED` (UNKNOWN; never lost, never
+without one) · `NON_REF_EDGE` · `ORPHAN_ADDRESS` · `ORPHAN_CONTRIBUTION` · `CROSS_EDGE_LINK` · `ORPHAN_LINK` ·
+`LINKLESS_REF_CONTRIBUTION` (**the last five** violate the invariant — the audit must REFUSE; the
+last two were omitted here until revision 9 while their planted arms already existed, which is the
+same inventory-drift the limb count had) · `LEGACY_UNSEALED` (UNKNOWN; never lost, never
 conserved) · `MULTI_PRODUCER_EDGE` (≥2 contributions, possibly of the same kind).
 
 | transition | seal | rows |
@@ -395,7 +437,7 @@ conserved) · `MULTI_PRODUCER_EDGE` (≥2 contributions, possibly of the same ki
 
 ⛔ **No cascade gate.** `storage/db.js:46` sets `foreign_keys = OFF`, so a claimed cascade is an
 agreement rather than a guard. Each route performs its own transactional cleanup, and the audit runs
-the six limbs as a precondition.
+the seven limbs as a precondition.
 
 ## Controls — ALL UNRUN
 
@@ -418,9 +460,11 @@ must **REFUSE**, not report the named loss the current ARM B and ARM C expect.
 | arm | how | expected |
 |---|---|---|
 | planted loss | delete edge + addresses + contributions + links atomically | **NAMED LOSS** |
-| orphan address | plant an address whose edge is gone | **REFUSAL**, naming (a) |
+| orphan address | plant an address whose edge is gone | **REFUSAL**, naming (a) — **and (d)** if its links went with the edge |
 | orphan contribution | plant a contribution whose edge is gone | **REFUSAL**, naming (c) |
 | cross-edge link | plant a link joining records of different edges | **REFUSAL**, naming (e) |
+| orphan link | plant a link pointing at a deleted address or contribution | **REFUSAL**, naming (e) — its **own** arm, not borrowing 5a's |
+| **linkless REF contribution (revision 9)** | delete one producer's LINK on a **shared** address, leaving the address linked by the other | **REFUSAL**, naming **(f)** — the arm that fails if (f) is dropped |
 
 **Lifecycle controls (graph-senior-dev's).**
 
