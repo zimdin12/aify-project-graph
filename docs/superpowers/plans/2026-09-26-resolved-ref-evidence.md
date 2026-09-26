@@ -1,7 +1,7 @@
 # Plan: resolved-ref evidence, so conservation stops being reconstructed
 
 **Status:** ⛔ **A RECORD OF DECISIONS AND OPEN CONTROLS — NOT AN APPROVED PLAN, AND NOT PERMISSION TO
-WRITE DDL.** Revision 4, 2026-09-26. Nothing is implemented. **Every control here is UNRUN and its
+WRITE DDL.** Revision 5, 2026-09-26. Nothing is implemented. **Every control here is UNRUN and its
 outcome is UNKNOWN.** The point-in-time binding class count and its residue remain **HELD**, and the
 88/0 producer-collision census **cannot be independently rederived** from what is committed.
 
@@ -301,15 +301,39 @@ figure over a broken store.
 
 **Planted-violation arms — because an invariant nobody can violate in a test is an invariant nobody
 has tested:** planted orphan ADDRESS ⇒ refuse (a)/(d); planted orphan CONTRIBUTION ⇒ refuse (c);
-planted CROSS-EDGE LINK ⇒ refuse (e).
+planted CROSS-EDGE LINK ⇒ refuse (e); planted ORPHAN LINK ⇒ refuse (e). The last two are distinct
+shapes and neither may rely on another control's refusal for its coverage.
 
 ## Control 5 is two populations, not one test
 
-- **5a.** single-association ref edge; delete the address record **alone**, origin witness retained
-  ⇒ limb (b) **TRIPS**, the audit **REFUSES**. Not a quiet UNKNOWN.
-- **5b.** edge with addresses `A` and `B`; delete only `B` ⇒ (a) and (b) both pass. Point-in-time may
-  **NAME** `B` but **may not attribute** it; across-run, holding baseline `(B, e)`, attributes
-  evidence loss / UNKNOWN.
+⛔ **AND THE FIRST SPEC OF IT WOULD HAVE PASSED FOR THE WRONG REASON.** Revision 4 said "delete the
+address record **alone**". But LINK rows sit on every address, `storage/db.js:46` sets
+`foreign_keys = OFF`, and limb (e) requires every link to join a live contribution *and* a live
+address. A literal deletion therefore **strands links**:
+
+- 5a would have **REFUSED for limb (e), not the intended limb (b)** — a control passing for the wrong
+  reason. The refusal would have been logged and the design would have looked validated by a limb
+  with nothing to do with what was being tested.
+- 5b could not have passed `(a)`–`(e)` at all, so it could never do its one job: distinguishing
+  address loss from link corruption.
+
+⚠ **A control that refuses for the wrong limb is worse than one that fails**, because the refusal
+resembles the design working. Found by reading the committed diff and noticing two rules written in
+different sections interact — not by executing anything.
+
+**Corrected:**
+
+- **5a.** single-address ref edge; delete the address **and all its LINK rows ATOMICALLY**, retaining
+  the edge and the independent CONTRIBUTION witness ⇒ limb (b) fails **specifically**: the witness is
+  still there, so the edge is still ref-origin, and the missing address is the only thing wrong. The
+  audit **REFUSES**, not a quiet UNKNOWN.
+- **5b.** edge with addresses `A` and `B`; delete `B` **and all of `B`'s LINK rows atomically** ⇒ `A`
+  and its links remain and `(a)`–`(e)` genuinely pass. ⚠ **That pass is NOT the finding.** It
+  establishes only that the store is consistent; attribution requires *source-still-emits-`B`* plus
+  the across-run baseline `(B, e)`. 5b is the case that proves the preflight is a floor, not the
+  measurement.
+- **limb (e) gets its OWN arm:** a planted **orphan LINK** (pointing at a deleted address or
+  contribution) ⇒ **REFUSAL naming (e)**. It must not borrow 5a's refusal for its coverage.
 
 ## The GLSL control: source state is an explicit variable
 
