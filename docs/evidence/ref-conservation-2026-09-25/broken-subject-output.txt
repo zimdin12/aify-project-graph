@@ -1,0 +1,37 @@
+SUBJECT CHECK: orchestrator at 871a1d65 contains the fixed-point worklist? no, it is the one-level version
+
+==============================================================================================
+BROKEN SUBJECT — orchestrator at 871a1d65, one-level expansion, NO plant
+==============================================================================================
+  ACTION CONTROL   node "innerMarker" from this run's edit is in the graph: YES — the run re-extracted it
+  POSITIVE CONTROL 2 of 8 baseline refs SURVIVED
+  REMOVED_AT_SOURCE 0
+  ⛔ LOST (6) — still emitted, recorded NOWHERE, and NOT planted:
+     src/outerA.js   CALLS -> middle
+     src/outerA.js   IMPORTS -> src/middle.js
+     src/outerB.js   CALLS -> middle
+     src/outerB.js   IMPORTS -> src/middle.js
+     src/outerC.js   CALLS -> middle
+     src/outerC.js   IMPORTS -> src/middle.js
+⚠ worktree at C:\Users\Administrator\AppData\Local\Temp\apg-preclosure-0ALFkl could not be removed (a handle is still held). The junction IS unlinked, so the repository node_modules is not at risk; remove the directory by hand.
+
+==============================================================================================
+CURRENT SUBJECT — fixed-point expansion, same fixture and history, NO plant
+==============================================================================================
+  ACTION CONTROL   node "innerMarker" from this run's edit is in the graph: YES — the run re-extracted it
+  POSITIVE CONTROL 8 of 8 baseline refs SURVIVED
+  REMOVED_AT_SOURCE 0
+  ⛔ LOST (0) — still emitted, recorded NOWHERE, and NOT planted:
+
+==============================================================================================
+VERDICT
+==============================================================================================
+  broken subject : 6 LOST, 2/8 survived
+  current subject: 0 LOST, 8/8 survived
+
+  controls in both runs (extraction ran, comparison non-vacuous): ok
+  ⛔ THE PRE-REGISTERED QUESTION: does the detector NAME a loss the CODE produced,
+     with nothing planted?  YES
+  and does it stay quiet on the fixed subject?  YES
+
+  => PROVEN ON THIS SUBJECT: the detector names a real, code-produced loss and is silent without one.

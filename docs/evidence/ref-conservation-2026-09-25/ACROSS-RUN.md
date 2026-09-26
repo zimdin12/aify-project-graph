@@ -55,6 +55,27 @@ Two complementary mutations of the classifier, each run in full:
 So each half of the classifier is covered by a named arm and none is vacuous. A test nobody has watched
 fail is a rumour.
 
+## ⭐ The arms are now proven on a BROKEN SUBJECT, not only on a plant
+
+`scripts/audit-rename-handling.mjs`-style planting proves a detector fires. It does not prove it
+fires on a loss the **production code path** produces — no production code made a planted `DELETE`.
+The distinction is dashboard-manager's:
+
+> A planted control proves the instrument works. A **broken subject** proves the instrument works
+> **on this subject**.
+
+A real broken subject existed and needed no simulation: the pre-closure one-level expansion at
+`871a1d65`. `scripts/audit-ref-conservation-broken-subject.mjs`, raw output in
+`broken-subject-output.txt`, nothing planted in either run:
+
+| subject | result |
+|---|---|
+| `871a1d65`, one-level expansion | **6 LOST**, 2/8 survived — names all six `outerA/B/C` IMPORTS and CALLS |
+| current, fixed-point expansion | **0 LOST**, 8/8 survived |
+
+Exactly the six in `reproduction-output.txt`. The quiet arm matters as much as the loud one: a
+detector that shouted on both would have passed the broken arm for the wrong reason.
+
 ⚠ **ARM B and ARM C plant their losses.** The fixed-point closure means the real loss no longer occurs
 on this fixture, so deleting an edge whose source still emits it is the only way to show the detector
 fires. They prove the **detector** works. They are **not** evidence that a loss happened, and nothing
