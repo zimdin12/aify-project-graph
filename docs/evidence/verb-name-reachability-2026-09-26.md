@@ -99,6 +99,23 @@ Lean's 6 matches AGENTS.md's stated 6. Controls: a known name present, a fabrica
 one that matters — **a set whose extraction found NOTHING is reported as "NOT a pass"**, because a regex
 that matched nothing and four genuinely clean sets look identical.
 
+⭐ **AND THE PROBE WAS WATCHED REPORTING A PLANTED BAD NAME, which the controls above do NOT establish.**
+Those controls prove the *predicate* can answer absent; they say nothing about whether *this probe* surfaces
+a bad curated name. So `'graph_zzq_planted_typo'` was inserted into `LEAN_TOOL_NAMES` in `server.js` and the
+probe reported:
+
+    ⛔ LEAN_TOOL_NAMES  names 7  absent-from-TOOLS 1  ["graph_zzq_planted_typo"]
+    TOTAL curated names absent from TOOLS: 1
+
+Then restored from a byte-for-byte backup (`git diff` empty) and re-run clean at 0. **A control on the
+predicate is not a control on the instrument** — the distinction that cost four rounds elsewhere in this
+arc.
+
+⚠ **Portability was also a false claim in the first version of this probe**, which hardcoded
+`C:/Docker/aify-project-graph`. "Rerunnable" was then true on one machine at one checkout. The root is now
+derived from the script's own location and the probe was run from a different working directory as the
+control.
+
 ⚠ **THE DEPENDENCY, named at the finding rather than in a plan.** All of Part 2 rests on LISTED being a
 FILTER of `TOOLS`. If the listed set is ever built from a separate constant, the unreachability argument
 collapses, dashboard-manager's arm (a) becomes worth building immediately, and this measurement expires.

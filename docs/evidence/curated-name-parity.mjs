@@ -6,11 +6,15 @@
 // advertises fewer verbs than intended with no error anywhere.
 import { readFileSync } from 'node:fs';
 
-const repo = 'C:/Docker/aify-project-graph';
-const { TOOLS } = await import(`file:///${repo}/mcp/stdio/tools/schema.js`);
-const { HIDDEN_FULL_TOOL_NAMES } = await import(`file:///${repo}/mcp/stdio/hidden-tools.js`);
+// PORTABLE BY CONSTRUCTION: the repo root is derived from this file's own location, never hardcoded.
+// The first version of this probe carried an absolute `C:/Docker/...` path, which made "rerunnable"
+// true on exactly one machine at exactly one checkout — a rederivability claim that was false the
+// moment anyone else cloned it.
+const repo = new URL('../..', import.meta.url);
+const { TOOLS } = await import(new URL('mcp/stdio/tools/schema.js', repo));
+const { HIDDEN_FULL_TOOL_NAMES } = await import(new URL('mcp/stdio/hidden-tools.js', repo));
 const real = new Set(TOOLS.map((t) => t.name));
-const src = readFileSync(`${repo}/mcp/stdio/server.js`, 'utf8');
+const src = readFileSync(new URL('mcp/stdio/server.js', repo), 'utf8');
 
 function setNames(constName) {
   const re = new RegExp(`${constName}\\s*=\\s*new Set\\(\\[([\\s\\S]*?)\\]\\)`);
