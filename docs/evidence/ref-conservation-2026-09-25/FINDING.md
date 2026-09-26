@@ -113,6 +113,17 @@ Silence is measured for the four CALLS specimens in §2, which carry 0 refusal r
 ⚠ And the shape differs: 44 of the 45 are REFERENCES to a short ambiguous name, not CALLS to an
 imported one. So this reproduces the FAMILY, not the specimens.
 
+## ⭐ THE MECHANISM WAS FOUND THE NEXT DAY — read MECHANISM.md
+
+`MECHANISM.md` in this directory supersedes the "NOT IDENTIFIED" lines below. In one sentence:
+**`expandAffectedFiles` finds the files that need re-extracting by reading the edges that point into the
+changed file, and `deleteNode` destroys exactly those edges — so the repair reads the data the deletion
+destroys, and any run that deletes without expanding loses those edges permanently and invisibly.**
+
+The primary loss is an IMPORTS edge, not a CALLS edge; the missing caller sets below are downstream of it.
+Measured: 9 IMPORTS edges missing repo-wide, two targets losing 100% of their incoming ones, a control
+target unchanged at 85.
+
 ## What is settled and what is not
 
 **PROVEN.** The class is alive at HEAD. Four caller edges a full build holds are absent from the

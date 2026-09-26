@@ -1,0 +1,62 @@
+Captured 2026-09-26 at 2062ae83. Full build in a disposable worktree (force rebuild) against the live
+incremental graph of the main repo, both at the same commit. The worktree was removed after the run, so
+this is the recorded output rather than something a later reader can re-derive without rebuilding one.
+
+IMPORTS pairs: full 1832, incremental 1824
+
+MISSING FROM THE INCREMENTAL GRAPH (9):
+  mcp/stdio/query/verbs/packet.js
+      -> mcp/stdio/query/verbs/packet-input.js
+  mcp/stdio/server.js
+      -> mcp/stdio/tools/schema.js
+  scripts/lib/ab-rubric.mjs
+      -> mcp/stdio/tools/schema.js
+  scripts/m5-route-census.mjs
+      -> mcp/stdio/tools/schema.js
+  tests/unit/integrations/verb-count-parity.test.js
+      -> mcp/stdio/tools/schema.js
+  tests/unit/query/remedy-reachability.test.js
+      -> mcp/stdio/tools/schema.js
+  tests/unit/scripts/baseline-publication.test.js
+      -> scripts/refactor-guard.mjs
+  tests/unit/scripts/refusal-presentation.test.js
+      -> scripts/refactor-guard.mjs
+  tests/unit/scripts/volatile-line-exclusion.test.js
+      -> scripts/refactor-guard.mjs
+
+ONLY IN THE INCREMENTAL GRAPH (1):
+  docs/evidence/staleness-retro-2026-09-18/test3/coverage.py
+      -> scripts/resynthesize-spine.mjs
+
+missing by imported-file extension: {'.js': 6, '.mjs': 3}
+missing by importer top-level dir: {'mcp': 2, 'scripts': 2, 'tests': 5}
+
+--- incoming IMPORTS per target, same two graphs ---
+                                           FULL   INCREMENTAL
+mcp/stdio/tools/schema.js                     5             0
+scripts/refactor-guard.mjs                    3             0
+mcp/stdio/query/verbs/packet-input.js         7             6
+tests/helpers/live-matcher.js  (control)     85            85
+
+File node ids, identical in both graphs:
+  mcp/stdio/tools/schema.js               File id=eaa1bf1b97
+  scripts/refactor-guard.mjs              File id=4461b742a3
+  mcp/stdio/query/verbs/packet-input.js   File id=917e7efdce
+  tests/helpers/live-matcher.js           File id=fba2c778b6
+
+--- the probe that did NOT reproduce it ---
+parity-probe-that-did-not-reproduce.mjs: six callers in their own files, a real symbol inserted above the
+callee to re-mint its id, then two further unrelated commits, incremental refresh after each, against a
+forced rebuild of the same history.
+
+  baseline incremental — victim callers: [c1..c6]
+  after step 1 — victim callers: [c1..c6]
+  after step 2 — victim callers: [c1..c6]
+  after step 3 — victim callers: [c1..c6]
+  FULL REBUILD  — victim callers: [c1..c6]
+  VERDICT: IDENTICAL — the recipe does NOT reproduce the divergence
+  edges only in INCREMENTAL (0); edges only in REBUILD (0); nodes: 0 and 0
+
+⭐ That failure is what found the mechanism. The probe could not reproduce the loss because
+expandAffectedFiles DID pull the six callers into the re-extraction set — the repair working. Asking what
+the repair reads led to the answer: it reads the edges the deletion is about to destroy.
