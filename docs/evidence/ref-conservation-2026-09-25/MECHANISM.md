@@ -123,12 +123,28 @@ the package files outside the orchestrator did not differ between the two pinned
 re-derive those two blob hashes from this repository at any time**, which is a durable anchor for WHAT was
 tested even though the instrument itself is not stored here.
 
-⚠ THE INSTRUMENT ITSELF IS NOT DURABLE EVIDENCE AND IS NOT CITED AS SUCH. Their scripts live outside this
-repository in a hermes cache directory, attested by SHA256: witness 1 output `fb904f47…a37b2f65`; witness 2
-script `ref-conservation-paired-20260926.mjs` `4aecd113…9c32b8d8` and its output `5d6313a7…95da3a4`.
-**A SHA256 attests integrity, not existence, and a cache has a deletion date** — their words, and the reason
-those hashes appear here as attribution rather than as a pointer a reader could follow. They have made no
-changes to this repository's tree.
+✅ AND THE INSTRUMENTS ARE NOW IN THIS REPOSITORY, so this section no longer cites a cache at all.
+graph-senior-dev committed their byte-exact scripts and raw output, and the commit was cherry-picked onto
+main with their authorship preserved rather than re-authored:
+
+    docs/evidence/ref-conservation-2026-09-25/INDEPENDENT-WITNESS.md            their scoped README
+    docs/evidence/ref-conservation-2026-09-25/independent-unfixed-871a1d65.mjs  witness 1 + .output.txt
+    docs/evidence/ref-conservation-2026-09-25/independent-paired-72996bce.mjs   witness 2 + .output.txt
+
+**Their four SHA-256 receipts were verified against the committed bytes here, not accepted on report** —
+all four MATCH. So the hashes have stopped being an attestation about a file elsewhere and become a check a
+later reader can repeat on files they can open.
+
+⚠ THREE LIMITS THAT SURVIVE THE MOVE, STATED BY THEM:
+- The scripts are **archival originals with machine-specific checkout paths**. Those paths are historical run
+  inputs, NOT durable dependencies; their README says to copy a script and replace the path constants rather
+  than edit the archived original, and never to substitute newly generated output for the receipt.
+- **Their commit carries no gate result.** It was made with hooks disabled, after a contamination incident in
+  their linked worktree, so no pre-commit or suite verdict is claimed for it. What passed on their side was
+  syntax, the four git-blob assertions and the JSON receipt assertions. Any suite verdict afterwards is about
+  THIS tree containing the files, never a retroactive gate on theirs.
+- They made **no edits to this repository's working tree** at any point; the objects and an isolated branch
+  were the carrier until the cherry-pick.
 
 ## The specification the across-a-run check has to meet
 
