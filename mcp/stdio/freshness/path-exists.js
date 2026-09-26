@@ -67,6 +67,11 @@ export function existsWithExactCase(repoRoot, relPath) {
   // result is the exact one over a directory listing, which the platform cannot answer loosely.
   // (Raised by dashboard-manager: do not ask the filesystem a question it is entitled to answer
   // case-insensitively. Correct as a rule — this call does not decide anything.)
+  // ⭐ FALSIFIED RATHER THAN ARGUED, 2026-09-26: with this line disabled, all six arms of
+  // `scripts/audit-rename-handling.mjs` produced BYTE-IDENTICAL output and the unit tests stayed
+  // green. An optimisation that changes no result is an optimisation; the claim above is a reading,
+  // not a hope. (Condition set by dashboard-manager: if it can only answer FALSE faster, removing it
+  // must change nothing anywhere.)
   if (!existsSync(join(repoRoot, relPath))) return false;
 
   // EVERY segment, parent directories included. `src/middle.js` after `src/` -> `Src/` must fail on
