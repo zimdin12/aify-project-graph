@@ -57,16 +57,7 @@ import {
   pathContainsIgnoredDir,
 } from '../ingest/ignored-dirs.js';
 import { applyFrameworkPlugins } from '../ingest/extractors/base.js';
-import { laravelRoutesPlugin } from '../ingest/frameworks/laravel.js';
-import { pythonWebPlugin } from '../ingest/frameworks/python_web.js';
-import { djangoPlugin } from '../ingest/frameworks/django.js';
-import { nodeWebPlugin } from '../ingest/frameworks/node_web.js';
-import { nestjsPlugin } from '../ingest/frameworks/nestjs.js';
-import { railsPlugin } from '../ingest/frameworks/rails.js';
-import { springPlugin } from '../ingest/frameworks/spring.js';
-import { cppFrameworksPlugin } from '../ingest/frameworks/cpp_frameworks.js';
-import { shaderBindingsPlugin } from '../ingest/frameworks/shader_bindings.js';
-import { cmakePlugin } from '../ingest/frameworks/cmake.js';
+import { FRAMEWORK_PLUGINS } from '../ingest/frameworks/_registry.js';
 import { resolveRefs } from '../ingest/resolver.js';
 import { getGitCandidateFiles } from '../ingest/git-candidates.js';
 import { buildImportContext } from '../ingest/import-resolution.js';
@@ -555,18 +546,7 @@ export async function ensureFresh({
       const specialPlugins = await applyFrameworkPlugins({
         repoRoot,
         result: { nodes: [], edges: [], refs: [] },
-        plugins: [
-          laravelRoutesPlugin,
-          pythonWebPlugin,
-          djangoPlugin,
-          nodeWebPlugin,
-          nestjsPlugin,
-          railsPlugin,
-          springPlugin,
-          cppFrameworksPlugin,
-          shaderBindingsPlugin,
-          cmakePlugin,
-        ],
+        plugins: FRAMEWORK_PLUGINS,
       });
 
       // Batch all inserts in a transaction for performance

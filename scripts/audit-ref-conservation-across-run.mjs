@@ -53,6 +53,10 @@ const { loadEffectiveIgnoredDirs, pathContainsIgnoredDir, isIgnoredDirName } =
 // The join key lives in one module because this audit and the point-in-time one got it wrong
 // independently; `scripts/lib/ref-keys.mjs` carries the three measured mistakes and why each failed.
 const { keyOf, describeKey, refTargetName, recordedKeys } = await load('scripts', 'lib', 'ref-keys.mjs');
+// The framework plugins, imported from the SAME registry the orchestrator dispatches through, so the
+// population cannot be narrower than the graph by omission. See `emittedNow`.
+const { applyFrameworkPlugins } = await load('mcp', 'stdio', 'ingest', 'extractors', 'base.js');
+const { FRAMEWORK_PLUGINS } = await load('mcp', 'stdio', 'ingest', 'frameworks', '_registry.js');
 
 const FABRICATED = 'zzqNotARealTargetAnywhere';
 const CLASS = Object.freeze({ SURVIVED: 'SURVIVED', REMOVED_AT_SOURCE: 'REMOVED_AT_SOURCE', LOST: 'LOST' });
@@ -88,8 +92,25 @@ function listCandidates(root, ignoredDirs, dir = root, out = []) {
   return out;
 }
 
-// ── what the extractor says the whole tree references, right now ───────────────────────────────
-function emittedNow(root) {
+// ── what the whole tree references, right now, ACROSS EVERY REF PRODUCER ────────────────────────
+//
+// ⛔⛔ THIS POPULATION USED TO BE NARROWER THAN THE GRAPH, AND EVERY NUMBER STAYED SELF-CONSISTENT.
+// It was built from `extractFile` ALONE. But the orchestrator also runs ten FRAMEWORK PLUGINS whose
+// refs go through the SAME resolution pipeline (`orchestrator.js:592` merges `specialPlugins.refs`),
+// and at least one of them demonstrably pushes IMPORTS refs with targets
+// (`ingest/frameworks/shader_bindings.js:183,200,249`). Those refs became edges and the audit COULD
+// NEVER REPORT ONE LOST, because it never counted it.
+//
+// ⭐ Named by dashboard-manager: **A POPULATION IS A CLOSED SET, SO DERIVE IT, NEVER LIST IT.** A list
+// you must remember to update is a defect with a delay on it; a population you must remember to widen
+// is the same defect whose symptom is a PERMANENT GREEN. `FRAMEWORK_PLUGINS` is now the one list, and
+// `assertProducerCoverage` below fails if the set this audit covers ever stops matching it.
+//
+// ⚠ AND IT IS STILL NOT EVERY EDGE PRODUCER — stated because implying otherwise is the original
+// defect wearing a wider population. `sweepFilesystem`, `synthesizeVirtualOverrides` and the
+// code-intel importer write edges by their own routes and are OUT OF SCOPE here. This audit covers
+// REFS from the generic extractor plus the framework plugins, and says so.
+async function emittedNow(root) {
   const keys = new Set();
   for (const file of listCandidates(root, loadEffectiveIgnoredDirs(root))) {
     let source;
@@ -106,7 +127,40 @@ function emittedNow(root) {
     }
     for (const ref of refs) keys.add(keyOf(ref.source_file, ref.relation, refTargetName(ref)));
   }
+  // The framework plugins, run through the SAME entry point the orchestrator uses, over the same
+  // shared `result` shape, so a plugin that emits refs contributes to the population by construction.
+  try {
+    const out = await applyFrameworkPlugins({
+      repoRoot: root,
+      result: { nodes: [], edges: [], refs: [] },
+      plugins: FRAMEWORK_PLUGINS,
+    });
+    for (const ref of out.refs ?? []) keys.add(keyOf(ref.source_file, ref.relation, refTargetName(ref)));
+  } catch {
+    // ⛔ NOT SILENT. A plugin sweep that throws would narrow the population back to the defect this
+    // widening fixed, so it must be loud rather than absorbed.
+    throw new Error('framework plugin sweep failed; the population would be narrower than the graph');
+  }
   return keys;
+}
+
+// ⛔ A VACUITY GUARD, AND DELIBERATELY NOT CALLED A COVERAGE ASSERTION.
+//
+// dashboard-manager suggested asserting that the producer set the population was built from EQUALS the
+// set the orchestrator dispatches to. Once both read `FRAMEWORK_PLUGINS`, that equality is STRUCTURAL —
+// there is no second list to diverge, so an assertion comparing the array to itself would be two reads
+// of one source, which is the thing this whole exchange was about. Naming it a coverage assertion would
+// claim a check that is not being performed.
+//
+// What remains genuinely checkable is that the array is not EMPTY: an empty plugin list would silently
+// restore the original narrow population and every arm would stay green. That is the reachable failure,
+// so that is what is guarded.
+function assertPopulationNotVacuous() {
+  const covered = FRAMEWORK_PLUGINS.length;
+  if (!Number.isInteger(covered) || covered === 0) {
+    throw new Error('FRAMEWORK_PLUGINS is empty or unreadable — the widened population would be vacuous');
+  }
+  return covered;
 }
 
 // ── what the graph recorded, as an EDGE or as a REFUSAL. A ref in either place was not lost. ────
@@ -214,7 +268,7 @@ async function runArm({ name, intent, marker, mutate, plant, expectLost, expectN
   try {
     await ensureFresh({ repoRoot: repo });
     const population = baselinePopulation({
-      emittedBefore: emittedNow(repo),
+      emittedBefore: await emittedNow(repo),
       recordedBefore: recordedNow(dbPath),
     });
     const genBefore = generationOf(repo);
@@ -224,7 +278,7 @@ async function runArm({ name, intent, marker, mutate, plant, expectLost, expectN
     const plantNote = plant ? plant(dbPath) : null;
 
     const recordedAfter = recordedNow(dbPath);
-    const emittedAfter = emittedNow(repo);
+    const emittedAfter = await emittedNow(repo);
     const genAfter = generationOf(repo);
     const verdict = classify({ population, recordedAfter, emittedAfter });
 
@@ -358,6 +412,16 @@ const arms = [
     plant: plantEdgeLoss({ sourceFile: 'src/outerC.js', relation: 'IMPORTS', label: 'middle.js' }),
   },
 ];
+
+// ⛔ POPULATION PROVENANCE, PRINTED BEFORE ANY ARM. Every verdict below is about the refs this
+// population contains, so the reader is told what it contains before being told what survived. The
+// population was silently narrower than the graph until 2026-09-26, and nothing in the output said so.
+const pluginCount = assertPopulationNotVacuous();
+console.log(`\n${'='.repeat(92)}\nPOPULATION PROVENANCE\n${'='.repeat(92)}`);
+console.log(`  ref producers covered : generic extractor + ${pluginCount} framework plugins (FRAMEWORK_PLUGINS)`);
+console.log('  ⛔ NOT covered        : sweepFilesystem, synthesizeVirtualOverrides, the code-intel importer.');
+console.log('     Those write edges by their own routes. This audit is about REFS and says so rather than');
+console.log('     implying a completeness it does not have.');
 
 const results = [];
 for (const arm of arms) results.push(await runArm(arm));

@@ -1,0 +1,9 @@
+plugins run                 : 10
+refs contributed (REAL repo) : 2
+edges contributed            : 0
+nodes contributed            : 1
+refs by relation             : {"DECLARES_BINDING":1,"IMPORTS":1}
+
+POSITIVE CONTROL — the shader refs the plan measured are present: 2
+    tests/fixtures/ingest/tiny-glsl/shaders/triangle.vert  DECLARES_BINDING -> 
+    tests/fixtures/ingest/tiny-glsl/shaders/triangle.vert  IMPORTS -> common.glsl

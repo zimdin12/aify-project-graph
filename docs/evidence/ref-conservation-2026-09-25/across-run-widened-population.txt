@@ -1,0 +1,78 @@
+
+============================================================================================
+POPULATION PROVENANCE
+============================================================================================
+  ref producers covered : generic extractor + 10 framework plugins (FRAMEWORK_PLUGINS)
+  ⛔ NOT covered        : sweepFilesystem, synthesizeVirtualOverrides, the code-intel importer.
+     Those write edges by their own routes. This audit is about REFS and says so rather than
+     implying a completeness it does not have.
+
+============================================================================================
+ARM A: a ref whose source INTENTIONALLY stopped referencing it must NOT be reported as lost
+============================================================================================
+  CONTROLS FIRST, because a quiet arm and a correct arm read identically:
+    ACTION    node "armMarkerA" introduced by this arm's edit is in the graph: YES — the run re-extracted the mutated file
+    ACTION    generation 1 -> 2: advanced, so a publication happened
+    POSITIVE  6 refs SURVIVED — a zero here means the comparison is vacuous
+    NEGATIVE  fabricated target zzqNotARealTargetAnywhere recorded? no, as it must be
+
+  population 8 refs the graph HELD at baseline (emitted AND recorded); extractor now emits 9
+
+  REMOVED_AT_SOURCE (2) — the file stopped emitting these, so NOT losses:
+    src/outerA.js   IMPORTS -> src/middle.js
+    src/outerA.js   CALLS -> middle
+
+  ⛔ LOST (0) — still emitted, recorded NOWHERE:
+
+  EXPECTED LOST 0, GOT 0  =>  ARM A PASSES
+
+============================================================================================
+ARM B: a SURVIVING ref dropped by storage MUST be reported, naming file, relation and target
+============================================================================================
+  CONTROLS FIRST, because a quiet arm and a correct arm read identically:
+    ACTION    node "armMarkerB" introduced by this arm's edit is in the graph: YES — the run re-extracted the mutated file
+    ACTION    generation 1 -> 2: advanced, so a publication happened
+    POSITIVE  7 refs SURVIVED — a zero here means the comparison is vacuous
+    NEGATIVE  fabricated target zzqNotARealTargetAnywhere recorded? no, as it must be
+    PLANT     deleted the surviving src/outerB.js CALLS middle edge — a PLANTED loss, not an observed one
+
+  population 8 refs the graph HELD at baseline (emitted AND recorded); extractor now emits 12
+
+  REMOVED_AT_SOURCE (0) — the file stopped emitting these, so NOT losses:
+
+  ⛔ LOST (1) — still emitted, recorded NOWHERE:
+    src/outerB.js   CALLS -> middle
+
+  EXPECTED LOST 1, GOT 1; the named ref is the one planted  =>  ARM B PASSES
+
+============================================================================================
+ARM C: the same planted drop on an IMPORTS ref — the relation the real defect actually destroyed
+============================================================================================
+  CONTROLS FIRST, because a quiet arm and a correct arm read identically:
+    ACTION    node "armMarkerC" introduced by this arm's edit is in the graph: YES — the run re-extracted the mutated file
+    ACTION    generation 1 -> 2: advanced, so a publication happened
+    POSITIVE  7 refs SURVIVED — a zero here means the comparison is vacuous
+    NEGATIVE  fabricated target zzqNotARealTargetAnywhere recorded? no, as it must be
+    PLANT     deleted the surviving src/outerC.js IMPORTS middle.js edge — a PLANTED loss, not an observed one
+
+  population 8 refs the graph HELD at baseline (emitted AND recorded); extractor now emits 12
+
+  REMOVED_AT_SOURCE (0) — the file stopped emitting these, so NOT losses:
+
+  ⛔ LOST (1) — still emitted, recorded NOWHERE:
+    src/outerC.js   IMPORTS -> src/middle.js
+
+  EXPECTED LOST 1, GOT 1; the named ref is the one planted  =>  ARM C PASSES
+
+============================================================================================
+VERDICT
+============================================================================================
+  ARM A: PASS   lost 0, removed-at-source 2
+  ARM B: PASS   lost 1, removed-at-source 0
+  ARM C: PASS   lost 1, removed-at-source 0
+
+  ⛔ THE PRE-REGISTERED QUESTION: does each planted arm NAME file, relation and target?
+     ARM B: YES — src/outerB.js   CALLS -> middle
+     ARM C: YES — src/outerC.js   IMPORTS -> src/middle.js
+
+  => USABLE: a legitimate removal stays quiet, and a dropped surviving ref is named.
