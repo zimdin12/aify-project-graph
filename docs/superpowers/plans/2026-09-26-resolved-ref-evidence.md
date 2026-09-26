@@ -1,7 +1,7 @@
 # Plan: resolved-ref evidence, so conservation stops being reconstructed
 
 **Status:** ⛔ **A RECORD OF DECISIONS AND OPEN CONTROLS — NOT AN APPROVED PLAN, AND NOT PERMISSION TO
-WRITE DDL.** Revision 7, 2026-09-26. Nothing is implemented. **Every control here is UNRUN and its
+WRITE DDL.** Revision 8, 2026-09-26. Nothing is implemented. **Every control here is UNRUN and its
 outcome is UNKNOWN.** The point-in-time binding class count and its residue remain **HELD**, and the
 88/0 producer-collision census **cannot be independently rederived** from what is committed.
 
@@ -349,11 +349,29 @@ freezing its source.
 | baseline | emits `common.glsl` | **ONE** address counted |
 | remove one contributor, other still emitting | unchanged | **CONSERVED**, still one address |
 | supported deletion of edge + records | **bytes frozen, ref population asserted unchanged** | **ONE** candidate loss, NAMED |
-| source edit removing the `#include` | import deleted | **NONE** named — REMOVED_AT_SOURCE |
+| source edit removing the `#include` | import deleted | **NONE** named — **AND** the recorded key is **absent post-edit**, **AND** the classifier returns REMOVED_AT_SOURCE |
 
 Both insert orders for the two producers. The fourth arm is the negative control that proves the
 third is not simply a check that shouts whenever a record disappears. The denominator counts
 **addresses** and never producers, so producer count cannot move it.
+
+⛔ **WHY THE FOURTH ARM NEEDS ALL THREE ASSERTIONS, AND WHY "NONE NAMED" ALONE IS A FALSE PASS.**
+Revision 7 wrote this arm as "NONE named — REMOVED_AT_SOURCE" without requiring that the store
+actually dropped the address. If reindex retains the key, the unchanged classifier takes the
+**second cell** and returns `SURVIVED` — which *also* names no loss. So an assertion on "NONE
+named" **passes**, while the stated verdict REMOVED_AT_SOURCE is **false**. The arm would certify
+the design while exercising a different cell.
+
+⇒ If the key is **still recorded** after the edit, the arm is **NOT a successful negative control**.
+It is the documented over-retention gap, or a failed cleanup, and must be reported as one.
+
+⚠ **This is the same condition added to the transition row in the very commit that added it**, and
+this site did not receive it — revision 7 wrote the "five sites must move together" warning and
+then moved one site and left four. It is also the **third** control in this plan found to pass for
+the wrong reason (control 5a tripped limb (e) instead of (b); ARM B/C needed rewriting against the
+invariant). ⭐ **A control that still passes after the thing it tests has broken is the failure mode
+this document keeps reproducing** — so for every arm, state the observation that must ALSO hold,
+not only the headline count. Found by graph-senior-dev.
 
 ## Population and transitions
 
@@ -504,11 +522,14 @@ masks the gap. **Recorded here as an OPEN GAP with no control, no implementation
 out of this plan's scope. Nothing in this document may be read as claiming the audit detects
 over-retention at either key or edge level.
 
-⚠ **Source state now governs five places in this document** — the GLSL control's fourth arm, the
+⚠ **Source state governs five places in this document** — the GLSL control's fourth arm, the
 transition *all producers of an address stop emitting*, control 5b, the step 0 table, and this
-section. They agree. They are written out five times because each is read alone, and that
-duplication is the hazard that produced this defect twice over: revision 5 changed one site and not
-the others, then revision 6 over-generalised a sixth. Changing any one of them changes all five.
+section. **As of revision 8 they agree; in revisions 5, 6 and 7 they did not.** Each is read alone,
+and that duplication has now produced the same defect three times running: revision 5 changed one
+site of four, revision 6 over-generalised a sixth, and revision 7 added the store-dropped condition
+to the transition row while leaving the GLSL arm without it — **in the same commit that wrote this
+warning.** Changing any one of them changes all five, and a revision that touches one must say
+which of the other four it checked.
 
 ## Scope note
 
