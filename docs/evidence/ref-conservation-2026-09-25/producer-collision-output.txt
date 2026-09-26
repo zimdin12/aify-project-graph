@@ -1,0 +1,39 @@
+[aify-project-graph] salvaged 1401 LSP-verified edge(s) from 36 of 88 file(s) unchanged since 36de4eb; evidence for 52 changed file(s) was NOT re-stamped
+FULL FORCED INDEX OF THIS REPOSITORY, upsertEdge instrumented
+  attempts (positive control: nonzero means the probe ran): 81093
+  collisions (INSERT OR IGNORE changed 0 rows)            : 45875
+    of which SAME producer (benign duplicate)             : 45787
+    of which CROSS-PRODUCER (the mechanism in question)   : 88
+
+  cross-producer samples:
+    IMPORTS  retained EXTRACTED/shader-bindings sf=tests/fixtures/ingest/tiny-glsl/shaders/triangle.vert  <-  attempted EXTRACTED/glsl sf=tests/fixtures/ingest/tiny-glsl/shaders/triangle.vert
+    CALLS  retained EXTRACTED/javascript sf=mcp/stdio/storage/edge-classes.js  <-  attempted LSP_VERIFIED/ts-langserver#nohash sf=mcp/stdio/storage/edge-classes.js
+    CALLS  retained EXTRACTED/javascript sf=scripts/lib/anchor.mjs  <-  attempted LSP_VERIFIED/ts-langserver#nohash sf=scripts/lib/anchor.mjs
+    CALLS  retained LSP_VERIFIED/ts-langserver#nohash|was:EXTRACTED::javascript::0.9 sf=scripts/lib/anchor.mjs  <-  attempted LSP_VERIFIED/ts-langserver#nohash sf=scripts/lib/anchor.mjs
+    CALLS  retained LSP_VERIFIED/ts-langserver#nohash|was:EXTRACTED::javascript::0.9 sf=scripts/lib/anchor.mjs  <-  attempted LSP_VERIFIED/ts-langserver#nohash sf=scripts/lib/anchor.mjs
+    CALLS  retained LSP_VERIFIED/ts-langserver#nohash|was:EXTRACTED::javascript::0.9 sf=scripts/lib/anchor.mjs  <-  attempted LSP_VERIFIED/ts-langserver#nohash sf=scripts/lib/anchor.mjs
+    CALLS  retained LSP_VERIFIED/ts-langserver#nohash|was:EXTRACTED::javascript::0.9 sf=scripts/lib/anchor.mjs  <-  attempted LSP_VERIFIED/ts-langserver#nohash sf=scripts/lib/anchor.mjs
+    CALLS  retained LSP_VERIFIED/ts-langserver#nohash|was:EXTRACTED::javascript::0.9 sf=scripts/lib/anchor.mjs  <-  attempted LSP_VERIFIED/ts-langserver#nohash sf=scripts/lib/anchor.mjs
+    CALLS  retained LSP_VERIFIED/ts-langserver#nohash|was:EXTRACTED::javascript::0.9 sf=scripts/lib/anchor.mjs  <-  attempted LSP_VERIFIED/ts-langserver#nohash sf=scripts/lib/anchor.mjs
+    CALLS  retained LSP_VERIFIED/ts-langserver#nohash|was:EXTRACTED::javascript::0.9 sf=scripts/lib/anchor.mjs  <-  attempted LSP_VERIFIED/ts-langserver#nohash sf=scripts/lib/anchor.mjs
+    CALLS  retained EXTRACTED/javascript sf=scripts/lib/arm-cleanup.mjs  <-  attempted LSP_VERIFIED/ts-langserver#nohash sf=scripts/lib/arm-cleanup.mjs
+    CALLS  retained EXTRACTED/javascript sf=scripts/lib/arm-cleanup.mjs  <-  attempted LSP_VERIFIED/ts-langserver#nohash sf=scripts/lib/arm-cleanup.mjs
+    CALLS  retained LSP_VERIFIED/ts-langserver#nohash|was:EXTRACTED::javascript::0.9 sf=scripts/lib/arm-cleanup.mjs  <-  attempted LSP_VERIFIED/ts-langserver#nohash sf=scripts/lib/arm-cleanup.mjs
+    CALLS  retained LSP_VERIFIED/ts-langserver#nohash|was:EXTRACTED::javascript::0.9 sf=scripts/lib/arm-cleanup.mjs  <-  attempted LSP_VERIFIED/ts-langserver#nohash sf=scripts/lib/arm-cleanup.mjs
+    CALLS  retained LSP_VERIFIED/ts-langserver#nohash|was:EXTRACTED::javascript::0.9 sf=scripts/lib/arm-cleanup.mjs  <-  attempted LSP_VERIFIED/ts-langserver#nohash sf=scripts/lib/arm-cleanup.mjs
+    CALLS  retained LSP_VERIFIED/ts-langserver#nohash|was:EXTRACTED::javascript::0.9 sf=scripts/lib/arm-cleanup.mjs  <-  attempted LSP_VERIFIED/ts-langserver#nohash sf=scripts/lib/arm-cleanup.mjs
+    CALLS  retained LSP_VERIFIED/ts-langserver#nohash|was:EXTRACTED::javascript::0.9 sf=scripts/lib/arm-cleanup.mjs  <-  attempted LSP_VERIFIED/ts-langserver#nohash sf=scripts/lib/arm-cleanup.mjs
+    CALLS  retained LSP_VERIFIED/ts-langserver#nohash|was:EXTRACTED::javascript::0.9 sf=scripts/lib/arm-cleanup.mjs  <-  attempted LSP_VERIFIED/ts-langserver#nohash sf=scripts/lib/arm-cleanup.mjs
+    CALLS  retained LSP_VERIFIED/ts-langserver#nohash|was:EXTRACTED::javascript::0.9 sf=scripts/lib/arm-cleanup.mjs  <-  attempted LSP_VERIFIED/ts-langserver#nohash sf=scripts/lib/arm-cleanup.mjs
+    CALLS  retained LSP_VERIFIED/ts-langserver#nohash|was:EXTRACTED::javascript::0.9 sf=scripts/lib/arm-cleanup.mjs  <-  attempted LSP_VERIFIED/ts-langserver#nohash sf=scripts/lib/arm-cleanup.mjs
+    CALLS  retained LSP_VERIFIED/ts-langserver#nohash|was:EXTRACTED::javascript::0.9 sf=scripts/lib/arm-cleanup.mjs  <-  attempted LSP_VERIFIED/ts-langserver#nohash sf=scripts/lib/arm-cleanup.mjs
+    CALLS  retained LSP_VERIFIED/ts-langserver#nohash|was:EXTRACTED::javascript::0.9 sf=scripts/lib/arm-cleanup.mjs  <-  attempted LSP_VERIFIED/ts-langserver#nohash sf=scripts/lib/arm-cleanup.mjs
+    CALLS  retained LSP_VERIFIED/ts-langserver#nohash|was:EXTRACTED::javascript::0.9 sf=scripts/lib/arm-cleanup.mjs  <-  attempted LSP_VERIFIED/ts-langserver#nohash sf=scripts/lib/arm-cleanup.mjs
+    CALLS  retained LSP_VERIFIED/ts-langserver#nohash|was:EXTRACTED::javascript::0.9 sf=scripts/lib/arm-cleanup.mjs  <-  attempted LSP_VERIFIED/ts-langserver#nohash sf=scripts/lib/arm-cleanup.mjs
+    CALLS  retained LSP_VERIFIED/ts-langserver#nohash|was:EXTRACTED::javascript::0.9 sf=scripts/lib/arm-cleanup.mjs  <-  attempted LSP_VERIFIED/ts-langserver#nohash sf=scripts/lib/arm-cleanup.mjs
+[aify-project-graph] salvaged 1401 LSP-verified edge(s) from 36 of 88 file(s) unchanged since 36de4eb; evidence for 52 changed file(s) was NOT re-stamped
+ALL cross-producer collisions in a full forced index (not a sample):
+  cross-producer collisions      : 88
+  source_file AGREES             : 88  <- positive control: the comparison runs
+  ⛔ source_file DISAGREES        : 0
+  => limb two NOT reachable via this path in this repository

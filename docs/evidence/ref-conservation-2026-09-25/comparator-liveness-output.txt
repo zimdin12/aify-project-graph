@@ -1,0 +1,5 @@
+COMPARATOR LIVENESS — the SAME predicate the census used
+  cross-producer collisions seen : 2 (expect 2)
+  sfAgree    : 1 (expect 1)
+  sfDisagree : 1 (expect 1)
+  => BOTH BRANCHES CAN SPEAK. The census zero is a real negative, not a dead branch.

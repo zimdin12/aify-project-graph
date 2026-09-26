@@ -1,0 +1,45 @@
+total edges: 35439
+edges where source_file == from_id node file_path (positive control): 34467
+
+⛔ edges where source_file DISAGREES with from_id node file_path: 972
+    3 CONTAINS EXTRACTED/cpp | edge.source_file tests/fixtures/identity-hostile/src/shapes.cpp | from-node file tests/fixtures/identity-callers/src/widgets.h
+    2 CONTAINS EXTRACTED/cpp | edge.source_file tests/fixtures/identity-callers/src/widgets.cpp | from-node file tests/fixtures/identity-callers/src/widgets.h
+    1 CONTAINS EXTRACTED/cpp | edge.source_file tests/fixtures/ingest/tiny-cpp-methods/Foo.cpp | from-node file tests/fixtures/ingest/tiny-cpp-methods/Foo.h
+    1 CONTAINS EXTRACTED/cpp | edge.source_file tests/fixtures/ingest/tiny-cpp-methods/FooTemplate.cpp | from-node file tests/fixtures/ingest/tiny-cpp-methods/Foo.h
+    1 CONTAINS EXTRACTED/filesystem | edge.source_file .agents | from-node file .
+    1 CONTAINS EXTRACTED/filesystem | edge.source_file .agents/plugins | from-node file .agents
+    1 CONTAINS EXTRACTED/filesystem | edge.source_file .agents/plugins/marketplace.json | from-node file .agents/plugins
+    1 CONTAINS EXTRACTED/filesystem | edge.source_file .claude-plugin | from-node file .
+    1 CONTAINS EXTRACTED/filesystem | edge.source_file .claude-plugin/plugin.json | from-node file .claude-plugin
+    1 CONTAINS EXTRACTED/filesystem | edge.source_file .codex-plugin | from-node file .
+    1 CONTAINS EXTRACTED/filesystem | edge.source_file .codex-plugin/plugin.json | from-node file .codex-plugin
+    1 CONTAINS EXTRACTED/filesystem | edge.source_file .mcp.json | from-node file .
+    1 CONTAINS EXTRACTED/filesystem | edge.source_file AGENTS.md | from-node file .
+    1 CONTAINS EXTRACTED/filesystem | edge.source_file ATTRIBUTION.md | from-node file .
+    1 CONTAINS EXTRACTED/filesystem | edge.source_file CHANGELOG.md | from-node file .
+
+producers present (provenance/extractor):
+     16691 AMBIGUOUS/javascript
+     15851 EXTRACTED/javascript
+       965 EXTRACTED/filesystem
+       954 INFERRED/doc_link:inline-path
+       307 AMBIGUOUS/python
+       181 EXTRACTED/python
+       131 EXTRACTED/cpp
+        94 INFERRED/doc_link:path-suffix
+        72 EXTRACTED/php
+        41 INFERRED/doc_ref:path-scoped
+        36 INFERRED/doc_link:markdown
+        30 AMBIGUOUS/php
+        29 LSP_VERIFIED/ts-langserver#nohash
+        11 INFERRED/doc_ref:qualified
+        10 EXTRACTED/css
+         8 AMBIGUOUS/cpp
+         8 EXTRACTED/glsl
+         7 EXTRACTED/typescript
+         4 AMBIGUOUS/typescript
+         3 AMBIGUOUS/glsl
+         2 EXTRACTED/c
+         2 EXTRACTED/shader-bindings
+         1 AMBIGUOUS/c
+         1 LSP_VERIFIED/ts-langserver#nohash|was:EXTRACTED::javascript::0.9

@@ -1,160 +1,280 @@
 # Plan: resolved-ref evidence, so conservation stops being reconstructed
 
-**Status:** design, not implemented, **not approved**. Written 2026-09-26 after **five** proposed
-designs were refuted by executed counterexample. The rule this document exists to enforce: *the next
-design gets written down and reviewed before it is coded.*
+**Status:** design, not implemented, **NOT APPROVED**. Revision 2, 2026-09-26.
 
-⛔ **WHAT THE EVIDENCE SO FAR DOES AND DOES NOT SUPPORT.** The executed sixth control disproves a
-scalar `edge.target` field and demonstrates the required cardinality. It does **not** prove the
-evidence table proposed here, nor its lifecycle. This document is a proposal to falsify, and should
-be read as one until its own controls have been run.
+**Design recommendation, every counterexample, and six pre-code plan attacks:** graph-senior-dev.
+**One control, the write-up, and the real-subject measurements:** graph-tech-lead.
 
-**Design recommendation:** graph-senior-dev. **Counterexamples 1-5 and control 6:** graph-senior-dev.
-**Write-up and the refuted-design record:** graph-tech-lead.
+⛔ **WHAT THE EVIDENCE SUPPORTS.** Executed counterexamples disprove five join designs and a scalar
+`edge.target` column, and a measured index establishes that one edge can have two producers. None of
+that proves the table proposed here, nor its lifecycle. **This is a proposal to falsify.**
 
 ---
 
+## ⛔ THE RULE THIS DESIGN IS ACCOUNTABLE TO
+
+**Absence must never license a conclusion.** Every failure in this arc — including the ones found
+*inside the repairs* — is one shape:
+
+| the absence | what it was allowed to mean | why that was wrong |
+|---|---|---|
+| no matching address form | "not a module, so a binding" | an import's target is a path; the *form* was missing, not the module |
+| no dot-prefix match | "a binding refinement" | a filename may contain dots; the prefix was a different real module |
+| no association row | "UNKNOWN, so not a loss" | an attested generation can carry legacy edges; UNKNOWN becomes an excuse bucket |
+| no association row | "not a ref-origin edge" | ⛔ **circular** — the missing association is the defect under test |
+| no exact-case entry | "the file is present" | `existsSync` is case-insensitive; absence of a mismatch is not a match |
+
+⇒ **Every licensing fact here must be POSITIVE and EARNED**: a typed origin the extractor states, an
+explicit kind the producer writes, a seal a completed rebuild issues. Nothing is inferred from
+something not being there. This rule is the only thing that would have predicted all five in advance,
+and any revision of this plan must meet it.
+
 ## The question, and why it is currently unanswerable
 
-A conservation audit asks: *did the ref the extractor emitted end up in the graph?* Answering it
-requires knowing **which node a given emitted specifier resolved to**.
+Conservation asks: *did the ref the extractor emitted end up in the graph?* Answering it requires
+knowing **which node a given emitted specifier resolved to**.
 
-⭐ **The graph does not record that.** `edges` stores `to_id` — the *result* of resolution — and
-discards the specifier that produced it. Meanwhile `unresolved_refs` (`publication-schema.js:44`)
-stores `target`, the specifier, for every ref that FAILED.
+⭐ **The graph does not record that.** `edges` stores `to_id` — the *result* — and discards the
+specifier. `unresolved_refs` (`publication-schema.js:44`) stores `target`, the specifier, for every
+ref that FAILED.
 
 > **The graph preserves the emitted specifier only when resolution fails.**
 
-Every design below was an attempt to reconstruct that discarded mapping. Each admitted an *alternate
-satisfier* — a way for the check to find something that was not the thing it was looking for. That is
-not five bugs; it is one absence, found five times.
+Each design below reconstructed that discarded mapping, and each admitted an *alternate satisfier*.
+That is one absence found five times, not five bugs.
 
 ## The five refuted designs, so nobody re-derives them
 
 | # | design | refuted by |
 |---|---|---|
-| 1 | match emitted target against `nodes.label` only | an import's target is a repo-relative PATH; the File node's label is a basename. No import could ever match. 4,488 phantom losses; and in the across-run direction, a *false quiet* on a planted IMPORTS drop |
-| 2 | binding bucket = strip final dot-segment, check the prefix is recorded | a filename may contain dots. `src/consumer.js` imports both `./lib.js` and `./lib.js.ts`, both real files; losing the `.ts` module edge was excused because the prefix `src/lib.js` is a *different recorded module* |
-| 3 | add `targetIsRealFile` to the above | extension probing. Emitted module `src/lib.js.foo` resolves to File `src/lib.js.foo.js`; `src/lib.js.foo` is not itself a file, so the guard is false and the prefix excuse returns. Also: the **held** module has no address form at all, so it reads absent with its edge present |
-| 4 | add a `file_path`-minus-final-dot **stem** address form | `src/base.js` and `src/base.ts` both reduce to `src/base`. Deleting only the `.ts` edge left the stem satisfied by the surviving `.js` edge — a false quiet |
-| 5 | exact form **UNION** same-line edge existence | two distinct module imports on ONE line produce two edges both at `source_line=1`. Delete one and the survivor satisfies the line fallback for the still-emitted other |
+| 1 | match emitted target against `nodes.label` only | an import's target is a repo-relative PATH; the File node's label is a basename. 4,488 phantom losses, and a *false quiet* on a planted IMPORTS drop |
+| 2 | binding bucket = strip final dot-segment, check the prefix is recorded | a filename may contain dots. Losing the `./lib.js.ts` module edge was excused because prefix `src/lib.js` is a *different recorded module* |
+| 3 | add `targetIsRealFile` | extension probing: emitted `src/lib.js.foo` resolves to File `src/lib.js.foo.js`. The held module also has no address form, so it reads absent with its edge present |
+| 4 | add a `file_path`-minus-final-dot **stem** form | `src/base.js` and `src/base.ts` both reduce to `src/base`; deleting only the `.ts` edge left the stem satisfied by the survivor |
+| 5 | exact form **UNION** same-line edge existence | two distinct module imports on ONE line give two edges at `source_line=1`; deleting one leaves the survivor satisfying the line |
 
-A sixth was proposed and falsified before coding: **a scalar `edge.target` column**. See below.
+A sixth was falsified before coding: **a scalar `edge.target` column**. `edges` is unique on
+`(from_id, to_id, relation)` with `INSERT OR IGNORE`, so `./base.js` and `@/base.js` (a tsconfig
+alias) resolve to the same File node and persist as **one row**. Edge-to-specifier is many-to-one, and
+a first-wins scalar makes the second correct specifier a phantom loss at baseline.
 
-⭐ **Designs 1-5 and design 6 fail in DIFFERENT ways, and the difference matters.** 1-5 reconstruct
-discarded information, so they fail by being **incomplete** — a false quiet, invisible to any reader.
-The scalar column would have **manufactured** a loss at baseline, failing by being **confidently
-wrong** — which at least surfaces as a bad number someone can dispute. Only one of these two classes
-is visible from the output. (Distinction: dashboard-manager.)
+⭐ **Designs 1-5 and design 6 fail DIFFERENTLY, and it matters.** 1-5 reconstruct, so they fail by
+being **incomplete** — a false quiet, invisible to any reader. The scalar would **manufacture** a loss,
+failing by being **confidently wrong** — which at least surfaces as a number someone can dispute. Only
+one class is visible from the output. *(Distinction: dashboard-manager.)*
 
-## Why a scalar column on the edge does not work either
+## Measured: one edge can have two producers
 
-`schema.js` keys `edges` uniqueness on `(from_id, to_id, relation)` and `storage/edges.js` uses
-`INSERT OR IGNORE`. Measured: `src/consumer.js` importing `./base.js` (line 1) and `@/base.js`
-(line 2, via a tsconfig path alias) emits two distinct targets, `resolveRefs` produces two IMPORTS
-edges to the same File node, and **SQLite persists one row**.
+`storage/edges.js` is `INSERT OR IGNORE` plus a CODE_INTEL-only `UPDATE` that rewrites `source_file`,
+`source_line`, `confidence`, `provenance` and `extractor`. So every per-producer fact stored on the
+row is first-wins or overwritten.
 
-⇒ **Edge-to-specifier is many-to-one.** A first-wins scalar makes the second correct, successfully
-resolved specifier a phantom named loss at baseline.
+**Forced full index of this repository, `upsertEdge` instrumented then reverted** (raw:
+`docs/evidence/ref-conservation-2026-09-25/producer-collision-output.txt`):
+
+| | |
+|---|---|
+| upsert **attempts** (positive control — the probe ran) | 81,093 |
+| collision **attempts** (`INSERT OR IGNORE` changed 0 rows) | 45,875 |
+| of which same-labelled (benign duplicates) | 45,787 |
+| ⛔ **cross-labelled collision ATTEMPTS** | **88** |
+| of those, attempted-vs-retained `source_file` **equal** | **88** |
+| of those, attempted-vs-retained `source_file` **unequal** | **0** |
+
+⛔ **UNIT DISCIPLINE: 88 IS A COUNT OF ATTEMPTS, NOT OF EDGES.** It is not 88 distinct triples, not 88
+edges, and not 88 distinct source-owner pairs; the reduction did not deduplicate triples. An earlier
+draft of this document said "88 edges have two producers" and that exceeded the measured unit.
+
+⭐ **PRODUCER IDENTITY IS NOT ADDRESS-EVIDENCE KIND**, and the two observed pairings are different
+things:
+
+| observed pairing | what it actually is |
+|---|---|
+| `EXTRACTED/glsl` vs `EXTRACTED/shader-bindings` on IMPORTS | **REF/REF** — `shader_bindings.js:197-210` pushes an IMPORTS ref with a target, and `languages/glsl.js:46-49` + `generic.js:646-659` emits a second |
+| `EXTRACTED/javascript` vs `LSP_VERIFIED/ts-langserver` on CALLS | **REF/DIRECT** — `code-intel/importer.js:841-887` synthesises the edge via `upsertLspEdge`, supplying no second emitted address |
+
+Two producers may contribute one address, two addresses, or one address plus a direct edge.
+**Extractor inequality alone does not identify which**, so the REF/REF example must not be allowed to
+certify the REF/DIRECT mixed-producer control.
+
+**Comparator liveness** (`comparator-liveness-output.txt`): an agreement count proves only that the
+agreement branch runs. The *same* predicate was fed a deliberately unequal-source collision and an
+equal-source collision in one run — `sfDisagree 1`, `sfAgree 1`. **Both branches can speak**, so the
+census zero is a real negative rather than a dead branch.
+
+- **Limb one — a deduplicated edge can receive contributions from two differently-labelled producers
+  — is CONFIRMED on a real population.**
+- **Limb two, bounded exactly:** *no `source_file` disagreement among the measured colliding attempts
+  at this pinned full index.* That is **not** an assertion about the independently extracted owner set
+  of the retained graph, about the affected-file closure for a changed target, or about historical
+  incremental or live graph states.
+
+⚠ Limb two is **absent here, not prevented**, and the reassurance that the shipped fixed-point closure
+is not defeated through this door is **CONDITIONAL** on those further joins. Nothing in the schema
+stops a disagreement, and a repository exercising `cmake.js`, `virtual_overrides.js` or the code-intel
+importer more heavily could differ.
+
+⚠ Still owed for a real owner-set verdict: a census reporting attempts, **distinct triples**, the
+emitted ref-address identities per triple, attempted-vs-retained `source_file`, and **independently
+extracted** owner files — then a comparison of those owners against the pre-delete expansion set,
+followed by post-edit conservation. Equality of both writers' `source_file` is narrower than that.
+
+⭐ A precedent the run surfaced: a promoted edge's retained extractor reads
+`LSP_VERIFIED/ts-langserver#nohash|was:EXTRACTED::javascript::0.9`. The promotion path **already**
+preserves the producer it replaced — the right instinct in the wrong storage, since a delimited string
+is a list pretending to be a column.
+
+## Decided, not open
+
+**SEMANTIC 2 IS DECIDED: EXISTENTIAL PER ADDRESS.** `source_line` is **representative and explicitly
+non-authoritative**, and any output printing it says so.
+
+Forced, not preferred: `edges` is deduplicated, so the graph has no per-occurrence granularity to
+conserve, and per-occurrence evidence would report control 4's second occurrence as a phantom loss.
+The evidence granularity must match the granularity the subject actually has.
 
 ## The design
 
-Keep **resolved-ref evidence separately from the deduplicated edges.**
+Keep **resolved-ref evidence separately from the deduplicated edges** — one record per **distinct
+emitted address**, with its resolved `(from_id, to_id, relation)`, source, line and address **kind**.
+The edge table stays deduplicated.
 
-- One record per **distinct emitted address**, carrying its resolved `(from_id, to_id, relation)`,
-  its source file and line, and its **address kind**.
-- The edge table stays deduplicated. Nothing about edge semantics changes.
-- Evidence is **tied to the graph generation**, and deletion or reindex of an edge invalidates the
-  matching evidence **atomically**. An audit must see a live edge **and** the specific address
-  association — never a surviving sibling edge, never a retained sidecar.
+⭐ Not a new mechanism: `unresolved_refs` is exactly this record for the failure path.
 
-⭐ This is not a new mechanism. It is the missing half of one that already exists: `unresolved_refs`
-is exactly this record for the failure path.
+### Origin kind is EXPLICIT, merged, and never exclusive
 
-### Address kind must be TYPED, never an empty string
+- Written at creation time by the producer that knows it.
+- ⛔ **Never inferred from the edge having an association** — a lost association would reclassify a
+  ref-origin edge as structural, making the check agree with the defect.
+- ⛔ **Never derived from the retained `provenance`/`extractor`** — both are first-wins and both are
+  rewritten by a CODE_INTEL promotion, so either answers for the wrong producer.
+- ⛔ **Never a first-wins exclusive scalar on the row.** Limb one is measured real: 88 edges here have
+  two producers, so insert order would decide the value.
+- An edge may be ref-origin **and** structural at once; the representation must permit both.
+- ⚠ **A row-level boolean is insufficient and is rejected.** It is monotonic only while that producer
+  contributes: keep it set after the ref stops emitting and you get a phantom ref-origin edge with no
+  association; clear it because another producer is retained and you get a false quiet for a different
+  ref. The **association's own source/provenance**, or a separately keyed producer-contribution
+  record, is the owner — never reconstructed from scalar `edges.source_file`.
 
-Not every edge originates from a ref with a target string, and an empty target must **not** read as a
-loss. Producer census (graph-senior-dev, file:line theirs):
+Non-ref-origin producers, never expected to hold an association: structural CONTAINS/DEFINES
+(`generic.js:364-374`, `615-626`), pre-resolved CONTAINS by `to_id` (`generic.js:628-639`),
+DECLARES_BINDING by `to_label` (`shader_bindings.js:183-194`), `sweep.js:403`, `cmake.js:194-198`,
+`virtual_overrides.js:307-319`, code-intel importer direct upserts.
 
-- ref-originated, **pre-resolved, no target**: `generic.js:628-639` CONTAINS by `to_id`;
-  `shader_bindings.js:183-194` DECLARES_BINDING by `to_label`
-- **not ref-originated at all**: `generic.js:364-374`, `generic.js:615-626` structural edges;
-  `sweep.js:403`; `cmake.js:194-198`; `virtual_overrides.js:307-319`; code-intel importer direct
-  upserts
+## The invariant (replacing "tied to generation")
 
-⛔ Conflating pre-resolved, synthetic and legacy into one falsy value is the defect class this arc has
-already shipped twice. `refTargetName`'s `target -> to_label -> to_id` fallback
-(`scripts/lib/ref-keys.mjs:43-50`) is the standing warning that these already look alike in our code.
+`evidence.generation == currentGeneration` is **dropped**: it would falsely lose every carried ref
+after each incremental unless the whole table is retagged.
 
-### FROZEN SEMANTIC 1 — a missing association is not UNKNOWN by default
+    (a) every association row references a LIVE edge
+    (b) every REF-ORIGIN edge has at least one association row
+    (c) (a) and (b) are maintained in the SAME TRANSACTION as the edge write or delete
 
-⛔⛔ **This is the rule that stops the repair becoming a third excuse bucket.** "No association ⇒
-UNKNOWN" would make a planted loss quiet again — precisely the binding-bucket failure, rebuilt inside
-its own fix. (Caught by graph-senior-dev *before* the plan was written.)
+An incremental preserves the seal only if it maintains this for reprocessed files and leaves untouched
+edge/association **pairs** alone together. Untouched rows stay valid because the invariant is
+referential, not generational.
 
-| the generation that built the row | emitted ref with no association | verdict |
+⚠ **IT DOES NOT CERTIFY PER-ADDRESS COMPLETENESS.** One live edge `e` with associations `A` and `B`:
+delete only `B`'s. `A` still references a live `e`, `e` still has an association, so (a) and (b) pass
+while `B` is unrepresented. **The preflight is a floor, not a proof.**
+
+## Authority: what each audit may claim
+
+| | may NAME a missing address | may ATTRIBUTE the cause |
 |---|---|---|
-| **attested NEW** — had association capability | the association should exist and does not | **candidate LOSS** |
-| **LEGACY** — no association capability | nothing could have written one | **UNKNOWN** |
+| **point-in-time**, under a valid seal | yes | ⛔ **no** — edge loss and evidence loss are indistinguishable from (a) and (b) alone |
+| **across-run**, holding baseline `(B, e)` | yes | **yes**: `e` present + `B` absent ⇒ evidence corruption / UNKNOWN; `e` absent + `B` absent ⇒ **edge loss** |
 
-⇒ The discriminator is a **generation/capability receipt**, not the absence of a row. A row's silence
-means nothing until you know whether its generation was *able* to speak. This must be decidable
-before any percentage is computed.
+A division of labour between the two audits, not a limitation of one. No figure may claim attribution
+its audit cannot support.
 
-### FROZEN SEMANTIC 2 — "per distinct address" and "record its line" disagree
+## Seal lifecycle: withholding is NOT revoking
 
-They conflict exactly when the identical address is emitted on **two lines** (control 4). One of these
-must be declared, not left to the implementation:
+- Issued **only** by a **successfully completed full rebuild under the evidence-writing code**. Not
+  table existence, not an `ALTER`/default, not manifest status, not a generation advance — all four
+  can be true over legacy rows. **Measured:** an attested generation 2 carried an untouched edge at
+  the same rowid from generation 1, with `skippedFileCount 0` and `processedFiles [src/a.js]`.
+- The governing schema/extractor version bumps so old manifests force `fullRebuild`.
+- **Skip or rollback ⇒ seal withheld.** `orchestrator.js:1010-1048` can publish status `ok` with files
+  skipped; a globally-complete seal cannot cover files nobody read.
+- ⛔ **An incremental that COMMITS a skipped source must REVOKE or downgrade the seal IN THE SAME
+  TRANSACTION.** Withholding a new seal leaves the old one licensing an answer about unread files.
+- ⛔ **A ROLLED-BACK run must NOT revoke a valid old seal** — the old graph is unchanged and its seal
+  still describes it. The manifest may separately report indexing until recovery, gating reads.
+- No seal, or an old one ⇒ **UNKNOWN and no percentage**, with the UNKNOWN denominator published
+  beside any figure.
 
-- **existential per address** — conservation asks only whether the address is associated anywhere.
-  Then `source_line` is **representative and explicitly non-authoritative**, and must be labelled so
-  in the schema and in any output that prints it.
-- **per-occurrence lineage** — the line is load-bearing evidence about a specific site. Then evidence
-  is retained **per occurrence**, not per distinct address, and the record count changes accordingly.
+## Population and transitions
 
-⛔ What is forbidden is the middle: a first-wins line that silently claims to cover both sites. That is
-the same shape as the scalar `edge.target` this plan already rejected.
+**Row states:** `REF_EDGE_ASSOCIATED` · `REF_EDGE_UNASSOCIATED` (a defect under a valid seal, UNKNOWN
+without one) · `NON_REF_EDGE` · `ORPHAN_ASSOCIATION` (violates (a) — the audit must REFUSE) ·
+`LEGACY_UNSEALED` (UNKNOWN; never lost, never conserved) · `MIXED_PRODUCER_EDGE` (ref-origin **and**
+another producer).
 
-### The UNKNOWN denominator
-
-- Rows typed UNKNOWN under semantic 1 are **neither lost nor conserved**.
-- The UNKNOWN denominator is **published beside any figure**.
-- **No percentage at all until a proven full rebuild.** Otherwise legacy rows drop silently out of the
-  denominator and the number improves for the wrong reason — the same direction as the standing limit
-  that *widening a recorded set can only move conservation up*.
-
-## Acceptance: six controls, frozen before implementation
-
-| # | control | required outcome |
+| transition | seal | rows |
 |---|---|---|
-| 1 | edge present, extension-probed module | recorded/present; binding still separately classified |
-| 2 | delete that edge, source unchanged, no unresolved row | **NAMED** module loss |
-| 3 | `base.js` + `base.ts`, drop ONLY the `.ts` edge | the TS-resolved ref NAMED lost; the JS ref conserved |
-| 4 | same module imported on two lines | **no** phantom loss |
-| 5 | two distinct modules on ONE line, drop one edge | that one NAMED; the other conserved |
-| 6 | two distinct specifiers resolving to ONE edge | neither lost at baseline; deleting that edge names **both** |
+| full rebuild, completed | **issues** | every ref-origin edge associated |
+| full rebuild, rolled back | **kept** | old graph unchanged |
+| full rebuild with a skipped source | **withheld** | skipped files' rows unproven |
+| incremental, clean | **preserved** | reprocessed evidence replaced; untouched pairs carried together |
+| incremental committing a skipped source | **revoked**, same transaction | affected rows UNKNOWN |
+| **mixed-producer insert, either order** | unchanged | ref contribution retained independently of which row won |
+| **owner-set computation** | unchanged | seeded from independently extracted contributions, **never** from scalar `edges.source_file` |
+| edge delete (`nodes.js:37-39`, `edges.js:48-68`, wipe `orchestrator.js:548-550`, analysis deletes) | unchanged | associations deleted in the same transaction, else `ORPHAN_ASSOCIATION` |
+| node delete | unchanged | as above for every incident edge — note `deleteNodesForFile` can **over-delete** edges owned by other files |
+| source reindex | unchanged | that file's evidence replaced wholesale; must remove **that** ref contribution without deleting another producer's |
 
-Controls 1-3 and 5-6 are graph-senior-dev's; 4 is graph-tech-lead's, from the measured dedup trap
-(same module on two lines yields one edge row, so a pure line key reports a phantom loss).
+⛔ **No cascade gate.** `storage/db.js:46` sets `foreign_keys = OFF`, so a claimed cascade is an
+agreement rather than a guard. Each route performs its own transactional cleanup, **and the audit runs
+the invariant as a precondition**, refusing to emit any percentage if (a) or (b) fails and naming
+which limb.
 
-**Typed extractor origin is a separate, additional mechanism.** It removes the binding-vs-module
-*inference* entirely: a binding ref never produces an edge, so without the flag every binding reads
-as a named loss. Two problems, two mechanisms; neither substitutes for the other.
+## Controls
 
-## What is held until this lands
+**Detector controls (six).** 1-3 and 5-6 graph-senior-dev's; 4 graph-tech-lead's.
 
-- The point-in-time **binding class count** — do not quote it.
-- The point-in-time **residue** — do not read it as a measurement of unexplained loss. It may be
-  understated in both directions: by held modules the join cannot address, and by real losses the
-  predicate excuses.
-- Preserved as separately scoped and NOT held: the across-run arms (A/B/C), the final-segment rename
-  arm, the parent-directory arm (F), and the C++ CONTAINS detector witness.
+1. edge present, extension-probed module ⇒ recorded/present, binding still separately classified
+2. delete that edge, source unchanged, no unresolved row ⇒ **NAMED** module loss
+3. `base.js` + `base.ts`, drop ONLY the `.ts` edge ⇒ TS-resolved ref NAMED lost, JS conserved
+4. same module imported on two lines ⇒ **no** phantom loss
+5. two distinct modules on ONE line, drop one edge ⇒ that one NAMED, the other conserved
+6. two distinct specifiers resolving to ONE edge ⇒ neither lost at baseline; deleting it names **both**
+
+⛔ **The planted-loss arms must be rewritten, and the invariant must NOT be weakened to keep them
+green.** A raw `DELETE FROM edges` leaving its association behind violates (a), so the audit must
+**REFUSE**, not report the named loss the current ARM B and ARM C expect.
+
+| arm | how | expected |
+|---|---|---|
+| planted loss | delete the edge **and** its associations atomically (or via a real SQL `DELETE` trigger) | **NAMED LOSS** |
+| orphan injection | plant an association with no live edge | **REFUSAL**, naming limb (a) |
+
+**Lifecycle controls (five, graph-senior-dev's).**
+
+1. legacy-attested DB + migration + unrelated incremental ⇒ legacy ref **UNKNOWN**, no percentage
+2. successful full rebuild ⇒ **seal present**, positive association
+3. then an unrelated incremental ⇒ old edge **and** address **still conserved**
+4. deliberate skipped source, and separately a rolled-back rebuild ⇒ **seal withheld** in both
+5. planted edge removal vs planted association removal ⇒ **distinguishable**: named LOSS versus
+   UNKNOWN, never conflated
+
+**Mixed-producer control (graph-senior-dev's, with their oracle constraint).** Must reach **real
+extraction and indexing**, not a direct `upsertEdge` call: a synthetic collision would certify only
+the synthetic case. Assert both attempted contributions and their **independently extracted** owner
+files, then the **pre-deletion owner set** and post-edit conservation, **in both insert orders**. With
+the ref association removed, a still-live mixed edge must not silently become "structural-only".
+⛔ The expected owner set must **never** be built from `edges.source_file` — that is the value under
+test, and the control would agree with the defect.
+
+**Deletion challenges (four).** Direct `DELETE` of the edge; delete of its node; reindex of its
+source; a retained **wrong-sibling** edge. None may leave evidence able to satisfy a missing edge, and
+none may silently orphan an untouched edge's valid addresses.
 
 ## Scope note
 
-This is a schema change to the product, driven by an instrument defect. It is worth stating plainly
-that the investment now exceeds the defect that prompted it. The argument for doing it anyway: the
-missing association is not only an audit problem — "which import produced this edge" is unanswerable
-today for any consumer, including anyone debugging resolution or explaining an edge to a reader. The
-argument against: nothing outside the audit has asked for it yet. Recorded so the decision is visible
-rather than implied by a commit.
+This is a schema change to the product, driven by an instrument defect, and the investment now exceeds
+the defect that prompted it. For: the missing association is unanswerable for any consumer, not just
+the audit — "which import produced this edge" cannot be answered today, and limb one shows an edge can
+have two producers with no way to say so. Against: nothing outside the audit has asked for it.
+Recorded so the decision is visible rather than implied by a commit.
