@@ -1,6 +1,14 @@
 # Plan: resolved-ref evidence, so conservation stops being reconstructed
 
-**Status:** design, not implemented, **NOT APPROVED**. Revision 3, 2026-09-26.
+**Status:** ⛔ **A RECORD OF DECISIONS AND OPEN CONTROLS — NOT AN APPROVED PLAN, AND NOT PERMISSION TO
+WRITE DDL.** Revision 4, 2026-09-26. Nothing is implemented. **Every control here is UNRUN and its
+outcome is UNKNOWN.** The point-in-time binding class count and its residue remain **HELD**, and the
+88/0 producer-collision census **cannot be independently rederived** from what is committed.
+
+⚠ **WHETHER TO BUILD THIS AT ALL IS STEVEN'S CALL** — see the scope note at the end. Nothing is broken
+if it is never built: the audit simply stays held, and the product defects this arc found are fixed
+and pushed independently of it. Revision 4 exists to stop thirteen findings being re-derived, not to
+advance implementation.
 
 **Design recommendation, every counterexample, and every pre-code plan attack:** graph-senior-dev.
 **One control, the write-up, and the real-subject measurements:** graph-tech-lead.
@@ -163,8 +171,14 @@ The edge table stays deduplicated.
 - ⚠ **A row-level boolean is insufficient and is rejected.** It is monotonic only while that producer
   contributes: keep it set after the ref stops emitting and you get a phantom ref-origin edge with no
   association; clear it because another producer is retained and you get a false quiet for a different
-  ref. The **association's own source/provenance**, or a separately keyed producer-contribution
-  record, is the owner — never reconstructed from scalar `edges.source_file`.
+  ref.
+- ⛔⛔ **AND THE OWNER IS THE SEPARATELY KEYED CONTRIBUTION RECORD — NEVER THE ADDRESS RECORD ITSELF.**
+  Revision 3 offered "the association's own source/provenance" as an alternative owner here, which
+  contradicts the prohibition three lines above: if the address is the only origin witness, deleting
+  its last row reclassifies the edge as non-ref-origin and limb (b) goes quiet — **the detector
+  erases its own subject.** Third occurrence of that circularity, in the same place, and the reason
+  the contribution record exists as a distinct table. Never reconstructed from scalar
+  `edges.source_file` either.
 
 ### ⛔ PRE-RESOLVED REFS ARE REF-ORIGIN. They were misclassified here, and the misclassification was the opening rule broken inside this document.
 
@@ -203,89 +217,147 @@ CONTAINS/DEFINES (`generic.js:364-374`, `615-626`), `sweep.js:403`, `cmake.js:19
 (`code-intel/importer.js:841-887`), which synthesises an edge from a reference record and supplies no
 emitted address.
 
-## The invariant (replacing "tied to generation")
+## Seal lifecycle: ONE principle, not a list of cases
 
-`evidence.generation == currentGeneration` is **dropped**: it would falsely lose every carried ref
-after each incremental unless the whole table is retagged.
+⭐ **THE SEAL DESCRIBES A GRAPH. IF THE GRAPH IS REPLACED, THE SEAL IS REISSUED OR REVOKED IN THE SAME
+TRANSACTION.** That is the whole rule. Revision 3 stated four cases and got one wrong, because cases
+must be remembered and a principle does not.
 
-    (a) every association row references a LIVE edge
-    (b) every REF-ORIGIN edge has at least one association row
-    (c) (a) and (b) are maintained in the SAME TRANSACTION as the edge write or delete
-
-An incremental preserves the seal only if it maintains this for reprocessed files and leaves untouched
-edge/association **pairs** alone together. Untouched rows stay valid because the invariant is
-referential, not generational.
-
-⚠ **IT DOES NOT CERTIFY PER-ADDRESS COMPLETENESS.** One live edge `e` with associations `A` and `B`:
-delete only `B`'s. `A` still references a live `e`, `e` still has an association, so (a) and (b) pass
-while `B` is unrepresented. **The preflight is a floor, not a proof.**
-
-## Authority: what each audit may claim
-
-| | may NAME a missing address | may ATTRIBUTE the cause |
+| what happened | graph | seal |
 |---|---|---|
-| **point-in-time**, under a valid seal | yes | ⛔ **no** — edge loss and evidence loss are indistinguishable from (a) and (b) alone |
-| **across-run**, holding baseline `(B, e)` | yes | **yes**: `e` present + `B` absent ⇒ evidence corruption / UNKNOWN; `e` absent + `B` absent ⇒ **edge loss** |
+| committed full rebuild, complete | replaced | **REISSUED** |
+| committed full rebuild, **any skip** | replaced | ⛔ **REVOKED, in that same commit** |
+| rolled-back rebuild | **not** replaced | prior seal **stands, untouched** |
+| incremental that commits a previously skipped source | amended | **REVOKED** in the same transaction |
 
-A division of labour between the two audits, not a limitation of one. No figure may claim attribution
-its audit cannot support.
+⛔ **THE WINDOW REVISION 3 LEFT OPEN, and it is reachable through an ordinary 1 MB file.** Revision 3
+said "withhold now, revoke on a later incremental". But `orchestrator.js:548-550` does
+`if (fullRebuild) { db.exec('DELETE FROM edges; DELETE FROM nodes;') }`, `:653-669` skips any file
+over 1 MB and deletes its nodes, and `:1010-1048` publishes `status: ok` with a skipped count — then
+the transaction commits. So the graph is **replaced by an incomplete one** while a prior seal
+survives describing a graph that no longer exists. Withholding is not revoking, and I had applied
+that rule to the incremental case only.
 
-## Seal lifecycle: withholding is NOT revoking
+## The three records
 
-- Issued **only** by a **successfully completed full rebuild under the evidence-writing code**. Not
-  table existence, not an `ALTER`/default, not manifest status, not a generation advance — all four
-  can be true over legacy rows. **Measured:** an attested generation 2 carried an untouched edge at
-  the same rowid from generation 1, with `skippedFileCount 0` and `processedFiles [src/a.js]`.
-- The governing schema/extractor version bumps so old manifests force `fullRebuild`.
-- **A rebuild that skips a source ⇒ NO SEAL ISSUED by that run.** `orchestrator.js:1010-1048` can
-  publish status `ok` with files skipped; a globally-complete seal cannot cover files nobody read.
-- **A rolled-back rebuild ⇒ no seal issued by that run either, and the PRIOR seal is untouched.**
-- ⛔ **An incremental that COMMITS a skipped source must REVOKE or downgrade the seal IN THE SAME
-  TRANSACTION.** Withholding a new seal leaves the old one licensing an answer about unread files.
-- ⛔ **A ROLLED-BACK run must NOT revoke a valid old seal** — the old graph is unchanged and its seal
-  still describes it. The manifest may separately report indexing until recovery, gating reads.
-- No seal, or an **INVALID** one ⇒ **UNKNOWN and no percentage**, with the UNKNOWN denominator
-  published beside any figure.
-
-⚠ **"OLD SEAL" IS AMBIGUOUS AND THE AMBIGUITY IS DANGEROUS.** Two different things:
-
-| | meaning | effect |
+| record | key | purpose |
 |---|---|---|
-| **INVALID seal** | obsolete governing schema/extractor version, or a receipt that does not verify | UNKNOWN, no percentage |
-| **still-valid PRIOR seal** | issued by a completed rebuild, and nothing since has invalidated it — including a rolled-back run | **remains in force** |
+| **CONTRIBUTION** | `(from_id, to_id, relation, PRODUCER_ID, source)` | the positive, independent origin witness |
+| **ADDRESS** | `(edge, emitted address identity)` | the audit unit — **one row per logical address** |
+| **LINK** | `(contribution, address)` | which producers contributed that address |
 
-⛔ **WITHHOLDING IS NOT REVOKING.** A run that issues no seal leaves whatever was there before. So a
-later incremental that COMMITS a previously skipped source must **actively REVOKE** in the same
-transaction — otherwise the prior seal keeps licensing an answer about files nobody read. And a
-rolled-back run must **NOT** revoke, because the graph it would have replaced is unchanged and its
-seal still describes it accurately.
+### PRODUCER_ID is required, and its absence was refuted by this document's own evidence
+
+A key of `(from_id, to_id, relation, kind, source)` **collapses two real producers**.
+`producer-collision-output.txt:9` — quoted approvingly two sections above, in revision 2 — shows
+`shader-bindings` and `glsl` emitting the same IMPORTS triple from the same `source_file`, both of
+kind REF. Unique, they merge; non-unique, a reindex cannot tell whose row to remove.
+
+- `PRODUCER_ID` is recorded **by the producer at emission**.
+- ⛔ It is **never** read back from the deduplicated edge's `extractor`/`provenance`, which are
+  first-wins and CODE_INTEL-overwritten.
+- Two producers of kind REF are **never** silently treated as one. Choosing a per-`(source, kind)`
+  aggregate instead would have to be named as an aggregate and carry a proof that every producer in
+  it is invalidated and recomputed atomically.
+
+### The ADDRESS record is where deduplication happens — in storage, not in the audit
+
+Measured on the real fixture: `generic.extractFile` on
+`tests/fixtures/ingest/tiny-glsl/shaders/triangle.vert` emits `IMPORTS target="common.glsl"`
+(`extractor=glsl`), and `shader_bindings.js:199` separately loops `extractGlslIncludes(content)` for
+the same include. **Two REF producers, ONE logical emitted address.**
+
+Semantic 2 already fixed the audit unit as the address, so the address is a **row**, not a projection
+someone must remember to perform. Every time this design has asked the audit to project, reduce or
+infer, that is where the defect went.
+
+⛔ The address key is the **emitted address identity**. Never `source_line`. Never the `extractor`
+retained on the deduplicated edge.
+
+### No tombstones
+
+A supported deletion removes **edge + addresses + contributions + links in one transaction**.
+
+An origin row surviving a deleted edge would be another alternate satisfier: it must not count as a
+live REF contribution for limb (b), and must not satisfy an address. Rather than add the exception
+and police it with two further rules, the possibility is removed. If a consumer later needs deletion
+history that is a new requirement with its own controls, not a hole left open in advance.
+
+## The invariant is a CHECK, never a description of the write path
+
+⛔ Revision 3 offered "remove both contributors ⇒ the address record is deleted" as though it were a
+guarantee. **That describes what the writer does.** If the only thing preventing an orphan is that
+the write path does not create one, there is no guard — it is an agreement with myself.
+
+    (a) every ADDRESS record references a LIVE edge
+    (b) every edge with a LIVE REF CONTRIBUTION has >= 1 ADDRESS record
+    (c) every CONTRIBUTION references a LIVE edge
+    (d) every ADDRESS record has >= 1 LIVE CONTRIBUTION LINK
+    (e) every LINK joins a contribution and an address belonging to the SAME edge
+    (f) all of the above maintained in ONE transaction with the edge write or delete
+
+The audit runs these as a **precondition** and REFUSES, naming the limb, rather than reporting a
+figure over a broken store.
+
+**Planted-violation arms — because an invariant nobody can violate in a test is an invariant nobody
+has tested:** planted orphan ADDRESS ⇒ refuse (a)/(d); planted orphan CONTRIBUTION ⇒ refuse (c);
+planted CROSS-EDGE LINK ⇒ refuse (e).
+
+## Control 5 is two populations, not one test
+
+- **5a.** single-association ref edge; delete the address record **alone**, origin witness retained
+  ⇒ limb (b) **TRIPS**, the audit **REFUSES**. Not a quiet UNKNOWN.
+- **5b.** edge with addresses `A` and `B`; delete only `B` ⇒ (a) and (b) both pass. Point-in-time may
+  **NAME** `B` but **may not attribute** it; across-run, holding baseline `(B, e)`, attributes
+  evidence loss / UNKNOWN.
+
+## The GLSL control: source state is an explicit variable
+
+⛔ "Remove both contributors ⇒ one NAMED missing address" is only a **loss** if the source STILL
+EMITS `common.glsl`. If the `#include` was legitimately deleted the correct verdict is
+REMOVED_AT_SOURCE, and naming it would be a false alarm — which is ARM A of the across-run audit, the
+arm that decides whether anyone ever uses the result. Revision 3 specified the loss arm without
+freezing its source.
+
+| arm | source state | expected |
+|---|---|---|
+| baseline | emits `common.glsl` | **ONE** address counted |
+| remove one contributor, other still emitting | unchanged | **CONSERVED**, still one address |
+| supported deletion of edge + records | **bytes frozen, ref population asserted unchanged** | **ONE** candidate loss, NAMED |
+| source edit removing the `#include` | import deleted | **NONE** named — REMOVED_AT_SOURCE |
+
+Both insert orders for the two producers. The fourth arm is the negative control that proves the
+third is not simply a check that shouts whenever a record disappears. The denominator counts
+**addresses** and never producers, so producer count cannot move it.
 
 ## Population and transitions
 
-**Row states:** `REF_EDGE_ASSOCIATED` · `REF_EDGE_UNASSOCIATED` (a defect under a valid seal, UNKNOWN
-without one) · `NON_REF_EDGE` · `ORPHAN_ASSOCIATION` (violates (a) — the audit must REFUSE) ·
-`LEGACY_UNSEALED` (UNKNOWN; never lost, never conserved) · `MIXED_PRODUCER_EDGE` (ref-origin **and**
-another producer).
+**Row states:** `REF_EDGE_ADDRESSED` · `REF_EDGE_UNADDRESSED` (a defect under a valid seal, UNKNOWN
+without one) · `NON_REF_EDGE` · `ORPHAN_ADDRESS` · `ORPHAN_CONTRIBUTION` · `CROSS_EDGE_LINK` (the last
+three violate the invariant — the audit must REFUSE) · `LEGACY_UNSEALED` (UNKNOWN; never lost, never
+conserved) · `MULTI_PRODUCER_EDGE` (≥2 contributions, possibly of the same kind).
 
 | transition | seal | rows |
 |---|---|---|
-| full rebuild, completed | **issues** | every ref-origin edge associated |
-| full rebuild, rolled back | **kept** | old graph unchanged |
-| full rebuild with a skipped source | **withheld** | skipped files' rows unproven |
-| incremental, clean | **preserved** | reprocessed evidence replaced; untouched pairs carried together |
+| full rebuild, completed | **reissued** | every ref-origin edge addressed |
+| full rebuild, **committed with any skip** | ⛔ **revoked in that commit** | graph replaced and incomplete |
+| full rebuild, rolled back | prior seal **stands** | graph not replaced |
+| incremental, clean | preserved | reprocessed files' records replaced; untouched triples carried intact |
 | incremental committing a skipped source | **revoked**, same transaction | affected rows UNKNOWN |
-| **mixed-producer insert, either order** | unchanged | ref contribution retained independently of which row won |
-| **owner-set computation** | unchanged | seeded from independently extracted contributions, **never** from scalar `edges.source_file` |
-| edge delete (`nodes.js:37-39`, `edges.js:48-68`, wipe `orchestrator.js:548-550`, analysis deletes) | unchanged | associations deleted in the same transaction, else `ORPHAN_ASSOCIATION` |
-| node delete | unchanged | as above for every incident edge — note `deleteNodesForFile` can **over-delete** edges owned by other files |
-| source reindex | unchanged | that file's evidence replaced wholesale; must remove **that** ref contribution without deleting another producer's |
+| one producer reindexed, another still emitting | unchanged | that producer's contribution+link replaced; the address survives via the other link |
+| all producers of an address stop emitting | unchanged | address REMOVED_AT_SOURCE, not lost |
+| edge delete (`nodes.js:37-39`, `edges.js:48-68`, wipe `orchestrator.js:548-550`, analysis deletes) | unchanged | edge + addresses + contributions + links removed in ONE transaction |
+| node delete | unchanged | as above per incident edge — ⚠ `deleteNodesForFile` can **over-delete** edges owned by other files |
+| owner-set computation | unchanged | seeded from **independently extracted** contributions, never from scalar `edges.source_file` |
 
 ⛔ **No cascade gate.** `storage/db.js:46` sets `foreign_keys = OFF`, so a claimed cascade is an
-agreement rather than a guard. Each route performs its own transactional cleanup, **and the audit runs
-the invariant as a precondition**, refusing to emit any percentage if (a) or (b) fails and naming
-which limb.
+agreement rather than a guard. Each route performs its own transactional cleanup, and the audit runs
+the six limbs as a precondition.
 
-## Controls
+## Controls — ALL UNRUN
+
+⚠ **Every control below is UNRUN and its outcome is UNKNOWN.** None has been implemented, none has
+been executed, and no result from any of them may be cited.
 
 **Detector controls (six).** 1-3 and 5-6 graph-senior-dev's; 4 graph-tech-lead's.
 
@@ -297,39 +369,42 @@ which limb.
 6. two distinct specifiers resolving to ONE edge ⇒ neither lost at baseline; deleting it names **both**
 
 ⛔ **The planted-loss arms must be rewritten, and the invariant must NOT be weakened to keep them
-green.** A raw `DELETE FROM edges` leaving its association behind violates (a), so the audit must
-**REFUSE**, not report the named loss the current ARM B and ARM C expect.
+green.** A raw `DELETE FROM edges` leaving records behind violates limbs (a) and (c), so the audit
+must **REFUSE**, not report the named loss the current ARM B and ARM C expect.
 
 | arm | how | expected |
 |---|---|---|
-| planted loss | delete the edge **and** its associations atomically (or via a real SQL `DELETE` trigger) | **NAMED LOSS** |
-| orphan injection | plant an association with no live edge | **REFUSAL**, naming limb (a) |
+| planted loss | delete edge + addresses + contributions + links atomically | **NAMED LOSS** |
+| orphan address | plant an address whose edge is gone | **REFUSAL**, naming (a) |
+| orphan contribution | plant a contribution whose edge is gone | **REFUSAL**, naming (c) |
+| cross-edge link | plant a link joining records of different edges | **REFUSAL**, naming (e) |
 
-**Lifecycle controls (five, graph-senior-dev's).**
+**Lifecycle controls (graph-senior-dev's).**
 
 1. legacy-attested DB + migration + unrelated incremental ⇒ legacy ref **UNKNOWN**, no percentage
 2. successful full rebuild ⇒ **seal present**, positive association
 3. then an unrelated incremental ⇒ old edge **and** address **still conserved**
-4. **split, because the single form contradicted the seal rule and a literal test of it would reject
+4. **split, because the single form contradicted the seal rule and a literal test would reject
    correct behaviour:**
-   - 4a. rebuild with a deliberate skipped source ⇒ **no seal issued by that run**; and a later
-     incremental that COMMITS that source ⇒ prior seal **actively REVOKED in the same transaction**
-   - 4b. rolled-back rebuild ⇒ no seal issued by that run, and the **still-valid prior seal is
-     PRESERVED**; the manifest may separately gate reads until recovery
-5. planted edge removal vs planted association removal ⇒ **distinguishable**: named LOSS versus
-   UNKNOWN, never conflated
-
-**Mixed-producer control (graph-senior-dev's, with their oracle constraint).** Must reach **real
-extraction and indexing**, not a direct `upsertEdge` call: a synthetic collision would certify only
-the synthetic case. Assert both attempted contributions and their **independently extracted** owner
-files, then the **pre-deletion owner set** and post-edit conservation, **in both insert orders**. With
-the ref association removed, a still-live mixed edge must not silently become "structural-only".
-⛔ The expected owner set must **never** be built from `edges.source_file` — that is the value under
-test, and the control would agree with the defect.
+   - 4a. **committed** full rebuild with a deliberate skip ⇒ **no valid seal immediately**, revoked
+     in that commit; and a later incremental committing that source ⇒ revoked in the same transaction
+   - 4b. **rolled-back** rebuild ⇒ baseline seal **preserved**; the manifest may gate reads separately
+5. see *Control 5 is two populations* above — 5a trips (b) and REFUSES; 5b passes (a)/(b) and is
+   attributable only across-run
 
 **Deletion challenges (four).** Direct `DELETE` of the edge; delete of its node; reindex of its
-source; a retained **wrong-sibling** edge. None may leave evidence able to satisfy a missing edge, and
+source; a retained **wrong-sibling** edge. None may leave records able to satisfy a missing edge, and
 none may silently orphan an untouched edge's valid addresses.
+
+## Authority: what each audit may claim
+
+| | may NAME a missing address | may ATTRIBUTE the cause |
+|---|---|---|
+| **point-in-time**, under a valid seal | yes | ⛔ **no** — edge loss and evidence loss are indistinguishable from (a) and (b) alone |
+| **across-run**, holding baseline `(B, e)` | yes | **yes**: `e` present + `B` absent ⇒ evidence corruption / UNKNOWN; `e` absent + `B` absent ⇒ **edge loss** |
+
+A division of labour between the two audits, not a limitation of one. No figure may claim attribution
+its audit cannot support.
 
 ## Scope note
 
