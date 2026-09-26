@@ -61,7 +61,26 @@ describe('isRecordedModuleWithUnrecordedBinding', () => {
     const recorded = new Set([keyOf(sourceFile, 'IMPORTS', 'src/middle.js')]);
     expect(isRecordedModuleWithUnrecordedBinding({
       recorded, sourceFile, relation: 'IMPORTS', target: 'src/middle.js.middle',
+      targetIsRealFile: false,
     })).toBe(true);
+  });
+
+  // ⛔ REGRESSION FOR A REAL FALSE EXCUSE, found by graph-senior-dev on a four-file disposable repo
+  // with real extraction and real SQLite rows, 2026-09-26. A source named-imports from BOTH
+  // './lib.js' and './lib.js.ts', both REAL FILES. Deleting only the IMPORTS edge to File
+  // `src/lib.js.ts` is a genuine WHOLE-MODULE loss — but stripping the final `.ts` yields
+  // `src/lib.js`, which is recorded because it is a DIFFERENT module. The prefix test alone excused
+  // it. A filename may contain dots, so a module path's prefix can coincidentally be another module.
+  it('does NOT excuse a lost WHOLE MODULE whose prefix is a different recorded module', () => {
+    const consumer = 'src/consumer.js';
+    const recorded = new Set([keyOf(consumer, 'IMPORTS', 'src/lib.js')]);
+    expect(isRecordedModuleWithUnrecordedBinding({
+      recorded,
+      sourceFile: consumer,
+      relation: 'IMPORTS',
+      target: 'src/lib.js.ts',
+      targetIsRealFile: true, // it IS a file on disk — that is what makes it a module, not a binding
+    })).toBe(false);
   });
 
   // ⛔ THE ASSERTION THAT MATTERS MOST. A predicate that excused every dotted target would make the

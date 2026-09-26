@@ -199,7 +199,14 @@ for (const file of candidates) {
       // Separated, never folded in: the per-binding refinement of an import whose MODULE edge was
       // recorded. One uniform class, status unresolved. See ref-keys.mjs for why it gets its own bucket.
       if (isRecordedModuleWithUnrecordedBinding({
-        recorded, sourceFile: row.file, relation: row.relation, target: row.target,
+        recorded,
+        sourceFile: row.file,
+        relation: row.relation,
+        target: row.target,
+        // A target naming a real file is a MODULE reference, never a binding refinement. Without
+        // this, a lost `src/lib.js.ts` was excused because stripping `.ts` yields `src/lib.js` —
+        // a DIFFERENT recorded module. Found by graph-senior-dev on a real-extraction fixture.
+        targetIsRealFile: fs.existsSync(path.join(REPO, row.target)),
       })) bindingOnly.push(row);
       else missing.push(row);
     }

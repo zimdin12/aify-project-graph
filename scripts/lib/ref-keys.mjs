@@ -77,12 +77,44 @@ export function nodeAddressForms({ id, label, file_path: filePath }) {
 // is an intermediate rather than an intended edge. This function does NOT decide that question — it
 // only separates the class so the residue is readable.
 //
-// ⛔ DERIVED, NOT PATTERN-MATCHED. No extension list and no regex on `.js`: the test is whether
-// dropping the final dot-segment yields a target the graph DID record as an import from the same file.
-// If it did, the module reference was conserved and only the per-binding refinement is missing. A
-// regex would also match a genuinely lost `src/a.b` and quietly excuse it.
-export function isRecordedModuleWithUnrecordedBinding({ recorded, sourceFile, relation, target }) {
+// ⛔⛔ THE PREFIX TEST ALONE IS NOT ENOUGH, AND THE FIRST VERSION OF THIS FUNCTION SHIPPED WITHOUT
+// THE SECOND CONDITION. Found by graph-senior-dev, 2026-09-26, on a four-file disposable repo with
+// real extraction and real SQLite rows:
+//
+//     src/consumer.js named-imports from BOTH './lib.js' AND './lib.js.ts' — both REAL FILES.
+//     emitted: src/lib.js, src/lib.js.plain, src/lib.js.ts, src/lib.js.ts.special
+//     delete ONLY the IMPORTS edge to File src/lib.js.ts  (a genuine WHOLE-MODULE loss)
+//     strip the final dot-segment of 'src/lib.js.ts'  ->  'src/lib.js'
+//     ... which is recorded — but it is a DIFFERENT MODULE, not this one's parent.
+//
+// So a lost whole module was excused into the binding bucket. A filename may contain dots, so the
+// prefix of a module path can coincidentally BE another real module. I wrote in this very comment
+// that a regex "would also match a genuinely lost src/a.b"; the prefix test has the same flaw with a
+// different trigger, which is why the fix is a different KIND of evidence rather than a better string
+// rule.
+//
+// ⭐ THE SECOND CONDITION, DERIVED FROM THE TREE RATHER THAN FROM THE STRING: a binding refinement
+// never names a file. `src/lib.js.ts` is a real file and therefore a MODULE reference whose loss must
+// be reported; `src/lib.js.ts.special` is not a file and is a per-binding refinement. The caller
+// supplies `targetIsRealFile`, so this stays pure and the filesystem question is answered once,
+// outside.
+//
+// ⚠ AND IT ERRS TOWARD REPORTING. If `targetIsRealFile` is wrong in the false-positive direction — a
+// binding whose name happens to collide with a real file — the ref is REPORTED as a loss rather than
+// excused. Reporting a non-loss costs a reader one check; excusing a real loss is invisible. The
+// conservative direction here is the noisy one.
+//
+// ⚠ WHAT THIS STILL DOES NOT DO: it infers module-vs-binding instead of being told. The durable fix
+// is a typed origin on the emitted ref, so the extractor states which kind it produced and no
+// inference is needed at all. graph-senior-dev recommended that and they are right; it is not done
+// here because it changes the extractor's output contract.
+export function isRecordedModuleWithUnrecordedBinding({
+  recorded, sourceFile, relation, target, targetIsRealFile,
+}) {
   if (relation !== 'IMPORTS') return false;
+  // A target that names a real file is a MODULE reference. Its loss is a real loss, whatever its
+  // prefix happens to coincide with.
+  if (targetIsRealFile) return false;
   const cut = target.lastIndexOf('.');
   if (cut <= 0) return false;
   return recorded.has(keyOf(sourceFile, relation, target.slice(0, cut)));
