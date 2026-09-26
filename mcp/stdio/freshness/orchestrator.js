@@ -23,6 +23,9 @@
 // cannot see one added in a module this file calls.
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
+// ⛔ existsSync is CASE-INSENSITIVE on Windows, so a case-only rename leaves the old spelling
+// reading as present and its nodes get rebuilt. path-exists.js has the measurement.
+import { existsWithExactCase } from './path-exists.js';
 import { join, resolve } from 'node:path';
 import { openDb } from '../storage/db.js';
 import { RebuildTransaction } from '../storage/rebuild-transaction.js';
@@ -629,7 +632,11 @@ export async function ensureFresh({
       for (const relPath of filesToProcess) {
         try {
           const absPath = join(repoRoot, relPath);
-          if (!existsSync(absPath)) {
+          // ⛔ EXACT CASE, NOT existsSync. After `git mv -f src/middle.js src/Middle.js` the old
+          // spelling still reads as present on Windows, so this branch was skipped and the loop
+          // below REBUILT src/middle.js's nodes from Middle.js's bytes — one file on disk, two File
+          // nodes in the graph. Measured; see path-exists.js.
+          if (!existsWithExactCase(repoRoot, relPath)) {
             deleteNodesForFile(db, relPath);
             continue;
           }
@@ -1206,7 +1213,9 @@ function shouldCarryForwardRef(ref, repoRoot, ignoredDirs, filesToProcess) {
   if (!sourceFile) return false;
   if (filesToProcess.includes(sourceFile)) return false;
   if (pathContainsIgnoredDir(sourceFile, ignoredDirs)) return false;
-  return existsSync(join(repoRoot, sourceFile));
+  // Exact case: carrying forward refs owned by a spelling that no longer exists re-attaches them
+  // to a phantom source file.
+  return existsWithExactCase(repoRoot, sourceFile);
 }
 
 // ⛔ DEFER A BRAND-NEW UNTRACKED FILE, NEVER ONE THE GRAPH ALREADY HOLDS.
@@ -1270,7 +1279,9 @@ async function classifyChangedFile({ db, repoRoot, relPath, storedFp }) {
   if (!storedFp) return 'structural';
 
   const absPath = join(repoRoot, relPath);
-  if (!existsSync(absPath)) return 'structural'; // deleted → full handle
+  // Exact case: a case-renamed-away path whose CONTENT is unchanged would otherwise fingerprint
+  // as 'cosmetic' and be skipped entirely, leaving its stale nodes untouched.
+  if (!existsWithExactCase(repoRoot, relPath)) return 'structural'; // deleted → full handle
 
   const config = maybeGetLanguageConfig(relPath);
   if (!config) return 'structural';
@@ -1365,7 +1376,7 @@ async function expandAffectedFiles(db, repoRoot, changedFiles) {
     );
 
     for (const caller of callers) {
-      if (caller.source_file && existsSync(join(repoRoot, caller.source_file))) {
+      if (caller.source_file && existsWithExactCase(repoRoot, caller.source_file)) {
         // enqueue, not add: this owner's own incoming edges are about to be destroyed too.
         enqueue(caller.source_file);
       }
