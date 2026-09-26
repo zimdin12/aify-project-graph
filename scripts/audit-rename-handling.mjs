@@ -43,15 +43,35 @@ const { openDb } = await load('mcp', 'stdio', 'storage', 'db.js');
 const git = (repo, ...args) => execFileSync('git', ['-C', repo, ...args], { stdio: 'ignore' });
 const commitAll = (repo, msg) => { git(repo, 'add', '-A'); git(repo, 'commit', '-qm', msg); };
 
-// ⭐ The independent ground truth: the final segment must appear, spelled exactly, in its parent's
+// ⭐ The independent ground truth: EVERY segment must appear, spelled exactly, in its parent's
 // directory listing. Written here rather than imported, so the fix cannot grade its own homework.
+//
+// ⛔⛔ THIS FUNCTION HAS NOW BEEN BLIND TWICE, IN THE SAME WAY, AND BOTH TIMES THE ARM WAS RESCUED BY
+// A COUNT RATHER THAN BY THE DETECTOR.
+//   v1 used `existsSync` -> case-insensitive on Windows -> printed PHANTOMS: NONE over a live
+//      case-renamed file. Caught because the IMPORTS list showed 5 against a rebuild's 4.
+//   v2 read the parent directory but compared the BASENAME ONLY -> printed PHANTOMS: NONE over FOUR
+//      live `src/*` nodes after a parent-directory rename. Caught because the IMPORTS list showed 8
+//      against a rebuild's 4.
+// Each time the detector agreed with what I expected, so nothing collided and nothing prompted a
+// check. ⇒ WHEN A PROBE ANSWERS A YES/NO QUESTION, PRINT THE UNDERLYING POPULATION TOO: the count
+// disagreeing with the verdict is the only thing that can catch a verdict which is confidently wrong.
+// That redundancy is not clutter here, it is the thing that has done the work twice.
 async function presentWithExactCase(root, relPath) {
-  const abs = path.join(root, relPath);
-  try {
-    return (await readdir(path.dirname(abs))).includes(path.basename(abs));
-  } catch {
-    return false;
+  const segments = relPath.split(/[\\/]+/).filter((s) => s && s !== '.');
+  let parent = root;
+  for (const segment of segments) {
+    try {
+      if (!(await readdir(parent)).includes(segment)) return false;
+    } catch {
+      return false;
+    }
+    parent = path.join(parent, segment);
   }
+  // No segments means the path IS the repo root (`.`), which exists. Returning false here reported
+  // the root as a phantom and failed every arm — a false alarm from the detector, caught because the
+  // arms went red all at once rather than the one arm under test.
+  return true;
 }
 
 async function phantomsIn(repo, dbPath) {
@@ -248,6 +268,25 @@ results.push(await runArm({
         `import { middle } from './core.js';\nexport function ${n}() { return middle() + 1; }\n`);
     }
     commitAll(repo, 'rename and rewrite together');
+  },
+}));
+// ⛔ ARM F: THE PARENT DIRECTORY, which shipped in 27c5c422 as a "stated limit" in a comment and was
+// then EXECUTED as a defect by graph-senior-dev: `src/` -> `Src/` left FOUR File nodes against a
+// forced rebuild's TWO, plus a stale `src/outer.js -> src/middle.js` edge. Built from the shape they
+// actually ran rather than one I invented.
+//
+// ⚠ APPARATUS NOTE, theirs: a direct `git mv -f src Src` fails with `Invalid argument`, so the rename
+// goes through an intermediate directory and lands as ONE commit whose delta is `D src/*` + `A Src/*`.
+// A run that skipped this would produce no case-only parent delta and the arm would pass vacuously.
+results.push(await runArm({
+  name: 'F',
+  intent: 'CASE-ONLY rename of a PARENT DIRECTORY src/ -> Src/ (graph-senior-dev, executed)',
+  expectImports: 4,
+  expectUnresolved: 0,
+  mutate: async (repo) => {
+    git(repo, 'mv', 'src', 'srcTmpRename');
+    git(repo, 'mv', 'srcTmpRename', 'Src');
+    commitAll(repo, 'case-only rename of the parent directory');
   },
 }));
 results.push(await runDetectorControl());

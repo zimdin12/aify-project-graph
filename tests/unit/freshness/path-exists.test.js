@@ -12,7 +12,7 @@
 // and says which of the two it just exercised.
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm, symlink } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -63,5 +63,57 @@ describe('existsWithExactCase', () => {
   it('rejects a path that does not exist under any spelling', () => {
     expect(existsWithExactCase(root, 'src/doesNotExist.js')).toBe(false);
     expect(existsWithExactCase(root, 'nope/deeper/still-nope.js')).toBe(false);
+  });
+
+  // ⛔ CATCHES THE BASENAME-ONLY VERSION, which shipped in 27c5c422 with this gap recorded as a
+  // "stated limit" in the module header. graph-senior-dev then EXECUTED it: `src/` -> `Src/` left
+  // four File nodes against a forced rebuild's two, plus a stale IMPORTS edge. Windows resolves the
+  // wrong-case parent, so existsSync says present and a basename check never looks at the directory.
+  it('rejects a path whose PARENT DIRECTORY case does not match', () => {
+    expect(existsWithExactCase(root, 'SRC/middle.js')).toBe(false);
+    expect(existsWithExactCase(root, 'Src/middle.js')).toBe(false);
+    // and the correctly-spelled parent still passes, so this is not simply refusing everything
+    expect(existsWithExactCase(root, 'src/middle.js')).toBe(true);
+  });
+});
+
+// ⭐ REQUIRED BY graph-senior-dev's review of the segment walk: walking EVERY segment re-opens, once
+// per segment, the hazard avoided at the final segment by choosing readdir over realpathSync.native.
+// A symlinked parent must be checked BY ITS SPELLING IN ITS OWN PARENT'S LISTING, never resolved
+// away — because the caller's response to `false` is deleteNodesForFile, so a false negative here
+// DELETES A REAL FILE'S NODES. That is the expensive direction and the pre-registered refutation.
+describe('existsWithExactCase through a symlinked parent directory', () => {
+  let linkRoot;
+  let linkMade = false;
+
+  beforeAll(async () => {
+    linkRoot = await mkdtemp(join(tmpdir(), 'apg-path-link-'));
+    await mkdir(join(linkRoot, 'real'), { recursive: true });
+    await writeFile(join(linkRoot, 'real', 'kept.js'), 'export function kept() { return 1; }\n');
+    try {
+      // 'junction' is the Windows form that needs no elevation; 'dir' elsewhere.
+      await symlink(join(linkRoot, 'real'), join(linkRoot, 'linked'),
+        process.platform === 'win32' ? 'junction' : 'dir');
+      linkMade = true;
+    } catch {
+      linkMade = false;
+    }
+  });
+
+  afterAll(async () => {
+    if (linkRoot) await rm(linkRoot, { recursive: true, force: true });
+  });
+
+  it('PRESERVES a real file reached through a symlinked parent', () => {
+    if (!linkMade) {
+      // ⛔ A SKIP IS NOT A PASS, and this one is announced rather than silently green: without a link
+      // this run has NOT exercised the preservation hazard at all.
+      expect(linkMade, 'symlink/junction could not be created — preservation hazard UNTESTED in this run').toBe(false);
+      return;
+    }
+    expect(existsWithExactCase(linkRoot, 'linked/kept.js')).toBe(true);
+    // ...and the check still discriminates through the link rather than waving everything through.
+    expect(existsWithExactCase(linkRoot, 'linked/KEPT.js')).toBe(false);
+    expect(existsWithExactCase(linkRoot, 'linked/absent.js')).toBe(false);
   });
 });

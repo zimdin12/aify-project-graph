@@ -26,10 +26,22 @@
 // FILE'S NODES, which is the worse direction and was pre-registered as a refutation of this fix.
 // Reading the parent directory cannot resolve a symlink, so it cannot make that mistake.
 //
-// ⚠ STATED LIMIT, not an oversight: this checks the FINAL SEGMENT only. A case-only rename of a
-// PARENT DIRECTORY (`src/` -> `Src/`) is not detected, and its nodes would survive the same way. The
-// measured defect is a file rename; covering directories means walking every segment, which is a
-// larger change and a separate arm. Recorded here rather than left for a reader to discover.
+// ⛔⛔ THE "STATED LIMIT" THAT WAS A LIVE DEFECT. This function first checked the FINAL SEGMENT only,
+// and its header recorded that as a limit: a case-only rename of a PARENT directory (`src/` -> `Src/`)
+// would not be detected. graph-senior-dev then EXECUTED it — two-file repo, one commit carrying
+// `D src/*` + `A Src/*`, disk holding only `Src` — and measured FOUR File nodes against a forced
+// rebuild's TWO, plus a stale `src/outer.js -> src/middle.js` edge. Windows resolves the wrong-case
+// `src` to `Src`, so `existsSync` said present and the basename check never looked at the directory.
+//
+// ⭐ That makes this the THIRD time in one arc that a hazard I wrote down was left undischarged (the
+// others: caveating a conservation figure instead of fixing its key, and naming a dotted-prefix
+// hazard in the comment directly above the code that had it). The note is not the fix. Every segment
+// is checked now, and the parent case has an arm rather than a sentence.
+//
+// COST, measured rather than traded away: the worst observed expansion on this repository is 1047
+// files at 3-4 segments each, so roughly 4000 reads of small directories against a rebuild that takes
+// ~40s. The original basename-only choice was made on an unquantified saving, which is how the
+// correctness was lost.
 //
 // ⚠ AND NO CACHE, WHICH IS A MEASUREMENT RATHER THAN AN OMISSION. The worst observed expansion on
 // this repository is 1047 files, so at most ~1047 reads of small directories against a rebuild that
@@ -47,17 +59,31 @@ import { dirname, basename, join } from 'node:path';
  * @param {string} relPath   repo-relative path, forward slashes
  */
 export function existsWithExactCase(repoRoot, relPath) {
-  const abs = join(repoRoot, relPath);
   // A path that does not exist under ANY spelling is absent, and no directory read is needed.
-  if (!existsSync(abs)) return false;
-  const want = basename(abs);
-  try {
-    return readdirSync(dirname(abs)).includes(want);
-  } catch {
-    // ⛔ FAIL OPEN *HERE*, DELIBERATELY, AND IT IS THE OPPOSITE OF THE USUAL RULE. The caller's
-    // action on `false` is destructive: it deletes the file's nodes. An unreadable parent directory
-    // is not evidence that the file was renamed away, and answering `false` on it would delete real
-    // nodes over a transient error. `existsSync` already said the file is there; keep it.
-    return true;
+  //
+  // ⚠ WHY A CASE-INSENSITIVE CALL IS SAFE *HERE* AND NOWHERE ELSE IN THIS FUNCTION. This is a fast
+  // path to FALSE only. If it answers true for the wrong case, the segment walk below still answers
+  // false; it can never turn a wrong-case path into a present one. The comparison that decides the
+  // result is the exact one over a directory listing, which the platform cannot answer loosely.
+  // (Raised by dashboard-manager: do not ask the filesystem a question it is entitled to answer
+  // case-insensitively. Correct as a rule — this call does not decide anything.)
+  if (!existsSync(join(repoRoot, relPath))) return false;
+
+  // EVERY segment, parent directories included. `src/middle.js` after `src/` -> `Src/` must fail on
+  // the FIRST segment; checking only `middle.js` finds it inside `Src` and wrongly reports present.
+  const segments = relPath.split(/[\\/]+/).filter((s) => s && s !== '.');
+  let parent = repoRoot;
+  for (const segment of segments) {
+    try {
+      if (!readdirSync(parent).includes(segment)) return false;
+    } catch {
+      // ⛔ FAIL OPEN *HERE*, DELIBERATELY, AND IT IS THE OPPOSITE OF THE USUAL RULE. The caller's
+      // action on `false` is destructive: it deletes the file's nodes. An unreadable directory is
+      // not evidence that anything was renamed away, and answering `false` would delete real nodes
+      // over a transient error. `existsSync` already said the path is there; keep it.
+      return true;
+    }
+    parent = join(parent, segment);
   }
+  return true;
 }
