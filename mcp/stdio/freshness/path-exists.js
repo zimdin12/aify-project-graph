@@ -67,11 +67,27 @@ export function existsWithExactCase(repoRoot, relPath) {
   // result is the exact one over a directory listing, which the platform cannot answer loosely.
   // (Raised by dashboard-manager: do not ask the filesystem a question it is entitled to answer
   // case-insensitively. Correct as a rule — this call does not decide anything.)
-  // ⭐ FALSIFIED RATHER THAN ARGUED, 2026-09-26: with this line disabled, all six arms of
-  // `scripts/audit-rename-handling.mjs` produced BYTE-IDENTICAL output and the unit tests stayed
-  // green. An optimisation that changes no result is an optimisation; the claim above is a reading,
-  // not a hope. (Condition set by dashboard-manager: if it can only answer FALSE faster, removing it
-  // must change nothing anywhere.)
+  // ⛔⛔ AND IT IS NOT AN OPTIMISATION. THIS LINE IS A PREMISE OF THE FAIL-OPEN BRANCH BELOW.
+  // Remove it and `existsWithExactCase(root, 'notadir/child.js')` — where `notadir` is a regular FILE
+  // — returns TRUE: the walk reaches `readdirSync(notadir)`, that throws ENOTDIR, and the deliberate
+  // fail-open `catch` claims a path exists when nothing of the kind is on disk. The catch is only
+  // defensible BECAUSE this line has already established the path exists under some spelling; delete
+  // the line and the catch has no evidence left to fail open on.
+  // ⇒ Covered by `tests/unit/freshness/path-exists.test.js`, watched RED with this line commented out
+  // (returns true) and GREEN restored.
+  //
+  // ⚠ WHAT THE EARLIER NOTE HERE GOT WRONG, kept because the error is instructive. It read: "with this
+  // line disabled, all six arms of `scripts/audit-rename-handling.mjs` produced BYTE-IDENTICAL output
+  // and the unit tests stayed green — an optimisation that changes no result is an optimisation." The
+  // observation was true and the conclusion was not: NONE of those arms contains a file-as-parent
+  // segment, so the run proved the branches it exercised and not the claim. A byte-identical
+  // falsification over a corpus that cannot reach the branch is silence, not evidence. Same shape as
+  // the `88` agreements offered as a control for a zero on the inequality branch.
+  //
+  // What DOES survive of the original reasoning: as a fast path to FALSE it cannot turn a wrong-case
+  // path into a present one, because the deciding comparison is the exact match over a directory
+  // listing below. (Rule raised by dashboard-manager: do not ask the filesystem a question it is
+  // entitled to answer case-insensitively. Correct — this call does not decide the CASE question.)
   if (!existsSync(join(repoRoot, relPath))) return false;
 
   // EVERY segment, parent directories included. `src/middle.js` after `src/` -> `Src/` must fail on

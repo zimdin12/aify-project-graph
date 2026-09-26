@@ -25,6 +25,8 @@ beforeAll(async () => {
   root = await mkdtemp(join(tmpdir(), 'apg-path-case-'));
   await mkdir(join(root, 'src'), { recursive: true });
   await writeFile(join(root, 'src', 'middle.js'), 'export function middle() { return 1; }\n');
+  // A regular FILE, used below as a parent segment so `readdirSync` throws ENOTDIR.
+  await writeFile(join(root, 'notadir'), 'not a directory\n');
   // Ask the filesystem what it is rather than branching on process.platform, which is a proxy.
   caseInsensitive = existsSync(join(root, 'src', 'MIDDLE.js'));
 });
@@ -34,6 +36,25 @@ afterAll(async () => {
 });
 
 describe('existsWithExactCase', () => {
+  // ⛔ CATCHES: removal of the `existsSync` fast path, which was documented in the source as "an
+  // optimisation that changes no result". IT CHANGES THIS RESULT. A regular FILE used as a parent
+  // segment makes `readdirSync` throw ENOTDIR, which lands in the deliberate FAIL-OPEN catch and
+  // returns TRUE — claiming a path exists when nothing of the kind is on disk. The fast path returns
+  // FALSE before the walk can reach that branch, so it is a PREMISE OF THE FAIL-OPEN BRANCH, not a
+  // speed tweak.
+  //
+  // ⚠ WHY THIS TEST DID NOT EXIST. The falsification recorded in the source disabled the fast path
+  // and observed BYTE-IDENTICAL output across all six rename arms plus green unit tests — and
+  // concluded the line changed nothing. None of those arms contains a file-as-parent-segment, so the
+  // run proved the branches it exercised and not the claim. Watched RED with the fast path removed
+  // (returns true), GREEN with it restored.
+  it('rejects a path whose parent segment is a FILE, instead of failing open', () => {
+    expect(existsWithExactCase(root, 'notadir/child.js')).toBe(false);
+    // The premise of the assertion above: this really is the ENOTDIR shape, not merely an absent path.
+    // Without it, a plain missing-file case would satisfy the expectation and prove nothing.
+    expect(existsSync(join(root, 'notadir'))).toBe(true);
+  });
+
   // CATCHES: a check that says false for real files. That answer deletes their nodes, which is the
   // expensive direction and the one pre-registered as a refutation of the rename fix.
   it('accepts a file spelled exactly as it is on disk', () => {
