@@ -59,18 +59,15 @@ const { extractFile } = await import(url('mcp', 'stdio', 'ingest', 'extractors',
 const { getLanguageConfig } = await import(url('mcp', 'stdio', 'ingest', 'languages', 'index.js'));
 const { loadEffectiveIgnoredDirs, pathContainsIgnoredDir, isIgnoredDirName } =
   await import(url('mcp', 'stdio', 'ingest', 'ignored-dirs.js'));
+// ⛔ THE JOIN KEY MOVED OUT, AND THE NUMBER THIS SCRIPT PUBLISHED CHANGED WITH IT. Iteration 3 below
+// matched an emitted target against `nodes.label` ONLY. An import's target is a repo-relative PATH, so
+// no import could ever match and 4,488 of the 4,514 reported losses were the key's fault — 99.4% of the
+// headline, in the same class as the two mistakes the table already owned. `scripts/lib/ref-keys.mjs`
+// carries the corrected key, the measurement, and the limit on reading a widened key as good news.
+const { keyOf, refTargetName, recordedKeys, isRecordedModuleWithUnrecordedBinding } =
+  await import(url('scripts', 'lib', 'ref-keys.mjs'));
 
 const IMPOSSIBLE_TARGET = 'zzqNotARealSymbolHere';
-const keyOf = (file, relation, target) => `${file}\u0000${relation}\u0000${target}`;
-
-// The name a ref points AT. Extraction gives either a symbolic `target` or an already-resolved
-// `to_id` with its `to_label`; the graph's own label is the only form comparable to both.
-function refTargetName(ref) {
-  if (ref.target) return String(ref.target);
-  if (ref.to_label) return String(ref.to_label);
-  if (ref.to_id) return String(ref.to_id);
-  return '';
-}
 
 function languageConfigFor(file) {
   try {
@@ -106,8 +103,25 @@ try {
 } catch {
   head = '';
 }
-const sameTree = Boolean(indexed) && Boolean(head) && indexed.slice(0, 10) === head.slice(0, 10);
-console.log(`FRESHNESS: graph indexed at ${indexed.slice(0, 10)}, HEAD ${head.slice(0, 10)} -> ${sameTree ? 'SAME TREE' : 'DIFFERENT — the comparison spans two trees'}`);
+const sameCommit = Boolean(indexed) && Boolean(head) && indexed.slice(0, 10) === head.slice(0, 10);
+// ⛔ THE COMMIT IS NOT THE TREE. This control compared manifest.commit to HEAD and printed SAME TREE
+// while the working tree carried uncommitted edits, so extraction read files the graph had never seen
+// and those refs counted as losses. Equal commits plus a dirty tree is still two different trees; a
+// control that cannot see the difference it is named after is decoration.
+let dirty = [];
+try {
+  dirty = execFileSync('git', ['status', '--porcelain'], { cwd: REPO, encoding: 'utf8' })
+    .split('\n').map((l) => l.trim()).filter(Boolean);
+} catch {
+  dirty = [];
+}
+const sameTree = sameCommit && dirty.length === 0;
+console.log(`FRESHNESS: graph indexed at ${indexed.slice(0, 10)}, HEAD ${head.slice(0, 10)}, `
+  + `${dirty.length} uncommitted path(s) -> ${sameTree
+    ? 'SAME TREE'
+    : sameCommit
+      ? `⛔ DIRTY TREE — extraction reads files the graph never saw, so some losses below are unindexed edits (${dirty.slice(0, 5).join(', ')})`
+      : 'DIFFERENT COMMIT — the comparison spans two trees'}`);
 console.log(`MANIFEST: generation ${manifest.generation}, extractor ${manifest.extractorVersion}, nodes ${manifest.nodes}, edges ${manifest.edges}`);
 
 // ⛔ THE LIVENESS FACTS, PRINTED BEFORE THE CONSERVATION FIGURE AND NOT AFTER IT.
@@ -126,26 +140,13 @@ if (!sweepSeen) {
 // they say the last run reported doing work, not that it re-extracted the files this audit covers.
 console.log('  ⚠ These describe the LAST run as a whole. They do not show that any particular file was re-extracted.');
 
-const recorded = new Set();
-const recordedFiles = new Set();
-// ⛔ THE KEY CANNOT CARRY A LINE. `edges` is deduplicated on (from_id, to_id, relation): measured
-// on this graph, 36,635 rows and 36,635 distinct triples, with a maximum of ONE distinct
-// source_line per triple. A symbol called from twenty lines of one file keeps one row and one line,
-// so a line-level key reports nineteen phantom losses. The second version of this script did
-// exactly that and measured 68.59% conservation.
-const edgeRows = db.prepare(
-  'SELECT e.source_file AS source_file, e.relation AS relation, n.label AS label'
-  + ' FROM edges e JOIN nodes n ON n.id = e.to_id',
-).all();
-for (const row of edgeRows) {
-  recorded.add(keyOf(row.source_file, row.relation, row.label));
-  recordedFiles.add(row.source_file);
-}
-const fromEdges = recorded.size;
-for (const row of db.prepare('SELECT source_file, relation, target, to_id FROM unresolved_refs').all()) {
-  recorded.add(keyOf(row.source_file, row.relation, row.target ?? row.to_id ?? ''));
-  recordedFiles.add(row.source_file);
-}
+// The recorded set, its key, and the three mistakes behind that key all live in
+// `scripts/lib/ref-keys.mjs`. A node contributes every string that legitimately addresses it, derived
+// from the row rather than listed per relation.
+const asDb = {
+  all: (sql, params) => db.prepare(sql).all(params ?? {}),
+};
+const { keys: recorded, files: recordedFiles, fromEdges } = recordedKeys(asDb);
 console.log(`RECORDED: ${fromEdges} keys from edges, ${recorded.size} including unresolved_refs, across ${recordedFiles.size} source files`);
 
 const ignoredDirs = loadEffectiveIgnoredDirs(REPO);
@@ -157,6 +158,7 @@ let unreadable = 0;
 let emitted = 0;
 let present = 0;
 const missing = [];
+const bindingOnly = [];
 const unprocessed = [];
 const seen = new Set();
 
@@ -188,12 +190,18 @@ for (const file of candidates) {
     emitted += 1;
     if (recorded.has(key)) present += 1;
     else {
-      missing.push({
+      const row = {
         file: ref.source_file,
         line: ref.source_line,
         relation: ref.relation,
-        target: ref.target ?? ref.to_id ?? '',
-      });
+        target: refTargetName(ref),
+      };
+      // Separated, never folded in: the per-binding refinement of an import whose MODULE edge was
+      // recorded. One uniform class, status unresolved. See ref-keys.mjs for why it gets its own bucket.
+      if (isRecordedModuleWithUnrecordedBinding({
+        recorded, sourceFile: row.file, relation: row.relation, target: row.target,
+      })) bindingOnly.push(row);
+      else missing.push(row);
     }
   }
 }
@@ -207,6 +215,13 @@ console.log(`POSITIVE CONTROL: ${present} of ${emitted} emitted keys are recorde
 console.log(`FILES: ${extracted} extracted, ${unreadable} unreadable or failed`);
 console.log(`⚠ NOT COUNTED AS LOSS — ${unprocessed.length} file(s) emit refs but have NO recorded key at all (never processed, or wholly lost; this instrument cannot tell which)`);
 for (const u of unprocessed.slice(0, 20)) console.log(`    ${u.file}  ${u.refs} refs emitted`);
+
+// Printed BEFORE the result, like the liveness block, because it is the difference between a headline
+// of thousands and a headline of a handful. A reader who meets 2,690 first has already formed a view.
+console.log(`\n⚠ REPORTED SEPARATELY — ${bindingOnly.length} emitted IMPORTS refs are the PER-BINDING`
+  + ' refinement of an import whose MODULE edge WAS recorded. One uniform class, neither an edge nor a'
+  + ' refusal row. NOT counted as loss, and NOT cleared either: see scripts/lib/ref-keys.mjs.');
+for (const b of bindingOnly.slice(0, 5)) console.log(`    ${b.file}:${b.line} -> ${b.target}`);
 
 console.log(`\nRESULT: ${missing.length} emitted ref keys, in files the pipeline demonstrably processed, are in NEITHER edges NOR unresolved_refs.`);
 const byRelation = new Map();
