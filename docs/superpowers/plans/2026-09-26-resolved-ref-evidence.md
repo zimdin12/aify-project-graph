@@ -1,9 +1,18 @@
 # Plan: resolved-ref evidence, so conservation stops being reconstructed
 
-**Status:** design, not implemented, **NOT APPROVED**. Revision 2, 2026-09-26.
+**Status:** design, not implemented, **NOT APPROVED**. Revision 3, 2026-09-26.
 
-**Design recommendation, every counterexample, and six pre-code plan attacks:** graph-senior-dev.
+**Design recommendation, every counterexample, and every pre-code plan attack:** graph-senior-dev.
 **One control, the write-up, and the real-subject measurements:** graph-tech-lead.
+
+**Revision 3 repairs four defects graph-senior-dev found by reading the committed revision-2 diff —
+not the summary of it, which contained none of them:**
+1. pre-resolved `CONTAINS` / `DECLARES_BINDING` were misclassified as non-ref-origin
+2. the `88 edges` overclaim survived at one site while corrected at another
+3. lifecycle control 4 contradicted the seal rule, so a literal test of it would reject correct
+   rollback behaviour
+4. the repair for (1) proposed `to_label` as an alternate identity — another alternate satisfier,
+   inside the fix for one
 
 ⛔ **WHAT THE EVIDENCE SUPPORTS.** Executed counterexamples disprove five join designs and a scalar
 `edge.target` column, and a measured index establishes that one edge can have two producers. None of
@@ -148,8 +157,8 @@ The edge table stays deduplicated.
   ref-origin edge as structural, making the check agree with the defect.
 - ⛔ **Never derived from the retained `provenance`/`extractor`** — both are first-wins and both are
   rewritten by a CODE_INTEL promotion, so either answers for the wrong producer.
-- ⛔ **Never a first-wins exclusive scalar on the row.** Limb one is measured real: 88 edges here have
-  two producers, so insert order would decide the value.
+- ⛔ **Never a first-wins exclusive scalar on the row.** Limb one is measured real — 88 cross-labelled
+  collision *attempts* in a full index of this repository — so insert order would decide the value.
 - An edge may be ref-origin **and** structural at once; the representation must permit both.
 - ⚠ **A row-level boolean is insufficient and is rejected.** It is monotonic only while that producer
   contributes: keep it set after the ref stops emitting and you get a phantom ref-origin edge with no
@@ -157,10 +166,42 @@ The edge table stays deduplicated.
   ref. The **association's own source/provenance**, or a separately keyed producer-contribution
   record, is the owner — never reconstructed from scalar `edges.source_file`.
 
-Non-ref-origin producers, never expected to hold an association: structural CONTAINS/DEFINES
-(`generic.js:364-374`, `615-626`), pre-resolved CONTAINS by `to_id` (`generic.js:628-639`),
-DECLARES_BINDING by `to_label` (`shader_bindings.js:183-194`), `sweep.js:403`, `cmake.js:194-198`,
-`virtual_overrides.js:307-319`, code-intel importer direct upserts.
+### ⛔ PRE-RESOLVED REFS ARE REF-ORIGIN. They were misclassified here, and the misclassification was the opening rule broken inside this document.
+
+Revision 2 listed pre-resolved `CONTAINS` and `DECLARES_BINDING` as **non**-ref-origin. Both producers
+literally call `refs.push`:
+
+- `generic.js:628-639` — `refs.push({ from_target, to_id, relation: 'CONTAINS', … })`
+- `frameworks/shader_bindings.js:183-194` — `refs.push({ relation: 'DECLARES_BINDING', from_id, to_id, … })`,
+  whose own comment explains *why* it must be a ref: a direct edge inserted in the pre-extract pass
+  "would be wiped by `deleteEdgesByFile()`… Refs are resolved AFTER that loop, so the edge survives."
+
+They are **REF-ORIGIN with a typed pre-resolved address**. I inferred "not a ref" from the absence of
+a `target` *string* — the absence-licenses-a-conclusion failure, committed three sections below the
+table that forbids it by name. **Invariant (b) applies to them unchanged**; they are not exempt.
+
+**Their association identity is the resolved `(from_id, to_id, relation)`, plus source and typed
+address kind.** `resolver.js:894-905` takes `ref.to_id` directly as the destination, so the resolved
+ID is available at association time.
+
+⛔ **`to_label` IS DISPLAY DATA. It is never an identity and never a join key.** Measured on this
+graph: **541 distinct label strings, of 6,300 distinct label strings, name more than one node** (92
+share `"git"`, 68 `"SKILL.md"`, 32 `"r"`). ⚠ That is a property of the **label domain** — *not* a
+fraction of refs that would misjoin, and *not* a loss rate. It is sufficient for exactly one purpose:
+disqualifying `to_label` as a key, because a non-unique domain can match the wrong node.
+
+A future label-only ref is **resolved to a specific id, or marked explicitly UNRESOLVED/AMBIGUOUS**.
+It is never satisfied by matching the name.
+
+⚠ This repair was itself proposed with `to_label` as an alternate identity and corrected before
+landing — the third time a fix written in the same breath as accepting a refutation carried the same
+class of flaw as the thing it replaced.
+
+**Genuinely non-ref-origin producers**, never expected to hold an association: structural
+CONTAINS/DEFINES (`generic.js:364-374`, `615-626`), `sweep.js:403`, `cmake.js:194-198`,
+`virtual_overrides.js:307-319`, and code-intel importer direct upserts such as `upsertLspEdge`
+(`code-intel/importer.js:841-887`), which synthesises an edge from a reference record and supplies no
+emitted address.
 
 ## The invariant (replacing "tied to generation")
 
@@ -196,14 +237,28 @@ its audit cannot support.
   can be true over legacy rows. **Measured:** an attested generation 2 carried an untouched edge at
   the same rowid from generation 1, with `skippedFileCount 0` and `processedFiles [src/a.js]`.
 - The governing schema/extractor version bumps so old manifests force `fullRebuild`.
-- **Skip or rollback ⇒ seal withheld.** `orchestrator.js:1010-1048` can publish status `ok` with files
-  skipped; a globally-complete seal cannot cover files nobody read.
+- **A rebuild that skips a source ⇒ NO SEAL ISSUED by that run.** `orchestrator.js:1010-1048` can
+  publish status `ok` with files skipped; a globally-complete seal cannot cover files nobody read.
+- **A rolled-back rebuild ⇒ no seal issued by that run either, and the PRIOR seal is untouched.**
 - ⛔ **An incremental that COMMITS a skipped source must REVOKE or downgrade the seal IN THE SAME
   TRANSACTION.** Withholding a new seal leaves the old one licensing an answer about unread files.
 - ⛔ **A ROLLED-BACK run must NOT revoke a valid old seal** — the old graph is unchanged and its seal
   still describes it. The manifest may separately report indexing until recovery, gating reads.
-- No seal, or an old one ⇒ **UNKNOWN and no percentage**, with the UNKNOWN denominator published
-  beside any figure.
+- No seal, or an **INVALID** one ⇒ **UNKNOWN and no percentage**, with the UNKNOWN denominator
+  published beside any figure.
+
+⚠ **"OLD SEAL" IS AMBIGUOUS AND THE AMBIGUITY IS DANGEROUS.** Two different things:
+
+| | meaning | effect |
+|---|---|---|
+| **INVALID seal** | obsolete governing schema/extractor version, or a receipt that does not verify | UNKNOWN, no percentage |
+| **still-valid PRIOR seal** | issued by a completed rebuild, and nothing since has invalidated it — including a rolled-back run | **remains in force** |
+
+⛔ **WITHHOLDING IS NOT REVOKING.** A run that issues no seal leaves whatever was there before. So a
+later incremental that COMMITS a previously skipped source must **actively REVOKE** in the same
+transaction — otherwise the prior seal keeps licensing an answer about files nobody read. And a
+rolled-back run must **NOT** revoke, because the graph it would have replaced is unchanged and its
+seal still describes it accurately.
 
 ## Population and transitions
 
@@ -255,7 +310,12 @@ green.** A raw `DELETE FROM edges` leaving its association behind violates (a), 
 1. legacy-attested DB + migration + unrelated incremental ⇒ legacy ref **UNKNOWN**, no percentage
 2. successful full rebuild ⇒ **seal present**, positive association
 3. then an unrelated incremental ⇒ old edge **and** address **still conserved**
-4. deliberate skipped source, and separately a rolled-back rebuild ⇒ **seal withheld** in both
+4. **split, because the single form contradicted the seal rule and a literal test of it would reject
+   correct behaviour:**
+   - 4a. rebuild with a deliberate skipped source ⇒ **no seal issued by that run**; and a later
+     incremental that COMMITS that source ⇒ prior seal **actively REVOKED in the same transaction**
+   - 4b. rolled-back rebuild ⇒ no seal issued by that run, and the **still-valid prior seal is
+     PRESERVED**; the manifest may separately gate reads until recovery
 5. planted edge removal vs planted association removal ⇒ **distinguishable**: named LOSS versus
    UNKNOWN, never conflated
 
