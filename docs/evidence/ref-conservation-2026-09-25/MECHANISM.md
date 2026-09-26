@@ -77,6 +77,88 @@ evidence to resolve against, so the caller edge does not form either. One deleti
 ⭐ That last refutation is the one that found the mechanism. The reproduction failed **because the repair
 fired**, and asking why it fired led to what it reads.
 
+## ⭐ INDEPENDENTLY WITNESSED, TWICE, ON A SUBSTRATE THIS PROJECT DID NOT BUILD
+
+Everything above was measured by this project's own instruments against its own graph. That is one
+instrument read twice. graph-senior-dev wrote their own eight-ref / five-file fixture and auditor and ran
+it in an isolated clone; both results below are **their reported results, which this project did not run**.
+
+**WITNESS 1 — the defect, against unmodified apg at `871a1d65`.** Baseline 8/8 refs had edges; after a real
+committed `innerTwo()` and an incremental refresh, 2/8 — three outer File IMPORTS and three outer symbol
+CALLS with neither an edge nor an `unresolved_refs` row; a full rebuild over the identical final tree
+recorded 8/8. Action control: generation 1→2, HEAD equal to the indexed commit, the new node present.
+Negative control in the same run: deleting one known-good edge from a disposable rebuilt DB moved exactly
+that ref to LOST, 7/8 retained — so the auditor was shown able to report ABSENT.
+
+**WITNESS 2 — the fix, as a differential in ONE run.** Their fixture run in a single Node process against
+fixed `72996bce` and against the exact parent orchestrator blob `835e97a5`, all other files matching, same
+baseline and edited git trees, separate disposable fixture DBs:
+
+| arm | baseline | after changing only inner.js |
+|---|---|---|
+| fixed `72996bce` | 8/8 | **8/8** |
+| reverted blob `835e97a5` | 8/8 | **2/8** (3 File IMPORTS + 3 symbol CALLS, zero unresolved) |
+| full same-tree rebuild | — | 8/8 |
+
+Both incremental arms advanced generation 1→2 and indexed `innerTwo`, so the action control holds in the
+arm that passed as well as the one that failed. The negative control again returned exactly 7/8.
+
+⭐ One run with the patch toggled is stronger than two runs of the same fixture, because no difference
+between two environments can explain the pass. This is the only evidence here that the FIX works which was
+not produced by the author of the fix.
+
+⚠ THEIR SCOPING, CARRIED VERBATIM RATHER THAN SUMMARISED. This supports the repair of **this specific
+synthetic class**. It does NOT support conservation for all refs, NOT the cause of the nine historical
+missing edges, and NOT a clean provenance certificate for existing indexes.
+
+⭐ PROVENANCE THAT SURVIVES, BECAUSE THE SUBJECT IS VERIFIABLE EVEN THOUGH THE SCRIPT IS NOT.
+Their two arms were not hand-written approximations of this project's code: they name the exact git BLOBS
+they ran. Verified here, in this repository, rather than taken on trust:
+
+    git rev-parse 72996bce:mcp/stdio/freshness/orchestrator.js  →  55d4b6d24a53889f4aa4c68925cf26de426de762
+    git rev-parse 871a1d65:mcp/stdio/freshness/orchestrator.js  →  835e97a58019d81e8328a462153414c8dec0cf62
+
+Both match what they reported (fixed `55d4b6d2`, reverted `835e97a5`), and they state that `mcp/stdio` and
+the package files outside the orchestrator did not differ between the two pinned clones. **A later reader can
+re-derive those two blob hashes from this repository at any time**, which is a durable anchor for WHAT was
+tested even though the instrument itself is not stored here.
+
+⚠ THE INSTRUMENT ITSELF IS NOT DURABLE EVIDENCE AND IS NOT CITED AS SUCH. Their scripts live outside this
+repository in a hermes cache directory, attested by SHA256: witness 1 output `fb904f47…a37b2f65`; witness 2
+script `ref-conservation-paired-20260926.mjs` `4aecd113…9c32b8d8` and its output `5d6313a7…95da3a4`.
+**A SHA256 attests integrity, not existence, and a cache has a deletion date** — their words, and the reason
+those hashes appear here as attribution rather than as a pointer a reader could follow. They have made no
+changes to this repository's tree.
+
+## The specification the across-a-run check has to meet
+
+Set by graph-senior-dev when granting permission to build on their fixture, and it is a harder bar than
+the point-in-time check already shipped at `25d8c342`:
+
+- **Distinguish a ref that SURVIVED unchanged from one whose source was intentionally removed or
+  retargeted.** A ref that is gone because the file legitimately stopped referencing it is not a loss, and
+  a check that cannot tell those apart reports noise or, worse, learns to ignore real losses.
+- **Fail OBSERVABLY on a planted lost surviving ref** — naming the file, relation and target, not merely
+  reporting that counts differ.
+- **Portable inputs.** Adapt the fixture into this repository's tree with their authorship stated for the
+  fixture and mine for the new instrument, carrying none of their cache paths.
+- **Commit the script and its actual output together** if the run is cited at all.
+
+## ⚠ THE COST CLAIM IS WEAKER THAN IT WAS FIRST WRITTEN
+
+`reproduction-output.txt` says the worst case is "bounded by what a full rebuild costs anyway". Two
+corrections, the second from graph-senior-dev's review:
+
+1. What is **structurally** bounded is the number of files re-extracted: the closure cannot exceed the
+   indexed file set, so it cannot re-extract more than a full rebuild does.
+2. **Wall clock is not bounded by that, and one measurement is not a general upper bound.** The 50,799 ms
+   against 48,935 ms pair is ONE hub file, on ONE repository, on ONE machine, in one run. A hub edit going
+   from roughly 8.6s to ~50s is a significant regression and needs its own representative performance
+   judgement rather than a single comparison. Recorded as an open cost question, not a settled trade.
+
+The suite-scale figure, measured here: 962.95s against 904.39s for the same suite before the closure,
++58.6s or about 6.5%.
+
 ## What this does NOT establish
 
 - **Which historical run performed step 2 without step 1.** The file has several sources for its
