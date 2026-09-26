@@ -1,0 +1,24 @@
+HELPER UNDER TEST: existsWithExactCase  [the fixed subject]
+SUBJECT: C:\Users\Administrator\AppData\Local\Temp\apg-path-normalisation-rAWtkT
+GROUND TRUTH readdir(src) = ["middle.js"]
+
+ARM 2 — INPUT INTEGRITY (does join() preserve the alias suffix?)
+  input="src/middle.js."   join_tail="\\src\\middle.js."  preserved=true   existsSync(join)=false  existsSync(concat)=false
+  input="src/middle.js "   join_tail="\\src\\middle.js "  preserved=true   existsSync(join)=false  existsSync(concat)=false
+  input="src/middle.js"    join_tail="\\src\\middle.js"   preserved=true   existsSync(join)=true   existsSync(concat)=true
+
+ARM 1 — ALIAS VECTORS (existsSync says present for a spelling readdir does not list)
+  "src/middle.js"    existsSync=true   exactCase=true    POSITIVE CONTROL — the real path
+  "src/nope.js"      existsSync=false  exactCase=false   NEGATIVE CONTROL — genuinely absent
+  "src/MIDDLE.js"    existsSync=true   exactCase=false  [ALIAS ACCEPTED BY existsSync, REJECTED BY FIX]  wrong case — the defect 27c5c422 fixed
+  "src/middle.js."   existsSync=false  exactCase=false   trailing DOT
+  "src/middle.js "   existsSync=false  exactCase=false   trailing SPACE
+  "LONGDI~1/f.js"    existsSync=true   exactCase=false  [ALIAS ACCEPTED BY existsSync, REJECTED BY FIX]  8.3 short name
+
+ARM 3 — LIVE FILES WITH ALIAS-SHAPED NAMES (a wrong FALSE here deletes real nodes)
+  readdir(src) now = ["dot.js.","middle.js","space.js "]
+  "dot.js."      inReaddir=true existsSync=true   exactCase=true   ok
+  "middle.js"    inReaddir=true existsSync=true   exactCase=true   ok
+  "space.js "    inReaddir=true existsSync=true   exactCase=true   ok
+
+VERDICT: 0 failures
