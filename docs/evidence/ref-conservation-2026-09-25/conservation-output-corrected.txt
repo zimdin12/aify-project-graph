@@ -1,0 +1,95 @@
+FRESHNESS: graph indexed at 8eb6b65b6f, HEAD 8eb6b65b6f, 3 uncommitted path(s) -> ⛔ DIRTY TREE — extraction reads files the graph never saw, so some losses below are unindexed edits (M docs/evidence/suite/latest.log, ?? docs/evidence/ref-conservation-2026-09-25/across-run-output.txt, ?? docs/evidence/ref-conservation-2026-09-25/conservation-output-corrected.txt)
+MANIFEST: generation 564, extractor 0.6.0, nodes 7834, edges 35496
+LAST INDEX RUN (the graph this figure describes was built by it):
+  indexedAt 2026-09-26T02:25:07.893Z
+  files the sweep saw 5351
+  status ok, skipped 0
+  ⚠ These describe the LAST run as a whole. They do not show that any particular file was re-extracted.
+RECORDED: 86176 keys from edges, 106211 including unresolved_refs, across 1552 source files
+POPULATION: 984 files the indexer's own enumeration would extract
+
+NEGATIVE CONTROL: fabricated target zzqNotARealSymbolHere -> MISSING, as it must be
+POSITIVE CONTROL: 43953 of 46651 emitted keys are recorded (94.22%)
+FILES: 984 extracted, 0 unreadable or failed
+⚠ NOT COUNTED AS LOSS — 0 file(s) emit refs but have NO recorded key at all (never processed, or wholly lost; this instrument cannot tell which)
+
+⚠ REPORTED SEPARATELY — 2663 emitted IMPORTS refs are the PER-BINDING refinement of an import whose MODULE edge WAS recorded. One uniform class, neither an edge nor a refusal row. NOT counted as loss, and NOT cleared either: see scripts/lib/ref-keys.mjs.
+    bin/aify-code-intel.js:4 -> mcp/stdio/code-intel/cli/code-intel-cmd.js.runCodeIntelCmd
+    bin/apg.js:2 -> mcp/stdio/code-intel/cli/code-intel-cmd.js.runCodeIntelCmd
+    launch-dash.mjs:1 -> mcp/stdio/storage/db.js.openExistingDb
+    launch-dash.mjs:2 -> mcp/stdio/dashboard/server.js.startDashboard
+    mcp/stdio/analysis/doc-links.js:47 -> mcp/stdio/storage/taxonomy.js.FILE_LEVEL_TYPES
+
+RESULT: 35 emitted ref keys, in files the pipeline demonstrably processed, are in NEITHER edges NOR unresolved_refs.
+
+BY RELATION:
+  IMPORTS        25
+  CALLS          10
+
+TOP FILES:
+      2  mcp/stdio/ingest/code-intel/schema.js
+      2  mcp/stdio/intelligence/overlays.js
+      2  tests/fixtures/identity-callers-js/src/callers.js
+      2  tests/fixtures/ingest/tiny-laravel-middleware/app/Http/Kernel.php
+      2  tests/fixtures/ingest/tiny-laravel-middleware-conflict/app/Http/Kernel.php
+      2  tests/fixtures/ingest/tiny-laravel-rich/app/Http/Controllers/UserController.php
+      2  tests/fixtures/integration/sample-project/src/main.py
+      2  tests/fixtures/linkage-scope/corpus/bundle.cpp
+      2  tests/unit/intelligence/validators.test.js
+      1  scripts/suite-receipt.mjs
+      1  tests/fixtures/code-intel/cpp-fixture-repo/src/bar.cpp
+      1  tests/fixtures/conditional-compilation/src/lib.cpp
+      1  tests/fixtures/identity-callers/src/widgets.cpp
+      1  tests/fixtures/identity-hostile/src/shapes.cpp
+      1  tests/fixtures/indirection-and-macros/src/main.cpp
+      1  tests/fixtures/ingest/tiny-cpp-methods/Foo.cpp
+      1  tests/fixtures/ingest/tiny-css/styles/app.css
+      1  tests/fixtures/ingest/tiny-glsl/shaders/triangle.vert
+      1  tests/fixtures/ingest/tiny-laravel/routes/web.php
+      1  tests/fixtures/ingest/tiny-laravel-rich/app/Services/Auth/TokenService.php
+      1  tests/fixtures/ingest/tiny-laravel-rich/routes/api.php
+      1  tests/fixtures/ingest/tiny-php/app.php
+      1  tests/fixtures/integration/sample-project/src/auth.py
+      1  tests/fixtures/integration/sample-project/tests/test_auth.py
+      1  tests/fixtures/linkage-scope/corpus/normalize.cpp
+
+LOST REFS, UP TO 40 PER RELATION:
+
+  CALLS — 10 lost:
+    mcp/stdio/ingest/code-intel/schema.js:220 -> validateV02Collection
+    mcp/stdio/ingest/code-intel/schema.js:221 -> validateV02Record
+    mcp/stdio/intelligence/overlays.js:50 -> validateSemantic
+    mcp/stdio/intelligence/overlays.js:63 -> validateArchitecture
+    scripts/suite-receipt.mjs:56 -> graphIdentityOf
+    tests/fixtures/code-intel/cpp-fixture-repo/src/bar.cpp:2 -> ns.foo
+    tests/fixtures/identity-callers-js/src/callers.js:8 -> AlphaWidget
+    tests/fixtures/identity-callers-js/src/callers.js:14 -> BetaWidget
+    tests/unit/intelligence/validators.test.js:65 -> validateSemantic
+    tests/unit/intelligence/validators.test.js:146 -> validateArchitecture
+
+  IMPORTS — 25 lost:
+    tests/fixtures/conditional-compilation/src/lib.cpp:1 -> lib.h
+    tests/fixtures/identity-callers/src/widgets.cpp:1 -> widgets.h
+    tests/fixtures/identity-hostile/src/shapes.cpp:1 -> shapes.h
+    tests/fixtures/indirection-and-macros/src/main.cpp:1 -> lib.h
+    tests/fixtures/ingest/tiny-cpp-methods/Foo.cpp:1 -> Foo.h
+    tests/fixtures/ingest/tiny-css/styles/app.css:1 -> base.css
+    tests/fixtures/ingest/tiny-glsl/shaders/triangle.vert:2 -> common.glsl
+    tests/fixtures/ingest/tiny-laravel/routes/web.php:3 -> App\Http\Controllers\HomeController
+    tests/fixtures/ingest/tiny-laravel-middleware/app/Http/Kernel.php:5 -> App\Http\Middleware\RequireToken
+    tests/fixtures/ingest/tiny-laravel-middleware/app/Http/Kernel.php:6 -> App\Http\Middleware\ThrottleNonIntrusive
+    tests/fixtures/ingest/tiny-laravel-middleware-conflict/app/Http/Kernel.php:5 -> App\Http\Middleware\RequireToken
+    tests/fixtures/ingest/tiny-laravel-middleware-conflict/app/Http/Kernel.php:6 -> App\Http\Middleware\ThrottleNonIntrusive
+    tests/fixtures/ingest/tiny-laravel-rich/app/Http/Controllers/UserController.php:5 -> App\Models\User
+    tests/fixtures/ingest/tiny-laravel-rich/app/Http/Controllers/UserController.php:6 -> App\Services\Auth\TokenService
+    tests/fixtures/ingest/tiny-laravel-rich/app/Services/Auth/TokenService.php:5 -> App\Models\User
+    tests/fixtures/ingest/tiny-laravel-rich/routes/api.php:3 -> App\Http\Controllers\UserController
+    tests/fixtures/ingest/tiny-php/app.php:2 -> App\Http\Controllers\HomeController
+    tests/fixtures/integration/sample-project/src/auth.py:1 -> src.db.find_token
+    tests/fixtures/integration/sample-project/src/main.py:1 -> src.auth.authenticate
+    tests/fixtures/integration/sample-project/src/main.py:2 -> src.db.get_user
+    tests/fixtures/integration/sample-project/tests/test_auth.py:1 -> src.auth.authenticate
+    tests/fixtures/linkage-scope/corpus/bundle.cpp:1 -> weights.cpp
+    tests/fixtures/linkage-scope/corpus/bundle.cpp:2 -> pipeline.cpp
+    tests/fixtures/linkage-scope/corpus/normalize.cpp:1 -> normalize.h
+    vitest.config.js:1 -> vitest/config

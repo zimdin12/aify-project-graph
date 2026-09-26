@@ -19,7 +19,8 @@ which is upstream of both builds. The invariant: a ref extraction emits must end
 |---|---|---|---|
 | 1 | `(file, line, relation)` over `SELECT DISTINCT file_path FROM nodes` | 65.20% | ⛔ population: nodes exist for files the pipeline never extracts refs from. `node_modules/typescript/lib/typescript.d.ts` alone contributed 3,359 phantom losses |
 | 2 | `(file, line, relation)` over the indexer's own enumeration | 68.59% | ⛔ key: `edges` is deduplicated on `(from_id, to_id, relation)` — 36,635 rows, 36,635 distinct triples, **max 1 distinct `source_line` per triple**. A symbol called from twenty lines of one file keeps one row, so nineteen "losses" are the key's fault |
-| 3 | `(file, relation, target-name)` over the indexer's own enumeration | **90.19%** | usable |
+| 3 | `(file, relation, target-name)` matched against `nodes.label` only | 90.19% | ⛔ **SUPERSEDED — see below.** An import's target is a repo-relative PATH and the File node's label is a basename, so no import could ever match. The paragraph below diagnosed this correctly and the figure shipped anyway, with a caveat instead of a fix |
+| 4 | the same, matched against **every form that addresses the node** — label, `file_path`, `file_path.label`, id | **94.22%** | usable; `scripts/lib/ref-keys.mjs`, corrected at `8eb6b65b` |
 
 ⭐ Both wrong versions produced a number that looked like a catastrophic defect. Neither was
 discovered by suspicion; both were caught by the positive control being implausible. **A 65% reading
@@ -33,6 +34,26 @@ path, the resolved node's label is a symbol, so they cannot match; the check doe
 IMPORTS and should not be read as if it did), **9 CONTAINS** in C++ fixtures, and **17 CALLS**. Of the
 17, thirteen are import aliases (`import { validate as validateSemantic }` — the ref carries the local
 name, the node carries the real one) and four are real.
+
+> ### ⛔ CORRECTION, 2026-09-26 at `8eb6b65b`. The diagnosis above was right and the response was wrong.
+>
+> The paragraph above identifies the cause of the 4,488 exactly. What it then does is **caveat the
+> number instead of fixing the key**. Version 4 fixes it: an emitted target is matched against every
+> form that addresses a node, derived from the row rather than listed per relation. The figure moves
+> **90.19% → 94.22%**, and separating one uniform class — the per-binding refinement of an import whose
+> module edge WAS recorded, 2,663 of them — takes the unexplained residue to **35** (IMPORTS 25,
+> CALLS 10). Raw: `conservation-output-corrected.txt`. ⚠ The two runs are not the same population, so no
+> subtraction between them is offered. ⚠ Widening a recorded set can only move conservation UP, so
+> 94.22% is evidence that a reported loss was an artifact, never evidence that conservation is good.
+>
+> ⭐ **THE LESSON, and it is why this correction is worth more than the number: a caveat travels less
+> far than the code it excuses.** Here the flaw was a visible over-count, and the caveat bounded it
+> honestly. When the same key was reused in `audit-ref-conservation-across-run.mjs`, the caveat did not
+> come with it — and the identical flaw became a **silent under-count**: a genuinely lost import was
+> classified "the source stopped referencing it", a false quiet in the one relation the incremental edge
+> loss primarily destroys. An over-count a reader can discount; a false quiet no reader can see. It was
+> caught only because that script plants a loss on an IMPORTS edge and requires it to be named (ARM C),
+> and ARM C failed on its first run. `ACROSS-RUN.md` has the case.
 
 ## 2. ⭐ THE CLASS, REPRODUCED AS A COMPARISON AT ONE COMMIT
 
