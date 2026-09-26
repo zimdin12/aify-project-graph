@@ -149,6 +149,29 @@ function generationOf(repo) {
 // ⚠ STATED LIMIT: a ref emitted at baseline but never recorded is EXCLUDED here. That is a
 // point-in-time loss and `audit-ref-conservation.mjs` is the check that owns it. This audit answers
 // "did a ref the graph held survive a run", and it would be dishonest to let it imply the other.
+//
+// ⛔⛔ STATED LIMIT 2 — THE CLASS THIS CHECK IS STRUCTURALLY BLIND TO: A REF THAT MOVED AND IS STILL
+// REPORTED CONSERVED. Named by dashboard-manager, 2026-09-26, and it is one class with two doors, not
+// two separate caveats:
+//
+//   (a) WRONG NODE, SHARED ADDRESS FORM. The recorded side keys on the resolved node's address forms
+//       (id, label, file_path, file_path.label). A repoint to a node sharing NO form falls out of the
+//       recorded set and IS reported LOST. But `label` is a BASENAME for File nodes, so a repoint to a
+//       DIFFERENT file with the SAME BASENAME keeps the key present and reads SURVIVED.
+//       Measured on this repo's graph 2026-09-26: 6307 distinct label strings, 541 naming more than one
+//       node. ⚠ That is a property of the LABEL DOMAIN, not a rate of refs at risk — different nouns,
+//       and the second has never been measured. Do not quote it as the second.
+//   (b) WRONG LINE, RIGHT NODE. `source_line` is not part of the key and is not compared, so a ref
+//       that moved to a different line of the correct node is conserved.
+//
+// ⇒ Both doors return "conserved" about a ref that DID move, which is why they belong together: this
+// check answers PRESENCE, never CORRECTNESS OF TARGET. It is not a rename-correctness check and must
+// never be cited as one.
+//
+// ⭐ AND THE REPORTING CONSEQUENCE, which is dashboard-manager's sharper point: A COUNT CANNOT EXPRESS
+// EITHER DOOR. If a rename path ever reports on this, PUBLISH THE SET — the named file/relation/target
+// rows — because a conserved-count is exactly the shape that hides a moved ref. The arms already name
+// their rows; a percentage alone (see FINDING.md's 94.22%) does not and should not be read as if it did.
 export function baselinePopulation({ emittedBefore, recordedBefore }) {
   const held = new Set();
   for (const key of emittedBefore) if (recordedBefore.has(key)) held.add(key);
