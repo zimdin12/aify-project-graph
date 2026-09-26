@@ -26,7 +26,9 @@ export const STASH_SEP = '|was:';
 The code-intel importer appends `|was:<provenance>:<extractor>:<confidence>` when it **promotes** a
 heuristic edge, so invalidation can later **restore** the original (`importer.js:349`, `:650`). It is a
 restoration stash. A row whose retained `extractor` carries that stash therefore compares **unequal**
-to the very same producer re-emitting the same triple.
+to an attempted row carrying **the same normalized label** — so the raw comparison reports a difference
+that the stash alone accounts for. ⚠ Deliberately *not* "the same producer": what those rows are is
+undetermined, for the reasons in *The correction has its own correction*.
 
 Counted over the 25 sample rows the file itself commits:
 
@@ -51,7 +53,7 @@ grep -oE 'retained \S+.*attempted \S+' producer-collision-output.txt \
 |---|---|
 | one edge can have two producers | **STANDS** — established by the REF/REF **source sites**, not by labels, and it is the whole justification for `PRODUCER_ID` |
 | "88 cross-**labelled** collision attempts" (the plan's wording) | **TRUE** — the labels did differ |
-| "88 CROSS-PRODUCER" (this file's wording) | ⛔ **FALSE** |
+| "88 CROSS-PRODUCER" (this file's wording) | ⛔ **MISLABELLED / UNSUPPORTED — not "false as a count".** The *classification* is wrong: the census had no access to producer identity, so it was not entitled to that noun. ⚠ The numerical proposition *"the true cross-producer count is 88"* has **not been disproved** — it is unknown, and 88 could coincidentally be right. Saying FALSE would assert the count is wrong, which nothing here shows |
 | the genuine cross-producer attempt count | ⛔ **UNKNOWN, with NO BOUND.** An earlier version of this note said "strictly < 88"; that followed only from reading label-equality as producer-sameness, and is **withdrawn** |
 | `source_file` equal 88 / unequal 0 | ⚠ **population misdefined** — it is a cross-**labelled** population, not a producer-level one. The zero is **not refuted**; no producer-level verdict may be drawn from it |
 
