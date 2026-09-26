@@ -1,0 +1,113 @@
+DETERMINISTIC REPRODUCTION OF THE INCREMENTAL EDGE LOSS, AND ITS REPAIR
+Instrument: parity-probe-that-REPRODUCED.mjs   Repo: aify-project-graph   2026-09-26
+
+Fixture: src/outerA.js, outerB.js, outerC.js each `import { middle } from './middle.js'`;
+         src/middle.js `import { inner } from './inner.js'`.   Three links, not two.
+History:  ONE structural change to src/inner.js (a second exported function), ONE commit.
+Arms:     A refreshes incrementally after the baseline and after the change.
+          B applies the same history with no indexing, then ONE forced rebuild.
+
+⚠ THE PROBE'S OWN VERDICT WORDING WAS WRITTEN AGAINST THE UNFIXED CODE. It prints
+"IDENTICAL — REFUTED, the expansion is deeper than one level". Before the fix that would have meant
+the hypothesis was wrong; after the fix it means the expansion IS deeper than one level, which is the
+repair working. Read the two runs below, not the label.
+
+════════════════════════════════════════════════════════════════════════════════════════
+RUN 1 — BEFORE THE FIX, at 871a1d65. one-level expandAffectedFiles.
+════════════════════════════════════════════════════════════════════════════════════════
+
+INCREMENTAL, at the baseline
+  IMPORTS (4):
+    src/middle.js -> src/inner.js
+    src/outerA.js -> src/middle.js
+    src/outerB.js -> src/middle.js
+    src/outerC.js -> src/middle.js
+  CALLS into middle/inner (4):
+    src/middle.js -> inner()
+    src/outerA.js -> middle()
+    src/outerB.js -> middle()
+    src/outerC.js -> middle()
+  unresolved rows mentioning middle: NONE — silent
+
+INCREMENTAL, after changing inner.js
+  IMPORTS (1):
+    src/middle.js -> src/inner.js
+  CALLS into middle/inner (1):
+    src/middle.js -> inner()
+  unresolved rows mentioning middle: NONE — silent
+
+FULL REBUILD of the same history
+  IMPORTS (4):
+    src/middle.js -> src/inner.js
+    src/outerA.js -> src/middle.js
+    src/outerB.js -> src/middle.js
+    src/outerC.js -> src/middle.js
+  CALLS into middle/inner (4):
+    src/middle.js -> inner()
+    src/outerA.js -> middle()
+    src/outerB.js -> middle()
+    src/outerC.js -> middle()
+  unresolved rows mentioning middle: NONE — silent
+
+VERDICT: REPRODUCED — the incremental graph is missing edges a rebuild has
+  MISSING IMPORTS: src/outerA.js -> src/middle.js
+  MISSING IMPORTS: src/outerB.js -> src/middle.js
+  MISSING IMPORTS: src/outerC.js -> src/middle.js
+  MISSING CALLS:   src/outerA.js -> middle()
+  MISSING CALLS:   src/outerB.js -> middle()
+  MISSING CALLS:   src/outerC.js -> middle()
+
+⇒ SIX edges destroyed by ONE ordinary commit, with NO unresolved_refs row. Baseline 4 IMPORTS and
+  4 CALLS; after, 1 and 1. The action control is the baseline arm: the same probe shows all four
+  present before the change, so the instrument can see these edges when they exist.
+
+════════════════════════════════════════════════════════════════════════════════════════
+RUN 2 — AFTER THE FIX, fixed-point expansion. Same probe, same fixture, same history.
+════════════════════════════════════════════════════════════════════════════════════════
+
+INCREMENTAL, after changing inner.js
+  IMPORTS (4):  middle->inner, outerA->middle, outerB->middle, outerC->middle
+  CALLS   (4):  middle->inner(), outerA->middle(), outerB->middle(), outerC->middle()
+
+FULL REBUILD of the same history
+  IMPORTS (4), CALLS (4) — the same eight.
+
+VERDICT: IDENTICAL. No edge is missing from the incremental graph.
+
+════════════════════════════════════════════════════════════════════════════════════════
+COST OF THE FIX, measured rather than estimated
+════════════════════════════════════════════════════════════════════════════════════════
+
+closure-cost.py, on this repository's own graph (1934 files with nodes, 914 of them code),
+40 code files sampled, seed 20260926 — one-level expansion against the fixed point:
+
+  one-level:   median 2, mean 5.2, max 33
+  fixed-point: median 4, mean 373.0, max 1047      (54.1% of all files with nodes)
+  files where the closure adds NOTHING: 20 of 40
+
+So the distribution is bimodal: half of all edits cost nothing extra, and an edit to a file deep in
+the import graph pulls in roughly half the repository.
+
+Wall clock in a disposable worktree, same machine, same commit:
+
+  FULL REBUILD (force)                              48,935 ms
+  INCREMENTAL of a hub file WITH the closure        50,799 ms
+
+⇒ THE WORST CASE IS BOUNDED BY WHAT A FULL REBUILD COSTS ANYWAY. A hub-file edit goes from roughly
+  8.6s (the post-commit reindex times in .aify-graph/hook.log) to ~50s; a median edit is unchanged.
+  Paying a full rebuild's cost on hub edits is the price of not silently deleting edges that license
+  a delete.
+
+⚠ A CHEAPER DESIGN EXISTS AND IS NOT BUILT. Instead of re-extracting every transitive owner, capture
+  the incoming edges before the cascade and RESTORE the ones whose target still exists afterwards,
+  writing an unresolved_refs row for the ones whose target genuinely vanished. That is O(incoming
+  edges) rather than O(transitive closure), and it would also make the vanishing case loud instead of
+  silent. It is recorded here rather than built because it needs the per-file node pipeline to expose
+  a post-flush hook, and shipping the correct-but-slow version first is the safer order.
+
+⛔ AND THE HALF THIS FIX DOES NOT ADDRESS: every graph built before it is already missing edges, and
+  such a graph cannot tell you so — the loss is self-concealing. Only a full rebuild repairs one, and
+  nothing marks one as needing that. A possibly-lossy flag, persisted on the committed generation and
+  cleared only by a full rebuild, with a missing flag reading UNKNOWN rather than clean, is the
+  outstanding piece. Raised by dashboard-manager; the legacy gate was independently flagged by
+  graph-senior-dev.

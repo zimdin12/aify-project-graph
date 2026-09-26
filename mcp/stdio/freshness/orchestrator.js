@@ -1305,11 +1305,48 @@ async function classifyChangedFile({ db, repoRoot, relPath, storedFp }) {
   return freshFp === storedFp ? 'cosmetic' : 'structural';
 }
 
+// ⛔⛔ THE EXPANSION MUST BE DELETION-CLOSED, NOT ONE LEVEL DEEP.
+//
+// This function decides which files get re-extracted, by reading the edges that point INTO the
+// changed file. `deleteNodesForFile` → `deleteNode` then runs
+// `DELETE FROM edges WHERE from_id = $id OR to_id = $id` on every file it re-extracts. So the set
+// this function returns is also the set whose incoming edges are about to be destroyed, and every
+// file it returns needs ITS owners re-extracted too — otherwise their edges are deleted and nothing
+// rebuilds them.
+//
+// One level was not enough, and the failure is ordinary rather than exotic. outer → middle → inner:
+// change `inner.js`, the expansion names `middle.js`, re-extracting `middle.js` destroys the three
+// `outer` files' IMPORTS and CALLS into it, and the outer files were never named. Measured before
+// this fix: 3 IMPORTS + 3 CALLS silently gone, no `unresolved_refs` row, and a forced rebuild of the
+// same history holding all of them. On this repository the residue was 9 missing IMPORTS edges, two
+// target files having lost 100% of their incoming ones.
+//
+// ⚠ AND THE LOSS CONCEALED ITSELF: once the edges were gone this function could no longer see the
+// dependency, so the owner was never named again and nothing regenerated the edge unless that file
+// changed for its own reasons. A single miss was permanent.
+//
+// So: a FIXED POINT over the OLD graph, computed before the first deletion. `mcp/stdio/storage/nodes.js`
+// keeps the `to_id` half of the cascade — dropping it would leave edges pointing at deleted nodes,
+// which is a worse failure than a missing edge.
+//
+// Mechanism and measurements: docs/evidence/ref-conservation-2026-09-25/MECHANISM.md
+// Closure correction: graph-senior-dev's review, 2026-09-26 — pre-deletion capture of only the
+// originally-changed files is what the one-level version already did.
 async function expandAffectedFiles(db, repoRoot, changedFiles) {
   const affected = new Set();
-
-  for (const filePath of changedFiles) {
+  // A worklist rather than a single pass. Bounded by the number of files in the graph, because a
+  // file is enqueued only on the transition into `affected` and `affected` never shrinks.
+  const queue = [];
+  const enqueue = (filePath) => {
+    if (affected.has(filePath)) return;
     affected.add(filePath);
+    queue.push(filePath);
+  };
+
+  for (const filePath of changedFiles) enqueue(filePath);
+
+  while (queue.length > 0) {
+    const filePath = queue.shift();
 
     const existingNodes = getNodesByFile(db, filePath);
     if (existingNodes.length === 0) {
@@ -1329,7 +1366,8 @@ async function expandAffectedFiles(db, repoRoot, changedFiles) {
 
     for (const caller of callers) {
       if (caller.source_file && existsSync(join(repoRoot, caller.source_file))) {
-        affected.add(caller.source_file);
+        // enqueue, not add: this owner's own incoming edges are about to be destroyed too.
+        enqueue(caller.source_file);
       }
     }
   }

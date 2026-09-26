@@ -62,6 +62,25 @@ async function step0(repo) {
   await writeFile(join(repo, 'src', 'beta.js'), 'export function beta() { return 2; }\n');
   await writeFile(join(repo, 'src', 'doomed.js'), 'export function doomed() { return 3; }\n');
   await writeFile(join(repo, 'src', 'oldname.js'), 'export function renamedMe() { return 4; }\n');
+
+  // ⭐ A THREE-LINK IMPORT CHAIN — outer → middle → inner.
+  //
+  // Added 2026-09-26 because this oracle was GREEN while the real repo was missing 9 IMPORTS
+  // edges a rebuild had. Its reach was the problem, not its logic: every earlier history step
+  // is TWO links, and two links are exactly what the repair covers.
+  // `expandAffectedFiles` pulls in the DIRECT dependents of a changed file, so with two links
+  // the file that owns the incoming edge is always re-extracted and its edge comes back. At
+  // three links the middle file is re-extracted as a dependent, `deleteNode` destroys the outer
+  // files' edges into it, and the outer files were never expanded.
+  // Mechanism: docs/evidence/ref-conservation-2026-09-25/MECHANISM.md
+  await writeFile(join(repo, 'src', 'inner.js'), 'export function inner() { return 5; }\n');
+  await writeFile(join(repo, 'src', 'middle.js'),
+    "import { inner } from './inner.js';\nexport function middle() { return inner() + 1; }\n");
+  // Three outer files, so one flaky result cannot be mistaken for the pattern.
+  for (const name of ['outerA', 'outerB', 'outerC']) {
+    await writeFile(join(repo, 'src', `${name}.js`),
+      `import { middle } from './middle.js';\nexport function ${name}() { return middle() + 1; }\n`);
+  }
   await commitAll(repo, 'baseline');
 }
 
@@ -89,6 +108,16 @@ const HISTORY = [
     await writeFile(join(repo, 'src', 'newname.js'), 'export function renamedMe() { return 4; }\n');
     await unlink(join(repo, 'src', 'oldname.js'));
     await commitAll(repo, 'rename oldname → newname');
+  },
+  // 5. ⭐ TRANSITIVE: change the INNERMOST file of the three-link chain, and nothing else.
+  //    outer → middle → inner. Only `inner.js` changes, so the expansion names `middle.js`;
+  //    re-extracting `middle.js` deletes every edge pointing INTO it, including the three
+  //    outer imports and calls, and the outer files are never re-extracted to rebuild them.
+  //    Measured before the fix: 3 IMPORTS and 3 CALLS lost, with NO unresolved_refs row.
+  async (repo) => {
+    await writeFile(join(repo, 'src', 'inner.js'),
+      'export function inner() { return 5; }\n\nexport function innerTwo() { return 6; }\n');
+    await commitAll(repo, 'structural change to inner.js — transitive dependents must survive');
   },
 ];
 
