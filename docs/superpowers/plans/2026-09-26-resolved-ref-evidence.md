@@ -1,7 +1,7 @@
 # Plan: resolved-ref evidence, so conservation stops being reconstructed
 
 **Status:** ⛔ **A RECORD OF DECISIONS AND OPEN CONTROLS — NOT AN APPROVED PLAN, AND NOT PERMISSION TO
-WRITE DDL.** Revision 9, 2026-09-26. Nothing is implemented. **Every control here is UNRUN and its
+WRITE DDL.** Revision 10, 2026-09-26. Nothing is implemented. **Every control here is UNRUN and its
 outcome is UNKNOWN.** The point-in-time binding class count and its residue remain **HELD**, and the
 88/0 producer-collision census **cannot be independently rederived** from what is committed.
 
@@ -321,6 +321,35 @@ limb legitimately fires on the same planted state — control 5a below trips (b)
 A checker that short-circuits on the first failure would let 5a's limb-specific assertion pass or
 fail for the wrong reason, which is the defect this plan has now produced three times.
 
+⛔⛔ **LIMB (f) IS BOUNDED TO ZERO-LINK CORRUPTION. IT DOES NOT CONSERVE PRODUCER/ADDRESS LINKS, AND
+REVISION 9 IMPLIED THAT IT DID.** (f) says a contribution has **some** link. It cannot say a
+contribution still has a link for **each address it emitted**. graph-senior-dev's counterexample,
+built from two facts this document already establishes — edge-to-specifier is many-to-one (`:75`) and
+the LINK key `(contribution, address)` lets one contribution link several addresses (`:247`):
+
+> `P` emits `A` and `B`; `Q` also emits `B`. Links `P→A`, `P→B`, `Q→B`. **Delete `P→B` alone.**
+> `P` keeps `P→A` so (f) passes; `B` keeps `Q→B` so (d) passes; (a), (b), (c) and (e) are untouched.
+> **All seven limbs pass and `P`'s provenance for `B` is gone.**
+
+⇒ **Recorded as UNKNOWN, not as covered.** The partial-link case is **not detected by the preflight**
+and cannot be, because detecting it needs the **expected set** of producer/address pairs — which the
+store does not hold. It requires an independent comparison against the pairs extraction actually
+emitted. Until such a comparison exists and is controlled, no figure from these limbs may be
+described as conserving every producer/address link. ⚠ graph-senior-dev does not claim this composite
+occurs naturally in this corpus, and neither does this document; it is unmeasured either way.
+
+⭐⭐⭐ **THE SHAPE, FOR THE FIFTH TIME, AND IT IS NOW THE DOCUMENT'S MAIN FINDING ABOUT ITS OWN
+DESIGN: AN EXISTENTIAL OBLIGATION CANNOT DETECT THE LOSS OF ONE MEMBER OF A SET.** Limb (d) is
+"≥ 1 link per address". Limb (f) is "≥ 1 link per contribution". **Both are `≥ 1`, and in both the
+surviving member satisfies the obligation on behalf of the lost one** — which is the alternate
+satisfier that every defect in this arc has turned out to be. Adding (f) to close (d)'s blind spot
+reproduced the blind spot one level along, because it was written in the same existential form.
+
+⇒ **A `≥ 1` check is a ZERO-DETECTOR, never a SET-CONSERVER.** To conserve a set you must compare
+against the set's expected membership, and that membership always comes from **outside** the store.
+Any future limb of the form "has at least one X" should be assumed to carry this hole until someone
+names the set it is checked against.
+
 The audit runs these as a **precondition** and REFUSES, naming the limb, rather than reporting a
 figure over a broken store.
 
@@ -381,19 +410,34 @@ freezing its source.
 | remove one contributor, other still emitting | unchanged | **CONSERVED**, still one address |
 | supported deletion of edge + records | **bytes frozen, ref population asserted unchanged** | **ONE** candidate loss, NAMED |
 | source edit removing the `#include` | import deleted | **NONE** named — **AND** the recorded key is **absent post-edit**, **AND** the classifier returns REMOVED_AT_SOURCE |
-| **5th, revision 9: `Q→A` link deleted, THEN `P` reindexed** | **both still emit `common.glsl`** | **step 1:** preflight **REFUSES naming (f)** before any reindex runs. **step 2, if the reindex is forced past it:** `A` must **still exist**, because `Q` emits it — an `A` deleted here is the two-step producer-link loss, NOT a legitimate cleanup |
+| **5th, rev 9, respecced in rev 10: `Q→A` link deleted, THEN `P` reindexed** | **both still emit `common.glsl`** | **5th-a PROTECTED PATH:** preflight **REFUSES naming (f)**, and `A` is **still present and untouched** — the refusal must not itself mutate anything. **5th-b DELIBERATELY BYPASSED PATH:** the reindex is forced past the guard and `A` **IS DELETED** — the witnessed harm, which is the whole reason (f) exists |
 
 Both insert orders for the two producers. The fourth arm is the negative control that proves the
 third is not simply a check that shouts whenever a record disappears. The denominator counts
 **addresses** and never producers, so producer count cannot move it.
 
-⛔ **THE FIFTH ARM IS THE ONLY ONE THAT EXERCISES THE CONSEQUENCE, AND IT IS NOT REDUNDANT WITH LIMB
-(f).** (f) catches the *state* — a contribution with no link — at the next preflight. The fifth arm
-asks the separate question of whether that state, if it survives a preflight, **destroys an address
-a live producer is still emitting**. Step 1 and step 2 fail differently: a checker that never runs
-(f) passes step 1 by silence, so step 2 forces the reindex anyway and asserts on `A` itself. ⚠ Both
-steps required — step 1 alone would be satisfied by a refusal for any reason, and step 2 alone
-cannot tell a missing guard from a working one that simply was not reached.
+⛔ **REVISION 9 WROTE THIS ARM EXPECTING THE OPPOSITE OUTCOME, AND ITS TWO HALVES CONTRADICTED EACH
+OTHER.** It demanded "`A` must still exist" after a forced bypass while the prose said the arm tests
+whether that state **destroys** `A`. Those are opposite acceptance conditions, and the writer
+contract settles which is real: once `Q→A` is deleted, `P→A` is the **last stored link**, so *last
+link removed ⇒ delete the address* means a bypassed reindex **does** delete `A`. Requiring `A` to
+survive demanded the opposite of what the specified writer does — an unsupported acceptance
+condition, not a discriminator. Found by graph-senior-dev.
+
+⇒ **The two paths are now separate arms with OPPOSITE expectations, which is what makes them a
+discriminator at all:**
+
+- **5th-a, the protected path.** The guard runs, refuses naming (f), **and leaves `A` present and
+  untouched.** The "untouched" half earns its place: a guard that refuses *and* mutates is not a
+  guard.
+- **5th-b, the deliberate bypass.** `A` **is deleted**, and that deletion is the **witnessed harm** —
+  the evidence that (f) is load-bearing rather than decorative. A bypass that left `A` intact would
+  mean the guard had never been protecting anything.
+
+⚠ **`A` surviving a bypass would require a named repair mechanism — re-extracting `Q` and restoring
+its link — which does NOT exist and is NOT specified here.** Revision 9 implicitly assumed one. If it
+is ever wanted, it is a separate requirement with its own controls, never something a bypass arm may
+quietly expect.
 
 ⛔ **WHY THE FOURTH ARM NEEDS ALL THREE ASSERTIONS, AND WHY "NONE NAMED" ALONE IS A FALSE PASS.**
 Revision 7 wrote this arm as "NONE named — REMOVED_AT_SOURCE" without requiring that the store
