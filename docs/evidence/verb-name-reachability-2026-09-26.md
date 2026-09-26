@@ -58,9 +58,55 @@ that zero mean something, and no guard. If a real instance ever appears, this no
 its two known false-positive shapes already are, and the shape to fix first is the regex rather than the
 prose.
 
-⚠ **What this does NOT cover.** It checks that a named verb EXISTS, never that it is REACHABLE. A verb
-can exist and still be unlistable — `mcp/stdio/hidden-tools.js` hides names from `tools/list`, and a host
-that defers MCP tools behind a search step cannot reach an unlisted one. `server-instructions.js` already
-carries that warning about `graph_report` specifically, which is a stronger failure than a wrong name and
-is not what this probe measures. **Existence and reachability are separate questions and this answers only
-the first.**
+## Part 2: reachability — the limit above, DISCHARGED rather than left as a note
+
+The first version of this note said existence and reachability are separate questions and that only the
+first was answered. Leaving that as prose would be the fourth undischarged hazard in this arc, so it was
+measured. `docs/evidence/curated-name-parity.mjs`, output in `curated-name-parity-output.txt`.
+
+**Prompted by dashboard-manager's second arm:** their bridge conformance test CALLS every advertised name
+through a third-party MCP client and asserts none answers "no such tool" — and they found that a
+comparison written first stayed green under a planted rename, because both sides read the same array.
+
+**That arm is UNREACHABLE here, and only reading the code earns the right to say so:**
+
+- `server.js:575` dispatches via `ACTIVE_TOOLS.find(t => t.name === name)`.
+- `tools/list` is built from `selectListedTools(...)`, which is `TOOLS.filter(...)` in **every** branch —
+  lean, code-intel and full. A filter of the same array, never a parallel list of names. All three read.
+- all 43 registry entries carry `handler`, and `typeof handler === 'function'` for all 43.
+
+⇒ A listed name always resolves to a callable handler, so "a listed tool answers no-such-tool" is
+unreachable, and an arm for it would test a case nothing can produce.
+
+## ⭐ But chasing it found the one place this build CAN fail silently
+
+`selectListedTools` filters `TOOLS` against **hand-maintained Sets of NAME STRINGS**. A misspelled name in
+one of those Sets is not an error: the filter drops it, the profile advertises fewer verbs than intended,
+and **nothing says so.** AGENTS.md claims lean shows 6 — a typo would make it 5, quietly.
+
+⇒ **The general class, which is the transferable part: a curated set of name strings filtered against a
+registry fails SILENTLY on a typo.** It is a different shape from a wrong name in prose, which fails
+loudly at the call site. This one fails as a verb quietly absent from a profile.
+
+| curated set | names | absent from `TOOLS` |
+|---|---|---|
+| `LEAN_TOOL_NAMES` | 6 | **0** |
+| `CODE_INTEL_TOOL_NAMES` | 11 | **0** |
+| `MUTATING_TOOLS` | 14 | **0** |
+| `HIDDEN_FULL_TOOL_NAMES` | 11 | **0** |
+
+Lean's 6 matches AGENTS.md's stated 6. Controls: a known name present, a fabricated name absent, and — the
+one that matters — **a set whose extraction found NOTHING is reported as "NOT a pass"**, because a regex
+that matched nothing and four genuinely clean sets look identical.
+
+⚠ **THE DEPENDENCY, named at the finding rather than in a plan.** All of Part 2 rests on LISTED being a
+FILTER of `TOOLS`. If the listed set is ever built from a separate constant, the unreachability argument
+collapses, dashboard-manager's arm (a) becomes worth building immediately, and this measurement expires.
+That is the same shape as a cascade behind `foreign_keys = OFF`: a structural guarantee is only as good as
+the structure, so the structure is what gets re-read.
+
+⚠ Still not covered, and now the only open half: a verb can exist, be callable, and still be **unlistable**
+— `hidden-tools.js` hides names from `tools/list`, and a host deferring MCP tools behind a search step
+cannot reach an unlisted one. `remedy-reachability.test.js` already enforces the related rule mechanically
+("a LISTED verb must not name an UNLISTED one"), and `server-instructions.js` carries that warning about
+`graph_report`. So this half has a guard; it simply is not this probe's.

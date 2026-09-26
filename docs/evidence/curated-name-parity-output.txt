@@ -1,0 +1,10 @@
+registry: 43 tool names
+  ok LEAN_TOOL_NAMES          names   6  absent-from-TOOLS 0
+  ok CODE_INTEL_TOOL_NAMES    names  11  absent-from-TOOLS 0
+  ok MUTATING_TOOLS           names  14  absent-from-TOOLS 0
+  ok HIDDEN_FULL_TOOL_NAMES   names  11  absent-from-TOOLS 0
+
+TOTAL curated names absent from TOOLS: 0
+POSITIVE CONTROL  every set extracted at least one name: true
+POSITIVE CONTROL  a known real name is in the registry: true
+NEGATIVE CONTROL  a fabricated name reports absent: true
