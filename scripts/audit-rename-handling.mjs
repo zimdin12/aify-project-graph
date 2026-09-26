@@ -289,6 +289,92 @@ results.push(await runArm({
     commitAll(repo, 'case-only rename of the parent directory');
   },
 }));
+// ⛔⛔ ARM G: SAME-BASENAME COLLISION — THE CASE EVERY OTHER ARM IN THIS FILE IS BLIND TO.
+//
+// Named by dashboard-manager, 2026-09-26, by reading forward a limit I had volunteered about the
+// CONSERVATION check: a ref repointed to a DIFFERENT file with the SAME BASENAME reads "conserved",
+// because `label` is a basename and a basename is an accepted address form. Their step was to point
+// that at THIS file's corpus, and it lands:
+//
+//   ⛔ EVERY FIXTURE FILE ABOVE LIVES IN `src/` WITH A UNIQUE NAME. A corpus of uniquely-named files
+//      CANNOT DISTINGUISH "repointed correctly" from "repointed to the other one", so a green over it
+//      is SILENCE, NOT EVIDENCE. Same shape as the six arms with no file-as-parent-segment, which is
+//      how `path-exists.js` came to describe a load-bearing premise as an optimisation.
+//
+// ⚠ AND THE SHARPER HALF, which is mine and is worse than the fixture gap. Arms A-F compare the
+// incremental pair list against a FORCED REBUILD's pair list. That is a DIFFERENTIAL BETWEEN TWO CODE
+// PATHS, not a check against ground truth: if resolution picks the wrong same-named file, BOTH paths
+// pick it identically, `missing` is empty, and the arm is green. So this arm asserts the ABSOLUTE
+// expected pairs and never an agreement.
+//
+// ⇒ AND THE PROHIBITION THAT FOLLOWS, written here because the next person will be tempted:
+//   CONSERVATION MUST NEVER BE USED AS THE "NOTHING WAS LOST" HALF OF A RENAME ARM. A rename that
+//   repoints a ref to the wrong same-named file is precisely the case conservation calls conserved, so
+//   leaning on it would mean leaning on the one instrument blind to the failure renames introduce.
+//   This file imports nothing from the conservation audit today (verified: 0 references) and must not.
+async function runSameBasenameArm() {
+  const repo = await mkdtemp(path.join(tmpdir(), 'apg-basename-'));
+  try {
+    await mkdir(path.join(repo, 'src', 'a'), { recursive: true });
+    await mkdir(path.join(repo, 'src', 'b'), { recursive: true });
+    git(repo, 'init', '-q');
+    git(repo, 'config', 'user.name', 'rename-audit');
+    git(repo, 'config', 'user.email', 'rename-audit@example.invalid');
+    await writeFile(path.join(repo, '.gitignore'), '.aify-graph/\n');
+    // TWO files with the SAME BASENAME in DIFFERENT directories. This is the whole point of the arm.
+    await writeFile(path.join(repo, 'src', 'a', 'shared.js'), 'export function shared() { return 1; }\n');
+    await writeFile(path.join(repo, 'src', 'b', 'shared.js'), 'export function shared() { return 2; }\n');
+    await writeFile(path.join(repo, 'src', 'refA.js'),
+      "import { shared } from './a/shared.js';\nexport function refA() { return shared(); }\n");
+    await writeFile(path.join(repo, 'src', 'refB.js'),
+      "import { shared } from './b/shared.js';\nexport function refB() { return shared(); }\n");
+    commitAll(repo, 'baseline: refA -> a/shared.js, refB -> b/shared.js');
+    await ensureFresh({ repoRoot: repo });
+
+    const WANT_A = 'src/refA.js -> src/a/shared.js';
+    const WANT_B = 'src/refB.js -> src/b/shared.js';
+    const base = importsIn(dbOf(repo));
+
+    console.log(`\n${'='.repeat(94)}\nARM G: same-basename collision — a COUNT and a DIFFERENTIAL are both blind here\n${'='.repeat(94)}`);
+    console.log(`  baseline pairs: ${JSON.stringify(base)}`);
+    // POSITIVE CONTROL: the instrument can say CORRECT, against ground truth rather than a rebuild.
+    const baseOk = base.includes(WANT_A) && base.includes(WANT_B);
+    console.log(`  POSITIVE  both absolute pairs present at baseline: ${baseOk ? 'YES' : '⛔ NO — every verdict below is void'}`);
+
+    // ⭐ THE PLANT, IN THE ARTIFACT THE CHECK READS: repoint refA's IMPORTS edge at the OTHER
+    // same-named file. This is what a resolver picking the wrong sibling would leave behind.
+    const db = openDb(dbOf(repo));
+    let planted = false;
+    try {
+      const other = db.get("SELECT id FROM nodes WHERE file_path = 'src/b/shared.js' AND type = 'File'");
+      const edge = db.get("SELECT from_id, to_id, relation FROM edges WHERE source_file = 'src/refA.js' AND relation = 'IMPORTS'");
+      if (other && edge) {
+        db.run('UPDATE edges SET to_id = $to WHERE from_id = $f AND to_id = $t AND relation = $r',
+          { to: other.id, f: edge.from_id, t: edge.to_id, r: edge.relation });
+        planted = true;
+      }
+    } finally {
+      db.close();
+    }
+    // ⛔ A PLANT THAT PLANTED NOTHING CANNOT REPORT A GREEN.
+    console.log(`  PLANT     repointed refA's IMPORTS edge at src/b/shared.js: ${planted ? 'done' : '⛔ FAILED — nothing to repoint, arm is void'}`);
+
+    const after = importsIn(dbOf(repo));
+    // ⭐ THE DISCRIMINATING CONTROL, and the reason this arm exists rather than a count assertion:
+    // the COUNT is unchanged by a mis-repoint, so a count cannot see it. The PAIR SET is not.
+    const countBlind = after.length === base.length;
+    const pairsSaw = !after.includes(WANT_A) && after.includes('src/refA.js -> src/b/shared.js');
+    console.log(`  COUNT     ${base.length} -> ${after.length}: ${countBlind ? 'UNCHANGED — a count is structurally blind to this' : '⛔ changed, so this arm is not testing what it claims'}`);
+    console.log(`  PAIRS     wrong pairing named: ${pairsSaw ? 'YES — src/refA.js -> src/b/shared.js' : '⛔ NO — the pair check cannot see a mis-repoint either'}`);
+
+    const ok = baseOk && planted && countBlind && pairsSaw;
+    console.log(`\n  =>  ${ok ? 'ARM G PASSES — absolute pairs catch what the count and the rebuild-differential miss' : '⛔ ARM G FAILS'}`);
+    return { name: 'G', ok };
+  } finally {
+    await rm(repo, { recursive: true, force: true });
+  }
+}
+results.push(await runSameBasenameArm());
 results.push(await runDetectorControl());
 
 console.log(`\n${'='.repeat(94)}\nVERDICT\n${'='.repeat(94)}`);

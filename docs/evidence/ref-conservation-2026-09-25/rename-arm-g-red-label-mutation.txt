@@ -1,0 +1,113 @@
+
+==============================================================================================
+ARM A: rename + importers updated — the ordinary case
+==============================================================================================
+  CONTROLS FIRST:
+    BASELINE   4 IMPORTS before the rename (4, as the fixture defines)
+    BASELINE   phantoms before the rename: none, as it must be
+
+  incremental IMPORTS (4): ["src/core.js -> inner.js","src/outerA.js -> core.js","src/outerB.js -> core.js","src/outerC.js -> core.js"]
+  rebuild     IMPORTS (4): ["src/core.js -> inner.js","src/outerA.js -> core.js","src/outerB.js -> core.js","src/outerC.js -> core.js"]
+  unresolved  (0): none
+  ⛔ PHANTOM file_paths after the run (exact-case, computed independently): NONE
+  in rebuild but not incremental: []
+  in incremental but not rebuild: []
+
+  EXPECTED 4 IMPORTS and 0 unresolved, GOT 4 and 0  =>  ARM A PASSES
+
+==============================================================================================
+ARM B: rename, importers left BROKEN — must be refused loudly, never silently dropped
+==============================================================================================
+  CONTROLS FIRST:
+    BASELINE   4 IMPORTS before the rename (4, as the fixture defines)
+    BASELINE   phantoms before the rename: none, as it must be
+
+  incremental IMPORTS (1): ["src/core.js -> inner.js"]
+  rebuild     IMPORTS (1): ["src/core.js -> inner.js"]
+  unresolved  (6): ["src/outerA.js IMPORTS src/middle.js","src/outerA.js IMPORTS src/middle.js.middle","src/outerB.js IMPORTS src/middle.js","src/outerB.js IMPORTS src/middle.js.middle","src/outerC.js IMPORTS src/middle.js","src/outerC.js IMPORTS src/middle.js.middle"]
+  ⛔ PHANTOM file_paths after the run (exact-case, computed independently): NONE
+  in rebuild but not incremental: []
+  in incremental but not rebuild: []
+
+  EXPECTED 1 IMPORTS and 6 unresolved, GOT 1 and 6  =>  ARM B PASSES
+
+==============================================================================================
+ARM C: CASE-ONLY rename middle.js -> Middle.js — the defect this audit was written for
+==============================================================================================
+  CONTROLS FIRST:
+    BASELINE   4 IMPORTS before the rename (4, as the fixture defines)
+    BASELINE   phantoms before the rename: none, as it must be
+
+  incremental IMPORTS (4): ["src/Middle.js -> inner.js","src/outerA.js -> Middle.js","src/outerB.js -> Middle.js","src/outerC.js -> Middle.js"]
+  rebuild     IMPORTS (4): ["src/Middle.js -> inner.js","src/outerA.js -> Middle.js","src/outerB.js -> Middle.js","src/outerC.js -> Middle.js"]
+  unresolved  (0): none
+  ⛔ PHANTOM file_paths after the run (exact-case, computed independently): NONE
+  in rebuild but not incremental: []
+  in incremental but not rebuild: []
+
+  EXPECTED 4 IMPORTS and 0 unresolved, GOT 4 and 0  =>  ARM C PASSES
+
+==============================================================================================
+ARM D: rename + rewrite in one commit, which defeats git rename detection
+==============================================================================================
+  CONTROLS FIRST:
+    BASELINE   4 IMPORTS before the rename (4, as the fixture defines)
+    BASELINE   phantoms before the rename: none, as it must be
+
+  incremental IMPORTS (4): ["src/core.js -> inner.js","src/outerA.js -> core.js","src/outerB.js -> core.js","src/outerC.js -> core.js"]
+  rebuild     IMPORTS (4): ["src/core.js -> inner.js","src/outerA.js -> core.js","src/outerB.js -> core.js","src/outerC.js -> core.js"]
+  unresolved  (0): none
+  ⛔ PHANTOM file_paths after the run (exact-case, computed independently): NONE
+  in rebuild but not incremental: []
+  in incremental but not rebuild: []
+
+  EXPECTED 4 IMPORTS and 0 unresolved, GOT 4 and 0  =>  ARM D PASSES
+
+==============================================================================================
+ARM F: CASE-ONLY rename of a PARENT DIRECTORY src/ -> Src/ (graph-senior-dev, executed)
+==============================================================================================
+  CONTROLS FIRST:
+    BASELINE   4 IMPORTS before the rename (4, as the fixture defines)
+    BASELINE   phantoms before the rename: none, as it must be
+
+  incremental IMPORTS (4): ["Src/middle.js -> inner.js","Src/outerA.js -> middle.js","Src/outerB.js -> middle.js","Src/outerC.js -> middle.js"]
+  rebuild     IMPORTS (4): ["Src/middle.js -> inner.js","Src/outerA.js -> middle.js","Src/outerB.js -> middle.js","Src/outerC.js -> middle.js"]
+  unresolved  (0): none
+  ⛔ PHANTOM file_paths after the run (exact-case, computed independently): NONE
+  in rebuild but not incremental: []
+  in incremental but not rebuild: []
+
+  EXPECTED 4 IMPORTS and 0 unresolved, GOT 4 and 0  =>  ARM F PASSES
+
+==============================================================================================
+ARM G: same-basename collision — a COUNT and a DIFFERENTIAL are both blind here
+==============================================================================================
+  baseline pairs: ["src/refA.js -> shared.js","src/refB.js -> shared.js"]
+  POSITIVE  both absolute pairs present at baseline: ⛔ NO — every verdict below is void
+  PLANT     repointed refA's IMPORTS edge at src/b/shared.js: done
+  COUNT     2 -> 2: UNCHANGED — a count is structurally blind to this
+  PAIRS     wrong pairing named: ⛔ NO — the pair check cannot see a mis-repoint either
+
+  =>  ⛔ ARM G FAILS
+
+==============================================================================================
+ARM E: the phantom detector's own control — can it report PRESENT?
+==============================================================================================
+  phantoms before planting: none
+  phantoms after planting a node for src/doesNotExist.js: DETECTED — the instrument can say PRESENT
+  CASE CONTROL: is 'src/MIDDLE.js' (wrong case, file is middle.js) reported present? no, correctly absent
+
+  =>  ARM E PASSES
+
+==============================================================================================
+VERDICT
+==============================================================================================
+  ARM A: PASS
+  ARM B: PASS
+  ARM C: PASS
+  ARM D: PASS
+  ARM F: PASS
+  ARM G: FAIL
+  ARM E: PASS
+
+  => ⛔ NOT CLEAN — read the failing arm above.
