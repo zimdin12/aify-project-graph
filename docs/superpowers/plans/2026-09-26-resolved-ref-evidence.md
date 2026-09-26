@@ -1,7 +1,7 @@
 # Plan: resolved-ref evidence, so conservation stops being reconstructed
 
 **Status:** ⛔ **A RECORD OF DECISIONS AND OPEN CONTROLS — NOT AN APPROVED PLAN, AND NOT PERMISSION TO
-WRITE DDL.** Revision 6, 2026-09-26. Nothing is implemented. **Every control here is UNRUN and its
+WRITE DDL.** Revision 7, 2026-09-26. Nothing is implemented. **Every control here is UNRUN and its
 outcome is UNKNOWN.** The point-in-time binding class count and its residue remain **HELD**, and the
 88/0 producer-collision census **cannot be independently rederived** from what is committed.
 
@@ -44,7 +44,7 @@ that proves the table proposed here, nor its lifecycle. **This is a proposal to 
 
 ⇒ **Every licensing fact here must be POSITIVE and EARNED**: a typed origin the extractor states, an
 explicit kind the producer writes, a seal a completed rebuild issues. Nothing is inferred from
-something not being there. This rule is the only thing that would have predicted all five in advance,
+something not being there. This rule is the only thing that would have predicted all six in advance,
 and any revision of this plan must meet it.
 
 ## The question, and why it is currently unanswerable
@@ -370,7 +370,7 @@ conserved) · `MULTI_PRODUCER_EDGE` (≥2 contributions, possibly of the same ki
 | incremental, clean | preserved | reprocessed files' records replaced; untouched triples carried intact |
 | incremental committing a skipped source | **revoked**, same transaction | affected rows UNKNOWN |
 | one producer reindexed, another still emitting | unchanged | that producer's contribution+link replaced; the address survives via the other link |
-| all producers of an address stop emitting | unchanged | address REMOVED_AT_SOURCE, not lost |
+| all producers of an address stop emitting | unchanged | address REMOVED_AT_SOURCE, not lost — ⚠ **only if the store actually drops it**; a retained record is the over-retained *second cell*, an open gap |
 | edge delete (`nodes.js:37-39`, `edges.js:48-68`, wipe `orchestrator.js:548-550`, analysis deletes) | unchanged | edge + addresses + contributions + links removed in ONE transaction |
 | node delete | unchanged | as above per incident edge — ⚠ `deleteNodesForFile` can **over-delete** edges owned by other files |
 | owner-set computation | unchanged | seeded from **independently extracted** contributions, never from scalar `edges.source_file` |
@@ -423,19 +423,24 @@ none may silently orphan an untouched edge's valid addresses.
 
 ## Authority: what each audit may claim
 
-⛔ **CURRENT SOURCE STATE IS THE FIRST GATE, AND IT IS CHECKED BEFORE THE PRESENCE PATTERN.**
-Revision 5 wrote that requirement into control 5b and left this table stating the unqualified rule,
-so the document carried both at once. Found by graph-senior-dev, reading the committed revision-5
-diff.
+⛔ **CURRENT SOURCE STATE IS THE FIRST GATE ON A LOSS VERDICT, AND IT IS CHECKED BEFORE THE PRESENCE
+PATTERN.** Revision 5 wrote that requirement into control 5b and left this table stating the
+unqualified rule, so the document carried both at once. Found by graph-senior-dev, reading the
+committed revision-5 diff.
 
-| step 0 | asked of every ref, FIRST | if the answer is no |
+⚠ **REVISION 6 THEN OVERSHOT IT AND REVISION 7 PULLS IT BACK.** Revision 6 wrote step 0 as
+"REMOVED_AT_SOURCE **whatever `e` and `B` are doing**" — a claim over all four
+(recorded × emitted) cells. It is wrong in one of them, and the shipped classifier does not
+implement it. See *What the shipped classifier actually enforces* below.
+
+| step 0 | asked BEFORE any LOSS verdict | if the answer is no |
 |---|---|---|
-| source emission | does the source **currently emit** this address? | ⛔ **REMOVED_AT_SOURCE. Stop.** Not a loss, not evidence corruption, not UNKNOWN — **whatever `e` and `B` are doing.** |
+| source emission | the address is **absent from the store** — does the source **still emit** it? | ⛔ **REMOVED_AT_SOURCE, not a loss. Stop.** |
 
-⛔ **No combination of absences may reach a loss verdict without step 0**, because removal and loss
-produce the **identical presence pattern**: an address the source stopped emitting is missing from
-the store for the correct reason, and the store alone cannot say which happened. This is the plan's
-opening rule applied to its own conclusion — absence licensing nothing.
+⛔ **No absence may reach a loss verdict without step 0**, because a lost address and one the source
+stopped emitting are **both absent from the store** and indistinguishable from the store alone. Step
+0 is the only thing that separates them. This is the plan's opening rule applied to its own
+conclusion — absence licensing nothing.
 
 Only refs that pass step 0 reach this table:
 
@@ -447,28 +452,63 @@ Only refs that pass step 0 reach this table:
 A division of labour between the two audits, not a limitation of one. No figure may claim attribution
 its audit cannot support.
 
-### Step 0 costs nothing new, and the shipped classifier already enforces it
+### What the shipped classifier actually enforces
 
-⭐ **THE DEFECT WAS IN THIS DOCUMENT, NOT IN THE CODE — the usual direction reversed.**
-`classify` (`scripts/audit-ref-conservation-across-run.mjs:164`) tests `emittedAfter` **before**
-deciding, and its own comment says *the EXTRACTOR decides which kind of gone it is*:
+⛔ **REVISION 6 CLAIMED THIS GATE WAS "ALREADY IMPLEMENTED". THE CLAIM WAS FALSE.** It is the sixth
+correction in this arc where the sentence leaned toward the stronger result, and it was written
+inside the revision that congratulated itself for checking the code before trusting the prose — the
+branch that agreed was checked and the branch that did not was not. Found by graph-senior-dev
+reading `7c4c415a` against the classifier at that same tree; reproduced here by extracting the
+exact function bytes and running all four cells:
 
-    out[emittedAfter.has(key) ? CLASS.LOST : CLASS.REMOVED_AT_SOURCE].push(key);
+| recorded after | source still emits | `classify()` returns | |
+|---|---|---|---|
+| yes | yes | `SURVIVED` | correct |
+| **yes** | **no** | **`SURVIVED`** | ⚠ **the second cell — see below** |
+| no | yes | `LOST` | correct |
+| no | no | `REMOVED_AT_SOURCE` | correct |
 
-That is step 0, already implemented, in the classifier proven against a real broken subject — 6
-losses named against the pre-closure orchestrator at `871a1d65`, 0 against the fixed one, nothing
-planted. So the table above imposes no new rule on the audits: **it finally states the rule the
-working instrument was already obeying while the prose said otherwise.**
+`classify` (`scripts/audit-ref-conservation-across-run.mjs:159-166`) tests `recordedAfter` **first**
+and returns `SURVIVED` without ever consulting `emittedAfter`. It asks the extractor **only when the
+record is absent**. What is implemented is therefore the **narrow** rule — *when an address is
+missing from the store, consult current emission before calling it lost* — which is exactly what the
+step 0 table above now says, and **not** a universal source-first gate.
 
-Nor does step 0 need new machinery on the point-in-time side. `audit-ref-conservation.mjs:175`
-already calls `extractFile` to build its emitted set, exactly as the across-run audit does at
-`:103`. Both audits can ask the question today.
+⛔ **The broken-subject receipt does not cover the second cell.** The 6-losses-at-`871a1d65` / 0
+result exercises the **record-absent** branch only. A control proves the branch it exercises.
 
-⚠ **Source state now governs four places in this document** — the GLSL control's fourth arm, the
-transition *all producers of an address stop emitting*, control 5b, and both rows above. They agree.
-They are written out four times because each is read alone, and that duplication is the hazard that
-produced this defect: revision 5 changed one site and not the others. Changing any one of them
-changes all four.
+Step 0 does need the emitted set on both sides, and both audits already build one:
+`audit-ref-conservation.mjs:175` and `audit-ref-conservation-across-run.mjs:103` each call
+`extractFile`. That part of revision 6 was checked and stands.
+
+### The second cell: recorded, no longer emitted — and why step 0 must NOT be made universal
+
+An address still in the store whose source has stopped emitting it is an **over-retained recorded
+key**: a *candidate* stale address. This audit does not decide it.
+
+⛔ **Making step 0 universal — as revision 6 wrote it — would relabel that cell REMOVED_AT_SOURCE,
+which is worse than the current label.** REMOVED_AT_SOURCE means *correctly gone*. Applying it to a
+row that is **still present** would mark a candidate stale address as a legitimate removal and
+silence the gap entirely. So the choice was never "narrow prose versus a principled code change":
+the universal form is a defect, and narrowing the prose is the correct repair rather than the cheap
+one.
+
+⚠ **AND IT IS ONLY A CANDIDATE — the edge is NOT thereby stale.** A deduplicated edge can carry
+other legitimate producers, so one producer ceasing to emit does not make the edge stale; this
+document's own transition *one producer reindexed, another still emitting* says exactly that.
+Calling the second cell edge-level over-retention would be another alternate-satisfier error, inside
+the repair for one. (graph-senior-dev, correcting both this and my off-by-one "fourth cell".)
+
+⚠ `SURVIVED` is nonetheless the wrong word for that cell, because it reads as a good outcome and
+masks the gap. **Recorded here as an OPEN GAP with no control, no implementation and no receipt**,
+out of this plan's scope. Nothing in this document may be read as claiming the audit detects
+over-retention at either key or edge level.
+
+⚠ **Source state now governs five places in this document** — the GLSL control's fourth arm, the
+transition *all producers of an address stop emitting*, control 5b, the step 0 table, and this
+section. They agree. They are written out five times because each is read alone, and that
+duplication is the hazard that produced this defect twice over: revision 5 changed one site and not
+the others, then revision 6 over-generalised a sixth. Changing any one of them changes all five.
 
 ## Scope note
 
