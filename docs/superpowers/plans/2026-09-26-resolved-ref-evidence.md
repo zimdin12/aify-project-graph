@@ -1,7 +1,7 @@
 # Plan: resolved-ref evidence, so conservation stops being reconstructed
 
 **Status:** ⛔ **A RECORD OF DECISIONS AND OPEN CONTROLS — NOT AN APPROVED PLAN, AND NOT PERMISSION TO
-WRITE DDL.** Revision 5, 2026-09-26. Nothing is implemented. **Every control here is UNRUN and its
+WRITE DDL.** Revision 6, 2026-09-26. Nothing is implemented. **Every control here is UNRUN and its
 outcome is UNKNOWN.** The point-in-time binding class count and its residue remain **HELD**, and the
 88/0 producer-collision census **cannot be independently rederived** from what is committed.
 
@@ -40,6 +40,7 @@ that proves the table proposed here, nor its lifecycle. **This is a proposal to 
 | no association row | "UNKNOWN, so not a loss" | an attested generation can carry legacy edges; UNKNOWN becomes an excuse bucket |
 | no association row | "not a ref-origin edge" | ⛔ **circular** — the missing association is the defect under test |
 | no exact-case entry | "the file is present" | `existsSync` is case-insensitive; absence of a mismatch is not a match |
+| no source-emission check | "`e` absent **and** `B` absent ⇒ edge loss" | ⛔ a ref the source **stopped emitting** produces the identical absence pattern — revision 6 |
 
 ⇒ **Every licensing fact here must be POSITIVE and EARNED**: a typed origin the extractor states, an
 explicit kind the producer writes, a seal a completed rebuild issues. Nothing is inferred from
@@ -422,13 +423,52 @@ none may silently orphan an untouched edge's valid addresses.
 
 ## Authority: what each audit may claim
 
+⛔ **CURRENT SOURCE STATE IS THE FIRST GATE, AND IT IS CHECKED BEFORE THE PRESENCE PATTERN.**
+Revision 5 wrote that requirement into control 5b and left this table stating the unqualified rule,
+so the document carried both at once. Found by graph-senior-dev, reading the committed revision-5
+diff.
+
+| step 0 | asked of every ref, FIRST | if the answer is no |
+|---|---|---|
+| source emission | does the source **currently emit** this address? | ⛔ **REMOVED_AT_SOURCE. Stop.** Not a loss, not evidence corruption, not UNKNOWN — **whatever `e` and `B` are doing.** |
+
+⛔ **No combination of absences may reach a loss verdict without step 0**, because removal and loss
+produce the **identical presence pattern**: an address the source stopped emitting is missing from
+the store for the correct reason, and the store alone cannot say which happened. This is the plan's
+opening rule applied to its own conclusion — absence licensing nothing.
+
+Only refs that pass step 0 reach this table:
+
 | | may NAME a missing address | may ATTRIBUTE the cause |
 |---|---|---|
-| **point-in-time**, under a valid seal | yes | ⛔ **no** — edge loss and evidence loss are indistinguishable from (a) and (b) alone |
-| **across-run**, holding baseline `(B, e)` | yes | **yes**: `e` present + `B` absent ⇒ evidence corruption / UNKNOWN; `e` absent + `B` absent ⇒ **edge loss** |
+| **point-in-time**, under a valid seal, address **currently emitted** | yes | ⛔ **no** — edge loss and evidence loss are indistinguishable from (a) and (b) alone |
+| **across-run**, baseline `(B, e)` held, source **still emits `B`** | yes | **yes**: `e` present + `B` absent ⇒ evidence corruption / UNKNOWN; `e` absent + `B` absent ⇒ **edge loss** |
 
 A division of labour between the two audits, not a limitation of one. No figure may claim attribution
 its audit cannot support.
+
+### Step 0 costs nothing new, and the shipped classifier already enforces it
+
+⭐ **THE DEFECT WAS IN THIS DOCUMENT, NOT IN THE CODE — the usual direction reversed.**
+`classify` (`scripts/audit-ref-conservation-across-run.mjs:164`) tests `emittedAfter` **before**
+deciding, and its own comment says *the EXTRACTOR decides which kind of gone it is*:
+
+    out[emittedAfter.has(key) ? CLASS.LOST : CLASS.REMOVED_AT_SOURCE].push(key);
+
+That is step 0, already implemented, in the classifier proven against a real broken subject — 6
+losses named against the pre-closure orchestrator at `871a1d65`, 0 against the fixed one, nothing
+planted. So the table above imposes no new rule on the audits: **it finally states the rule the
+working instrument was already obeying while the prose said otherwise.**
+
+Nor does step 0 need new machinery on the point-in-time side. `audit-ref-conservation.mjs:175`
+already calls `extractFile` to build its emitted set, exactly as the across-run audit does at
+`:103`. Both audits can ask the question today.
+
+⚠ **Source state now governs four places in this document** — the GLSL control's fourth arm, the
+transition *all producers of an address stop emitting*, control 5b, and both rows above. They agree.
+They are written out four times because each is read alone, and that duplication is the hazard that
+produced this defect: revision 5 changed one site and not the others. Changing any one of them
+changes all four.
 
 ## Scope note
 
