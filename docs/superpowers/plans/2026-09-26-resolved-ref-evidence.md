@@ -1,9 +1,11 @@
 # Plan: resolved-ref evidence, so conservation stops being reconstructed
 
 **Status:** ⛔ **A RECORD OF DECISIONS AND OPEN CONTROLS — NOT AN APPROVED PLAN, AND NOT PERMISSION TO
-WRITE DDL.** Revision 10, 2026-09-26. Nothing is implemented. **Every control here is UNRUN and its
+WRITE DDL.** Revision 11, 2026-09-26. Nothing is implemented. **Every control here is UNRUN and its
 outcome is UNKNOWN.** The point-in-time binding class count and its residue remain **HELD**, and the
-88/0 producer-collision census **cannot be independently rederived** from what is committed.
+88/0 census **cannot be independently rederived** from what is committed — and revision 11 finds it
+is additionally **mislabelled**: an unknown number of the 88 are ONE producer colliding with itself,
+so it is not a producer-collision census at all. See *Measured: one edge can have two producers*.
 
 ⚠ **WHETHER TO BUILD THIS AT ALL IS STEVEN'S CALL** — see the scope note at the end. Nothing is broken
 if it is never built: the audit simply stays held, and the product defects this arc found are fixed
@@ -110,10 +112,39 @@ things:
 |---|---|
 | `EXTRACTED/glsl` vs `EXTRACTED/shader-bindings` on IMPORTS | **REF/REF** — `shader_bindings.js:197-210` pushes an IMPORTS ref with a target, and `languages/glsl.js:46-49` + `generic.js:646-659` emits a second |
 | `EXTRACTED/javascript` vs `LSP_VERIFIED/ts-langserver` on CALLS | **REF/DIRECT** — `code-intel/importer.js:841-887` synthesises the edge via `upsertLspEdge`, supplying no second emitted address |
+| ⛔ **`LSP_VERIFIED/ts-langserver#nohash\|was:EXTRACTED::javascript::0.9` vs `LSP_VERIFIED/ts-langserver#nohash`** | ⛔ **NOT TWO PRODUCERS AT ALL — the SAME producer colliding with itself.** `\|was:` is `STASH_SEP` (`code-intel/importer.js:299`), which records a promoted edge's *previous* provenance so invalidation can restore the heuristic edge. It is a **restoration stash, not producer identity**, and the census counted it as one |
 
 Two producers may contribute one address, two addresses, or one address plus a direct edge.
 **Extractor inequality alone does not identify which**, so the REF/REF example must not be allowed to
 certify the REF/DIRECT mixed-producer control.
+
+⛔⛔ **REVISION 11: THE 88 IS INFLATED, AND THE THIRD ROW ABOVE IS WHY.** The census keyed "cross-
+labelled" on the raw `extractor` string, so a row whose retained `extractor` carried a `|was:` stash
+compared unequal to the same producer re-emitting it. **Of the 25 sample rows committed in
+`producer-collision-output.txt`, 20 are that self-collision and only 5 are genuinely different
+producers** (4 × `javascript` vs `ts-langserver`, 1 × `shader-bindings` vs `glsl`).
+
+⚠ **WHAT THIS DOES AND DOES NOT CHANGE — and I am deliberately not extrapolating 20/25 onto 88.**
+
+| claim | status |
+|---|---|
+| one edge can have two producers | **STANDS.** The REF/REF pair (`shader-bindings` vs `glsl` on `triangle.vert`) is a real row and is what `PRODUCER_ID` is justified by |
+| "88 cross-labelled collision attempts" | **TRUE AS WORDED** — the labels did differ |
+| "88 cross-**producer** collisions" (the wording in the evidence file, and at `:6`) | ⛔ **FALSE.** An unknown number of the 88 are one producer colliding with itself |
+| genuine cross-producer attempt count | ⛔ **UNKNOWN, and strictly < 88.** 25 rows cannot fix the ratio for 88 |
+| "`source_file` equal 88 / unequal 0 ⇒ limb two unreachable" | ⚠ **WEAKER THAN STATED.** The denominator included same-producer rows, so the genuine cross-producer `n` is smaller and unmeasured. The zero is not refuted — its population was misdefined |
+
+⇒ **This is the same defect as everything else in this arc, one layer out: a label standing in for an
+identity.** The join key confused a node's address forms with the node; here the census confused an
+extractor *string* with a producer. ⭐ **The lesson that generalises: before counting how many X
+differ, ask whether the FIELD you compared is the IDENTITY of X, or a field something else also
+writes to.** `provenance`/`extractor` are rewritten by the CODE_INTEL override path
+(`storage/edges.js:6-17`), which is exactly why the design forbids reading `PRODUCER_ID` back off the
+deduplicated row.
+
+⚠ The rederivable per-attempt census that would settle the real count is **owed and not yet run** —
+see the status note at the top. Until it exists, no figure here may be described as a count of
+producers.
 
 **Comparator liveness** (`comparator-liveness-output.txt`): an agreement count proves only that the
 agreement branch runs. The *same* predicate was fed a deliberately unequal-source collision and an
