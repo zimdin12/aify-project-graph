@@ -108,12 +108,17 @@ export class ScratchRepo {
     const dbPath = join(this.#dir, '.aify-graph', 'graph.sqlite');
     if (!existsSync(dbPath)) return false;
     const { openExistingDb } = await import('../../mcp/stdio/storage/db.js');
+    // ⛔ THE TYPE LIST IS IMPORTED, NEVER SPELLED. The first version of this method spelled the seven
+    // types inline, which made it the THIRD copy of a list whose own declaration says two copies would
+    // drift — added in the same commit that agreed a duplicated predicate is two options rather than
+    // documentation. One owner: `storage/taxonomy.js`.
+    const { CODE_NODE_TYPES } = await import('../../mcp/stdio/storage/taxonomy.js');
     let db;
     try {
       db = openExistingDb(dbPath);
       const total = db.get('SELECT COUNT(*) c FROM nodes');
       const code = db.get(
-        "SELECT COUNT(*) c FROM nodes WHERE type IN ('Function','Method','Class','Interface','Type','Symbol','Test')",
+        `SELECT COUNT(*) c FROM nodes WHERE type IN (${CODE_NODE_TYPES.map((t) => `'${t}'`).join(',')})`,
       );
       return total?.c > 0 && code?.c > 0;
     } catch {

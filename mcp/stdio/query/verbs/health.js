@@ -72,6 +72,7 @@ export function decayFromCoveredFiles(covered, latest, head, repoRoot) {
 
 import { computeCoverage, isLspVerifiableLanguage } from '../coverage-denominator.js';
 import { openExistingDb, captureExistingSnapshot } from '../../storage/db.js';
+import { CODE_NODE_TYPES } from '../../storage/taxonomy.js';
 import { readTrustClassificationInputs } from '../../storage/unresolved-refs.js';
 import { classifyPublication, readGraphPublication, ATTESTATION } from '../../storage/publication-schema.js';
 import { loadManifest } from '../../freshness/manifest.js';
@@ -121,9 +122,9 @@ const DIRTY_LIST_CAP = 25;
  * Returns null when the graph cannot say — and null must never be read as "has a server", which is
  * why the caller treats an unknown language as "do not invent a permanent limit".
  */
-// ⛔ ONE OWNER. This list decides both the primary language and whether the graph still holds any
-// code at all; two copies would drift and the integrity check would quietly stop firing.
-const CODE_NODE_TYPES = Object.freeze(['Function', 'Method', 'Class', 'Interface', 'Type', 'Symbol', 'Test']);
+// ⛔ ONE OWNER — now `storage/taxonomy.js`, which is where it had to go for the claim to be true. This
+// comment used to sit above a LOCAL copy asserting that two copies would drift; the constant was not
+// exported, and by 2026-09-29 there were three. See the taxonomy entry for the whole account.
 const CODE_NODE_TYPE_SET = new Set(CODE_NODE_TYPES);
 
 // ⚠ SHAPE, NOT A REBUILD. Whether a node is reproducible by a full index cannot be known without

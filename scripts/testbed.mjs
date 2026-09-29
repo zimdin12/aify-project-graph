@@ -203,13 +203,20 @@ const INDEX_SRC = `
  * opens cleanly, and contains a plausible number of nodes — `click` was left with 90: Document 43,
  * Directory 25, Config 22, and not one Function. Nothing about the file said it was partial.
  */
+// ⛔ THE TYPE LIST IS IMPORTED IN THE CHILD, NEVER SPELLED HERE. This string used to carry its own copy
+// of the seven code-node types, which made it a second copy of a list whose declaration in
+// `storage/taxonomy.js` says two copies would drift and the integrity check would quietly stop firing.
+// The child already imports from the repo for `openExistingDb`, so it costs one more import to be honest.
 const CODE_NODE_SRC = `
-  import('file:///' + process.env.APG_REPO + '/mcp/stdio/storage/db.js').then(({openExistingDb}) => {
-    const d = openExistingDb(process.env.APG_DB);
-    const r = d.get("SELECT COUNT(*) c FROM nodes WHERE type IN ('Function','Method','Class','Interface','Type','Symbol','Test')");
-    console.log(String(r.c));
-    d.close();
-  });`;
+  const base = 'file:///' + process.env.APG_REPO;
+  Promise.all([import(base + '/mcp/stdio/storage/db.js'), import(base + '/mcp/stdio/storage/taxonomy.js')])
+    .then(([{openExistingDb}, {CODE_NODE_TYPES}]) => {
+      const d = openExistingDb(process.env.APG_DB);
+      const types = CODE_NODE_TYPES.map((t) => "'" + t + "'").join(',');
+      const r = d.get('SELECT COUNT(*) c FROM nodes WHERE type IN (' + types + ')');
+      console.log(String(r.c));
+      d.close();
+    });`;
 
 function codeNodeCount(root) {
   const db = join(root, '.aify-graph', 'graph.sqlite');

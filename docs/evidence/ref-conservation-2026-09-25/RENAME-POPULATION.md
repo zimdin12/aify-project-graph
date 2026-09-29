@@ -217,3 +217,59 @@ must come from the thing being described, **and the predicate must come from the
 convention about its name.** A correctly-enumerated population tested with `existsSync(a name the
 producer stopped writing)` under-counts exactly like a register does, and it is harder to see, because
 the enumeration is visibly right and the bug is in a string.
+
+### ⛔⛔ Propagating the predicate was the wrong fix, and my propagation made it worse
+
+Their follow-up, and it is the sharper move: **the fix for "the knowledge did not travel one screen" is
+not propagation, it is making the wrong spelling unspellable.** Propagation fixes three call sites and
+leaves the fourth to whoever writes it next month. A correct implementation sitting beside an incorrect
+one is not documentation, it is **two options** — and the cheap one wins whenever somebody is in a hurry,
+which is precisely what `linkage-scope-runner.mjs`'s own comment recorded happening ("`isIndexed()` is one
+existsSync; there is no reason not to measure both").
+
+⛔ **And I had just demonstrated it against myself.** `query/verbs/health.js:126` declared the seven
+code-node types **module-private**, under the comment:
+
+> "ONE OWNER. This list decides both the primary language and whether the graph still holds any code at
+> all; two copies would drift and the integrity check would quietly stop firing."
+
+The claim was **false when written** — `testbed.mjs:209` already spelled the same seven by hand. And in
+`6992154d`, the commit where I agreed with the principle, **I added a third copy** at
+`linkage-scratch-repo.mjs:116`. My repairs inherit the shape of the defect they repair, for the fifth
+time in this arc.
+
+Fixed properly: `CODE_NODE_TYPES` is exported from **`mcp/stdio/storage/taxonomy.js`**, which already owns
+`NODE_TYPES` and `FILE_LEVEL_TYPES`, and all three consumers import it — including `testbed.mjs`'s
+child-process query string, which now imports taxonomy in the child rather than carrying a literal.
+
+⚠ **Narrow on purpose.** The seven-type sequence is one of **44** places in the tree that spell some
+`'Function','Method',...` list, in at least six genuinely different variants (search types, callable
+types, symbol types, preflight types). Those answer different questions and unifying them would collapse
+distinct concepts. Only the exact seven-type "does the graph hold code" predicate has one owner.
+
+⚠ **Still a list, not derived.** "Which types count as code" is a curated judgement; deriving it as
+`NODE_TYPES` minus `FILE_LEVEL_TYPES` would silently absorb every future node type into "code" and change
+every consumer's meaning at once. A list is right; three copies of a list was the defect.
+
+**Enforced mechanically**, because a prohibition living in a comment is the thing that just failed:
+`tests/unit/storage/code-node-types-has-one-owner.test.js`. Watched red twice —
+
+| mutation | result |
+|---|---|
+| a duplicate planted in `scripts/identity-grade.mjs` | RED, naming that exact file; the other 3 arms passed |
+| the matcher itself broken | RED on "the matcher can FIND a copy" **and** on "the owner declares it exactly once" — while the *"no file outside the owner"* arm went **GREEN**, which is exactly the vacuous pass those controls exist to intercept |
+
+⚠ **The instrument's own weakness, named rather than discovered later:** it is a **source scan**, and
+`type-lists-are-subsets-of-the-taxonomy.test.js` already records the ruling that a source parse is weaker
+than structural ownership — a rename or reformat makes the pattern vacuous. It cannot be an import check,
+because the property is about **text**: a duplicated literal is invisible to a runtime object. Hence the
+matcher is controlled three ways, the load-bearing one being that it is proven able to **find** a copy.
+
+⚠ Their third shape — an **expectation** matched by name substring, where a renamed test means the row
+names nothing and "RED, but a different test" reads as a finding about the code — **does not have an
+analogue here that I can check.** The nearest thing is `measure-verb-adoption.mjs:72`'s
+`POSITIVE_CONTROLS = ['Bash','Read','Grep']`, and those are **host-owned tool names with no local corpus
+to compare against**, so the set-comparison guard they are building is not constructible in this repo.
+Recorded as absent-and-why rather than left unanswered. Worth noting that file already survived this exact
+failure once for a different reason: it published "positive control: 0, FAILS" over a nested population
+holding 255 `Bash`/`Read`/`Grep` calls, and the fix was to the population, not the names.

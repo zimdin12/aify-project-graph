@@ -199,6 +199,28 @@ export const DOC_FAMILY = Object.freeze(['MENTIONS', 'LINKS_TO']);
 // first-wins defect one level up and invisible because both ids are plausible.
 export const FILE_LEVEL_TYPES = Object.freeze(['File', 'Document', 'Config', 'Entrypoint', 'Directory']);
 
+// ⛔⛔ ONE OWNER, AND THIS TIME THE CLAIM IS TRUE. Which node types mean "the graph holds actual code"
+// — the predicate behind `graph_health`'s primary language, its integrity check, and every harness that
+// needs to know whether an index really produced anything.
+//
+// It lived at `query/verbs/health.js:126` carrying the comment "ONE OWNER ... two copies would drift and
+// the integrity check would quietly stop firing", and it was NOT EXPORTED. So the claim was false when
+// written: `testbed.mjs` already spelled the same seven types by hand, and on 2026-09-29 I added a THIRD
+// copy in `linkage-scratch-repo.mjs` — in the very commit where I agreed with dashboard-manager that a
+// correct implementation sitting beside an incorrect one is not documentation, it is two options.
+//
+// ⇒ THE FIX FOR "THE KNOWLEDGE DID NOT TRAVEL" IS NOT PROPAGATION, IT IS MAKING THE WRONG SPELLING
+// UNSPELLABLE (dashboard-manager, 2026-09-29). Propagating a predicate fixes today's call sites and
+// leaves the next one to whoever writes it next month; one exported owner leaves nothing for the comment
+// to travel to. `tests/unit/storage/code-node-types-has-one-owner.test.js` enforces it mechanically,
+// because a prohibition that lives in this comment is the thing that just failed.
+//
+// ⚠ DELIBERATELY A LIST, NOT DERIVED. "Which types count as code" is a curated judgement, not a
+// complement of the structural types — deriving it from `NODE_TYPES` minus `FILE_LEVEL_TYPES` would
+// silently absorb every future node type into "code" and change the meaning of every consumer at once.
+// A list is right here; THREE copies of a list is the defect.
+export const CODE_NODE_TYPES = Object.freeze(['Function', 'Method', 'Class', 'Interface', 'Type', 'Symbol', 'Test']);
+
 // Provenance-mix call family — the exact set whose EXTRACTED/INFERRED/
 // CODE_INTEL/LSP_VERIFIED split is the analytics trust signal. (Was
 // analytics.js CALL_FAMILY_RELATIONS.) Kept distinct from CALL_FAMILY because it
