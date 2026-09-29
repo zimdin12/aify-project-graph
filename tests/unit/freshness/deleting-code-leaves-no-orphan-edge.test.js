@@ -134,4 +134,31 @@ describe('a code file leaving the repo takes every edge into it', () => {
     expect(after.to, 'the checker must see a dangling to_id').toBe(1);
     expect(after.from, 'and must not invent one at the other end').toBe(0);
   });
+
+  it('★★★ the checker REFUSES over an empty graph instead of reporting a vacuous zero', async () => {
+    // ⛔ THE GUARD THAT REPLACED A CONTRACT I BROKE. The helper's header used to say "every consumer must
+    // assert the edge count is non-zero"; I then added a consumer without that control three lines later,
+    // in a CHUNK ROLLBACK test where a near-empty graph is realistic. A prose contract is a note.
+    //
+    // ⚠ Measured before this landed: the four existing call sites hold 1, 1/3/5, and 10/15/15/16 edges. None
+    // is empty, so this refusal breaks nothing — but two sit at ONE edge, so the vacuous case was one
+    // fixture change away rather than hypothetical.
+    await buildThreeImportersOfOneTarget();
+
+    // POSITIVE CONTROL: with edges present it answers normally, so the refusal below is about emptiness and
+    // not about the helper being broken outright.
+    expect(orphanEdgeCounts(openDb, dbPath()), 'answers while the graph has edges').toEqual({ from: 0, to: 0 });
+
+    const db = openDb(dbPath());
+    try {
+      db.run('DELETE FROM edges');
+    } finally {
+      db.close();
+    }
+    expect(edgeCount(openDb, dbPath()), 'the plant must really have emptied the edge table').toBe(0);
+
+    // ⛔ AND THE MESSAGE MUST NAME THE PRECONDITION, not merely fail. A throw a reader cannot diagnose sends
+    // them to the wrong place, which is the same cost as a red stating the wrong reason.
+    expect(() => orphanEdgeCounts(openDb, dbPath())).toThrow(/ZERO edges/u);
+  });
 });
