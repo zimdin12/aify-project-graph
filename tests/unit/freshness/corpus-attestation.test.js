@@ -26,6 +26,7 @@ import { execFileSync } from 'node:child_process';
 import { ensureFresh } from '../../../mcp/stdio/freshness/orchestrator.js';
 import { graphHealth } from '../../../mcp/stdio/query/verbs/health.js';
 import { openDb } from '../../../mcp/stdio/storage/db.js';
+import { orphanEdgeCounts } from '../../helpers/orphan-edges.js';
 
 let repoRoot;
 
@@ -180,6 +181,14 @@ describe('an index that loses files must say so', () => {
     `);
     check.close();
     expect(dangling, 'a rolled-back file must not leave edges behind it').toEqual([]);
+
+    // ⛔ THE ASSERTION ABOVE CHECKS ONE END ONLY. Its query joins on `e.from_id` and never looks at
+    // `e.to_id`, so a rolled-back file leaving an edge whose TARGET was removed passes it. That is the
+    // exact weakness the shared helper's comment warns about — "a check on one end reports a clean graph
+    // while the other end dangles" — and it was live here while the doc-deletion test three files away
+    // checked both. Added 2026-09-29; the existing expectation is UNCHANGED and keeps its row sample for
+    // the failure message, this one covers the end it could not see.
+    expect(orphanEdgeCounts(openDb, dbPath), 'and not at the other end either').toEqual({ from: 0, to: 0 });
   });
 
   it('the count is UNCAPPED even though the list is capped', async () => {

@@ -37,6 +37,7 @@ import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { ensureFresh } from '../../../mcp/stdio/freshness/orchestrator.js';
 import { openDb } from '../../../mcp/stdio/storage/db.js';
+import { orphanEdgeCounts } from '../../helpers/orphan-edges.js';
 
 let repoRoot;
 
@@ -67,18 +68,18 @@ function docEdges() {
   } finally { db.close(); }
 }
 
+// ⛔ DELEGATES TO THE ONE OWNER. This query lived here as a local function and was already GENERAL — no
+// relation filter, both ends checked — while only its INVOCATION was narrow: documents and a document's
+// link target. A code-file deletion was bounded by nothing. 2026-09-29 the query moved to
+// `tests/helpers/orphan-edges.js` so `deleting-code-leaves-no-orphan-edge.test.js` could use the SAME one
+// rather than a second inline copy. NO ASSERTION IN THIS FILE CHANGED — the call sites below are untouched
+// and the returned shape is identical; only the duplicate went away.
+//
+// ⚠ The comment that used to sit inside it — "BOTH directions; an edge can be orphaned at either end, and a
+// check on one end reports a clean graph while the other end dangles" — travelled to the helper with it,
+// because a caveat left behind is a caveat that stops applying.
 function orphans() {
-  const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
-  try {
-    return {
-      // BOTH directions. An edge can be orphaned at either end, and a check on one end reports a
-      // clean graph while the other end dangles.
-      from: db.all(`SELECT COUNT(*) c FROM edges e LEFT JOIN nodes n ON n.id = e.from_id
-                     WHERE n.id IS NULL`)[0].c,
-      to: db.all(`SELECT COUNT(*) c FROM edges e LEFT JOIN nodes n ON n.id = e.to_id
-                   WHERE n.id IS NULL`)[0].c,
-    };
-  } finally { db.close(); }
+  return orphanEdgeCounts(openDb, join(repoRoot, '.aify-graph', 'graph.sqlite'));
 }
 
 describe('a document leaving the repo takes its edges with it', () => {
