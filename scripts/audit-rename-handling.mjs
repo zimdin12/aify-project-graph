@@ -39,8 +39,15 @@ const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const load = (...p) => import(pathToFileURL(path.join(REPO, ...p)).href);
 const { ensureFresh } = await load('mcp', 'stdio', 'freshness', 'orchestrator.js');
 const { openDb } = await load('mcp', 'stdio', 'storage', 'db.js');
+// ⭐ THE SAME PREDICATE THE PASS ITSELF USES to decide whether a file is indexable
+// (`orchestrator.js:1243` wraps this exact function in a try/catch and treats a throw as "not a
+// language we handle"). Imported rather than reimplemented ON PURPOSE: a coverage check that
+// disagreed with the pass about WHICH FILES OUGHT TO BE COVERED would manufacture both false alarms
+// and false silence, and there would be no way to tell which one you were looking at.
+const { getLanguageConfig } = await load('mcp', 'stdio', 'ingest', 'languages', 'index.js');
 
 const git = (repo, ...args) => execFileSync('git', ['-C', repo, ...args], { stdio: 'ignore' });
+const gitOut = (repo, ...args) => execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8' });
 const commitAll = (repo, msg) => { git(repo, 'add', '-A'); git(repo, 'commit', '-qm', msg); };
 
 // ⭐ The independent ground truth: EVERY segment must appear, spelled exactly, in its parent's
@@ -87,6 +94,76 @@ async function phantomsIn(repo, dbPath) {
   return phantoms;
 }
 
+// ⛔⛔ THE INVERSE DIRECTION, WHICH `phantomsIn` STRUCTURALLY CANNOT SEE.
+//
+// Named by dashboard-manager, 2026-09-29, and their framing is the one to keep: "if the population is
+// built from what the pass emitted, a rename the pass FAILS TO EMIT is not a failure, it is an
+// ABSENCE FROM THE POPULATION, and the check cannot fail on it."
+//
+// `phantomsIn` walks `SELECT DISTINCT file_path FROM nodes` and asks the filesystem about each one.
+// That direction catches a NODE WHOSE FILE IS GONE. It cannot catch a FILE WHOSE NODE IS GONE,
+// because a file the pass never indexed leaves NOTHING TO ENUMERATE — and an enumeration of nodes
+// going green over zero nodes is indistinguishable from one going green over correct ones.
+//
+// ⇒ So the population here comes FROM GIT, never from the graph: `git ls-files` is what git says is
+// tracked, which is the same substrate `getChangedFilesBetween` reads (`git.js:159`) and is
+// independent of anything the pass chose to write. A tracked file that is indexable and still on disk
+// MUST have at least one node.
+//
+// ⚠ AND A GAP IS NOT AUTOMATICALLY A DEFECT, which is why `skippedFiles` is consulted. The pass has
+// branches that DELIBERATELY leave a file with no nodes and say so — the >1 MB cap at
+// `orchestrator.js:643` is the clearest. A gap the pass DECLARED is accounted for; a gap it did not
+// declare is the failure this limb exists to catch. ⛔ `skippedFiles` is truncated to 50 entries by
+// `orchestrator.js:1028`, so past 50 skips a declared gap can read as unexplained. That direction is
+// FAIL-CLOSED — it over-reports rather than going quiet — which is the direction to be wrong in.
+async function coverageIn(repo, dbPath, skippedFiles) {
+  const tracked = gitOut(repo, 'ls-files').split(/\r?\n/).filter(Boolean);
+  const indexable = [];
+  for (const f of tracked) {
+    // Tracked but no longer on disk is not a coverage gap — that is the DELETE case, and a node for
+    // it would be a phantom, which is the other limb's job. Exact case, for the reason at the top.
+    if (!(await presentWithExactCase(repo, f))) continue;
+    try {
+      getLanguageConfig(f);
+    } catch {
+      continue;
+    }
+    indexable.push(f);
+  }
+
+  const db = openDb(dbPath);
+  let covered;
+  try {
+    covered = new Set(db.all("SELECT DISTINCT file_path AS f FROM nodes WHERE file_path <> ''").map((r) => r.f));
+  } finally {
+    db.close();
+  }
+
+  const gaps = indexable.filter((f) => !covered.has(f));
+  const declared = new Set((skippedFiles ?? []).map((s) => s.file));
+  return {
+    population: indexable.length,
+    gaps,
+    unexplained: gaps.filter((g) => !declared.has(g)),
+    declared: gaps.filter((g) => declared.has(g)),
+  };
+}
+
+// ⭐⭐ PRINT THE POPULATION BESIDE THE VERDICT. The reachable failure of the limb above is not a wrong
+// answer, it is a VACUOUS one: if `git ls-files` returned nothing, or `getLanguageConfig` threw for
+// every file, `indexable` is empty, `unexplained` is empty, and the limb reports clean forever. An
+// empty population and a fully-covered one produce the identical verdict, so the count is the only
+// thing that can tell them apart and it is asserted, not merely displayed.
+function coverageLine(cov, expectPopulation) {
+  const vacuous = cov.population === 0;
+  const popOk = cov.population === expectPopulation;
+  return `  COVERAGE (git-derived, the INVERSE of the phantom walk): population ${cov.population} `
+    + `${vacuous ? '⛔ VACUOUS — every verdict from this limb is void' : popOk ? `(${expectPopulation}, as the fixture defines)` : `⛔ NOT ${expectPopulation} — fixture or predicate changed`}`
+    + `\n    files on disk, tracked and indexable, with NO node: `
+    + `${cov.unexplained.length ? `⛔ ${JSON.stringify(cov.unexplained)}` : 'NONE'}`
+    + `${cov.declared.length ? `\n    gaps the pass DECLARED via skippedFiles (accounted for): ${JSON.stringify(cov.declared)}` : ''}`;
+}
+
 function importsIn(dbPath) {
   const db = openDb(dbPath);
   try {
@@ -129,7 +206,11 @@ async function buildFixture() {
 
 const dbOf = (repo) => path.join(repo, '.aify-graph', 'graph.sqlite');
 
-async function runArm({ name, intent, mutate, expectImports, expectUnresolved }) {
+// ⚠ `expectPopulation` HAS NO DEFAULT ON PURPOSE. A default would apply silently to the next arm
+// somebody adds, and if that arm's fixture has a different file count the coverage limb would compare
+// against a number nobody chose. Omitting it leaves `undefined`, which fails the strict equality and
+// takes the arm red — the direction that gets noticed.
+async function runArm({ name, intent, mutate, expectImports, expectUnresolved, expectPopulation }) {
   const inc = await buildFixture();
   const full = await buildFixture();
   try {
@@ -139,13 +220,14 @@ async function runArm({ name, intent, mutate, expectImports, expectUnresolved })
 
     await mutate(inc);
     await mutate(full);
-    await ensureFresh({ repoRoot: inc });
+    const incResult = await ensureFresh({ repoRoot: inc });
     await ensureFresh({ repoRoot: full, force: true });
 
     const incImports = importsIn(dbOf(inc));
     const fullImports = importsIn(dbOf(full));
     const incPhantoms = await phantomsIn(inc, dbOf(inc));
     const incUnresolved = unresolvedIn(dbOf(inc));
+    const incCoverage = await coverageIn(inc, dbOf(inc), incResult?.skippedFiles);
 
     const missing = fullImports.filter((x) => !incImports.includes(x));
     const extra = incImports.filter((x) => !fullImports.includes(x));
@@ -162,6 +244,7 @@ async function runArm({ name, intent, mutate, expectImports, expectUnresolved })
       + `${incPhantoms.length ? JSON.stringify(incPhantoms) : 'NONE'}`);
     console.log(`  in rebuild but not incremental: ${JSON.stringify(missing)}`);
     console.log(`  in incremental but not rebuild: ${JSON.stringify(extra)}`);
+    console.log(coverageLine(incCoverage, expectPopulation));
 
     const ok = incPhantoms.length === 0
       && basePhantoms.length === 0
@@ -169,7 +252,11 @@ async function runArm({ name, intent, mutate, expectImports, expectUnresolved })
       && missing.length === 0
       && extra.length === 0
       && incImports.length === expectImports
-      && incUnresolved.length === expectUnresolved;
+      && incUnresolved.length === expectUnresolved
+      // The population assertion is HALF THE LIMB, not decoration: without it an empty population
+      // reports "NONE unexplained" and passes.
+      && incCoverage.population === expectPopulation
+      && incCoverage.unexplained.length === 0;
     console.log(`\n  EXPECTED ${expectImports} IMPORTS and ${expectUnresolved} unresolved, `
       + `GOT ${incImports.length} and ${incUnresolved.length}  =>  ${ok ? `ARM ${name} PASSES` : `⛔ ARM ${name} FAILS`}`);
     return { name, ok };
@@ -220,6 +307,9 @@ results.push(await runArm({
   intent: 'rename + importers updated — the ordinary case',
   expectImports: 4,
   expectUnresolved: 0,
+  // 5 tracked, indexable, on-disk .js files: inner, middle-or-its-new-name, outerA, outerB, outerC.
+  // `.gitignore` is excluded because `getLanguageConfig` throws for it — measured, not assumed.
+  expectPopulation: 5,
   mutate: async (repo) => {
     git(repo, 'mv', 'src/middle.js', 'src/core.js');
     for (const n of ['outerA', 'outerB', 'outerC']) {
@@ -234,6 +324,9 @@ results.push(await runArm({
   intent: 'rename, importers left BROKEN — must be refused loudly, never silently dropped',
   expectImports: 1,
   expectUnresolved: 6,
+  // 5 tracked, indexable, on-disk .js files: inner, middle-or-its-new-name, outerA, outerB, outerC.
+  // `.gitignore` is excluded because `getLanguageConfig` throws for it — measured, not assumed.
+  expectPopulation: 5,
   mutate: async (repo) => {
     git(repo, 'mv', 'src/middle.js', 'src/core.js');
     commitAll(repo, 'rename only, importers left broken');
@@ -244,6 +337,9 @@ results.push(await runArm({
   intent: 'CASE-ONLY rename middle.js -> Middle.js — the defect this audit was written for',
   expectImports: 4,
   expectUnresolved: 0,
+  // 5 tracked, indexable, on-disk .js files: inner, middle-or-its-new-name, outerA, outerB, outerC.
+  // `.gitignore` is excluded because `getLanguageConfig` throws for it — measured, not assumed.
+  expectPopulation: 5,
   mutate: async (repo) => {
     git(repo, 'mv', '-f', 'src/middle.js', 'src/Middle.js');
     for (const n of ['outerA', 'outerB', 'outerC']) {
@@ -258,6 +354,9 @@ results.push(await runArm({
   intent: 'rename + rewrite in one commit, which defeats git rename detection',
   expectImports: 4,
   expectUnresolved: 0,
+  // 5 tracked, indexable, on-disk .js files: inner, middle-or-its-new-name, outerA, outerB, outerC.
+  // `.gitignore` is excluded because `getLanguageConfig` throws for it — measured, not assumed.
+  expectPopulation: 5,
   mutate: async (repo) => {
     git(repo, 'mv', 'src/middle.js', 'src/core.js');
     await writeFile(path.join(repo, 'src', 'core.js'),
@@ -283,6 +382,9 @@ results.push(await runArm({
   intent: 'CASE-ONLY rename of a PARENT DIRECTORY src/ -> Src/ (graph-senior-dev, executed)',
   expectImports: 4,
   expectUnresolved: 0,
+  // 5 tracked, indexable, on-disk .js files: inner, middle-or-its-new-name, outerA, outerB, outerC.
+  // `.gitignore` is excluded because `getLanguageConfig` throws for it — measured, not assumed.
+  expectPopulation: 5,
   mutate: async (repo) => {
     git(repo, 'mv', 'src', 'srcTmpRename');
     git(repo, 'mv', 'srcTmpRename', 'Src');
@@ -340,6 +442,10 @@ async function runSameBasenameArm() {
     // POSITIVE CONTROL: the instrument can say CORRECT, against ground truth rather than a rebuild.
     const baseOk = base.includes(WANT_A) && base.includes(WANT_B);
     console.log(`  POSITIVE  both absolute pairs present at baseline: ${baseOk ? 'YES' : '⛔ NO — every verdict below is void'}`);
+    // The coverage limb runs here too, BEFORE the plant, so this arm's own fixture cannot quietly stop
+    // being indexed. 4 files: a/shared.js, b/shared.js, refA.js, refB.js.
+    const gCoverage = await coverageIn(repo, dbOf(repo), []);
+    console.log(coverageLine(gCoverage, 4));
 
     // ⭐ THE PLANT, IN THE ARTIFACT THE CHECK READS: repoint refA's IMPORTS edge at the OTHER
     // same-named file. This is what a resolver picking the wrong sibling would leave behind.
@@ -367,7 +473,8 @@ async function runSameBasenameArm() {
     console.log(`  COUNT     ${base.length} -> ${after.length}: ${countBlind ? 'UNCHANGED — a count is structurally blind to this' : '⛔ changed, so this arm is not testing what it claims'}`);
     console.log(`  PAIRS     wrong pairing named: ${pairsSaw ? 'YES — src/refA.js -> src/b/shared.js' : '⛔ NO — the pair check cannot see a mis-repoint either'}`);
 
-    const ok = baseOk && planted && countBlind && pairsSaw;
+    const ok = baseOk && planted && countBlind && pairsSaw
+      && gCoverage.population === 4 && gCoverage.unexplained.length === 0;
     console.log(`\n  =>  ${ok ? 'ARM G PASSES — absolute pairs catch what the count and the rebuild-differential miss' : '⛔ ARM G FAILS'}`);
     return { name: 'G', ok };
   } finally {
@@ -377,10 +484,88 @@ async function runSameBasenameArm() {
 results.push(await runSameBasenameArm());
 results.push(await runDetectorControl());
 
+// ⛔⛔ ARM H: THE COVERAGE LIMB'S OWN CONTROL, and the measurement that decides whether the limb was
+// worth adding at all.
+//
+// ARM E exists because a phantom detector that cannot report PRESENT cannot report NONE. The coverage
+// limb needs exactly the same control, and one thing more: it has to be shown that the limb catches
+// something THE PHANTOM WALK CANNOT, or it is redundant with a check that already ran.
+//
+// So one plant, read by BOTH instruments, and the two must disagree:
+//   - coverage MUST name the file (a tracked, indexable, on-disk file with no nodes)
+//   - the phantom walk MUST stay SILENT (no node names a missing path — there is no node at all)
+//
+// ⚠ AND WHAT THIS ARM DOES NOT ESTABLISH, said here rather than left for someone to assume: the plant
+// is a DB mutation, so it proves THE INSTRUMENT can report the state. It does not prove the pass can
+// REACH it by renaming. The reachable production route is the >1 MB cap at `orchestrator.js:643`,
+// which leaves exactly this state and DECLARES it via `skippedFiles`; that is why the limb separates
+// declared gaps from unexplained ones instead of failing on any gap at all.
+async function runCoverageControl() {
+  const repo = await buildFixture();
+  try {
+    await ensureFresh({ repoRoot: repo });
+    const before = await coverageIn(repo, dbOf(repo), []);
+
+    console.log(`\n${'='.repeat(94)}\nARM H: the coverage limb's own control — and does it see what the phantom walk cannot?\n${'='.repeat(94)}`);
+    console.log(`  POSITIVE  clean fixture, coverage population ${before.population}, unexplained `
+      + `${before.unexplained.length}: ${before.population === 5 && before.unexplained.length === 0
+        ? 'CLEAN, as it must be' : '⛔ not clean before the plant — every verdict below is void'}`);
+
+    // THE PLANT: remove every node for one file, leaving the file itself tracked and on disk. This is
+    // the state a rename would leave if the pass deleted the old path's nodes and never indexed the
+    // new path — the case dashboard-manager named.
+    const db = openDb(dbOf(repo));
+    let plantedRows = 0;
+    try {
+      plantedRows = db.all("SELECT id FROM nodes WHERE file_path = 'src/outerA.js'").length;
+      db.run("DELETE FROM nodes WHERE file_path = 'src/outerA.js'");
+    } finally {
+      db.close();
+    }
+    console.log(`  PLANT     deleted ${plantedRows} node(s) for src/outerA.js, file left on disk and tracked: `
+      + `${plantedRows > 0 ? 'done' : '⛔ FAILED — nothing deleted, arm is void'}`);
+
+    const after = await coverageIn(repo, dbOf(repo), []);
+    const phantomsAfter = await phantomsIn(repo, dbOf(repo));
+
+    const coverageSaw = after.unexplained.includes('src/outerA.js');
+    const phantomBlind = phantomsAfter.length === 0;
+    console.log(`  COVERAGE  names the uncovered file: ${coverageSaw
+      ? 'YES — src/outerA.js' : '⛔ NO — the limb cannot report a gap, so its NONE means nothing'}`);
+    console.log(`  PHANTOM   walk over the same graph: ${phantomBlind
+      ? 'SILENT — confirms the direction it structurally cannot see'
+      : `⛔ reported ${JSON.stringify(phantomsAfter)} — then this plant is not the case being demonstrated`}`);
+
+    // ⭐ AND THE OTHER HALF OF THE ACCOUNTING, so a DECLARED gap is proven not to fail the limb.
+    // Same plant, same graph, but handed the skip record the pass would have produced.
+    const declaredView = await coverageIn(repo, dbOf(repo), [{ file: 'src/outerA.js', phase: 'too_large' }]);
+    const declaredOk = declaredView.unexplained.length === 0 && declaredView.declared.includes('src/outerA.js');
+    console.log(`  DECLARED  the same gap, handed the pass's own skip record: ${declaredOk
+      ? 'accounted for, not a failure — the two categories are genuinely separate'
+      : '⛔ the skippedFiles accounting does not work'}`);
+
+    const ok = before.population === 5 && before.unexplained.length === 0
+      && plantedRows > 0 && coverageSaw && phantomBlind && declaredOk;
+    console.log(`\n  =>  ${ok
+      ? 'ARM H PASSES — the coverage limb reports a gap the phantom walk is blind to, and declared gaps do not fail it'
+      : '⛔ ARM H FAILS'}`);
+    return { name: 'H', ok };
+  } finally {
+    await rm(repo, { recursive: true, force: true });
+  }
+}
+results.push(await runCoverageControl());
+
 console.log(`\n${'='.repeat(94)}\nVERDICT\n${'='.repeat(94)}`);
 for (const r of results) console.log(`  ARM ${r.name}: ${r.ok ? 'PASS' : 'FAIL'}`);
 const allOk = results.every((r) => r.ok);
+// ⚠ THIS LINE NAMES BOTH DIRECTIONS BECAUSE THE AUDIT NOW CHECKS BOTH. It said only "renames leave no
+// phantom" for one commit after the coverage limb landed, which is the failure shape this repo keeps
+// hitting: behaviour moved and the prose describing it did not, so the summary understated what had
+// been measured. A reader stopping at the verdict would have concluded the inverse direction was still
+// unchecked.
 console.log(`\n  => ${allOk
-  ? 'Renames leave no phantom, and the phantom detector is proven able to report one.'
+  ? 'Renames leave no phantom (no node names a missing file), no tracked indexable file is left '
+    + 'without a node, and BOTH detectors are proven able to report their own failure.'
   : '⛔ NOT CLEAN — read the failing arm above.'}`);
 process.exit(allOk ? 0 : 1);

@@ -1,0 +1,3 @@
+file_paths in graph: [".","src","src/tracked.js","src/untracked.js"]
+POSITIVE CONTROL  the TRACKED file has a node: YES
+ANSWER            the UNTRACKED file has a node: YES — so git ls-files UNDER-COUNTS the population
