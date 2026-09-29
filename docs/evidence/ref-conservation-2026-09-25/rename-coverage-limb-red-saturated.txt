@@ -13,9 +13,9 @@ ARM A: rename + importers updated — the ordinary case
   in rebuild but not incremental: []
   in incremental but not rebuild: []
   COVERAGE of TRACKED files (the INVERSE of the phantom walk): population 5 (5, as the fixture defines)
-    files on disk, tracked and indexable, with NO node: NONE
+    files on disk, tracked and indexable, with NO node: ⛔ ["src/core.js","src/inner.js","src/outerA.js","src/outerB.js","src/outerC.js"]
 
-  EXPECTED 4 IMPORTS and 0 unresolved, GOT 4 and 0  =>  ARM A PASSES
+  EXPECTED 4 IMPORTS and 0 unresolved, GOT 4 and 0  =>  ⛔ ARM A FAILS
 
 ==============================================================================================
 ARM B: rename, importers left BROKEN — must be refused loudly, never silently dropped
@@ -31,9 +31,9 @@ ARM B: rename, importers left BROKEN — must be refused loudly, never silently 
   in rebuild but not incremental: []
   in incremental but not rebuild: []
   COVERAGE of TRACKED files (the INVERSE of the phantom walk): population 5 (5, as the fixture defines)
-    files on disk, tracked and indexable, with NO node: NONE
+    files on disk, tracked and indexable, with NO node: ⛔ ["src/core.js","src/inner.js","src/outerA.js","src/outerB.js","src/outerC.js"]
 
-  EXPECTED 1 IMPORTS and 6 unresolved, GOT 1 and 6  =>  ARM B PASSES
+  EXPECTED 1 IMPORTS and 6 unresolved, GOT 1 and 6  =>  ⛔ ARM B FAILS
 
 ==============================================================================================
 ARM C: CASE-ONLY rename middle.js -> Middle.js — the defect this audit was written for
@@ -49,9 +49,9 @@ ARM C: CASE-ONLY rename middle.js -> Middle.js — the defect this audit was wri
   in rebuild but not incremental: []
   in incremental but not rebuild: []
   COVERAGE of TRACKED files (the INVERSE of the phantom walk): population 5 (5, as the fixture defines)
-    files on disk, tracked and indexable, with NO node: NONE
+    files on disk, tracked and indexable, with NO node: ⛔ ["src/Middle.js","src/inner.js","src/outerA.js","src/outerB.js","src/outerC.js"]
 
-  EXPECTED 4 IMPORTS and 0 unresolved, GOT 4 and 0  =>  ARM C PASSES
+  EXPECTED 4 IMPORTS and 0 unresolved, GOT 4 and 0  =>  ⛔ ARM C FAILS
 
 ==============================================================================================
 ARM D: rename + rewrite in one commit, which defeats git rename detection
@@ -67,9 +67,9 @@ ARM D: rename + rewrite in one commit, which defeats git rename detection
   in rebuild but not incremental: []
   in incremental but not rebuild: []
   COVERAGE of TRACKED files (the INVERSE of the phantom walk): population 5 (5, as the fixture defines)
-    files on disk, tracked and indexable, with NO node: NONE
+    files on disk, tracked and indexable, with NO node: ⛔ ["src/core.js","src/inner.js","src/outerA.js","src/outerB.js","src/outerC.js"]
 
-  EXPECTED 4 IMPORTS and 0 unresolved, GOT 4 and 0  =>  ARM D PASSES
+  EXPECTED 4 IMPORTS and 0 unresolved, GOT 4 and 0  =>  ⛔ ARM D FAILS
 
 ==============================================================================================
 ARM F: CASE-ONLY rename of a PARENT DIRECTORY src/ -> Src/ (graph-senior-dev, executed)
@@ -85,9 +85,9 @@ ARM F: CASE-ONLY rename of a PARENT DIRECTORY src/ -> Src/ (graph-senior-dev, ex
   in rebuild but not incremental: []
   in incremental but not rebuild: []
   COVERAGE of TRACKED files (the INVERSE of the phantom walk): population 5 (5, as the fixture defines)
-    files on disk, tracked and indexable, with NO node: NONE
+    files on disk, tracked and indexable, with NO node: ⛔ ["Src/inner.js","Src/middle.js","Src/outerA.js","Src/outerB.js","Src/outerC.js"]
 
-  EXPECTED 4 IMPORTS and 0 unresolved, GOT 4 and 0  =>  ARM F PASSES
+  EXPECTED 4 IMPORTS and 0 unresolved, GOT 4 and 0  =>  ⛔ ARM F FAILS
 
 ==============================================================================================
 ARM G: same-basename collision — a COUNT and a DIFFERENTIAL are both blind here
@@ -95,12 +95,12 @@ ARM G: same-basename collision — a COUNT and a DIFFERENTIAL are both blind her
   baseline pairs: ["src/refA.js -> src/a/shared.js","src/refB.js -> src/b/shared.js"]
   POSITIVE  both absolute pairs present at baseline: YES
   COVERAGE of TRACKED files (the INVERSE of the phantom walk): population 4 (4, as the fixture defines)
-    files on disk, tracked and indexable, with NO node: NONE
+    files on disk, tracked and indexable, with NO node: ⛔ ["src/a/shared.js","src/b/shared.js","src/refA.js","src/refB.js"]
   PLANT     repointed refA's IMPORTS edge at src/b/shared.js: done
   COUNT     2 -> 2: UNCHANGED — a count is structurally blind to this
   PAIRS     wrong pairing named: YES — src/refA.js -> src/b/shared.js
 
-  =>  ARM G PASSES — absolute pairs catch what the count and the rebuild-differential miss
+  =>  ⛔ ARM G FAILS
 
 ==============================================================================================
 ARM E: the phantom detector's own control — can it report PRESENT?
@@ -114,26 +114,26 @@ ARM E: the phantom detector's own control — can it report PRESENT?
 ==============================================================================================
 ARM H: the coverage limb's own control — and does it see what the phantom walk cannot?
 ==============================================================================================
-  POSITIVE  clean fixture, coverage population 5, unexplained 0: CLEAN, as it must be
+  POSITIVE  clean fixture, coverage population 5, unexplained 5: ⛔ not clean before the plant — every verdict below is void
   PLANT     deleted 3 node(s) for src/outerA.js, file left on disk and tracked: done
-  COVERAGE  names EXACTLY the uncovered file: YES — ["src/outerA.js"]
+  COVERAGE  names EXACTLY the uncovered file: ⛔ NO — got ["src/inner.js","src/middle.js","src/outerA.js","src/outerB.js","src/outerC.js"]; reports more than the planted set, so the limb is SATURATED and a green here would be vacuous
   PHANTOM   walk over the same graph: SILENT — confirms the direction it structurally cannot see
-  DECLARED  the same gap, handed the pass's own skip record: accounted for, not a failure — the two categories are genuinely separate
+  DECLARED  the same gap, handed the pass's own skip record: ⛔ the skip accounting does not work
   REFUSAL   count(51) > list(1), i.e. a truncated report: REFUSED to classify, and returned no verdict to misread
   REFUSAL   no numeric count at all: REFUSED — absence is not treated as completeness
 
-  =>  ARM H PASSES — the coverage limb names EXACTLY the gap the phantom walk is blind to, declared gaps do not fail it, and it REFUSES rather than classifying when the skip report may be truncated
+  =>  ⛔ ARM H FAILS
 
 ==============================================================================================
 VERDICT
 ==============================================================================================
-  ARM A: PASS
-  ARM B: PASS
-  ARM C: PASS
-  ARM D: PASS
-  ARM F: PASS
-  ARM G: PASS
+  ARM A: FAIL
+  ARM B: FAIL
+  ARM C: FAIL
+  ARM D: FAIL
+  ARM F: FAIL
+  ARM G: FAIL
   ARM E: PASS
-  ARM H: PASS
+  ARM H: FAIL
 
-  => Renames leave no phantom (no node names a missing file), no tracked indexable file is left without a node, and BOTH detectors are proven able to report their own failure.
+  => ⛔ NOT CLEAN — read the failing arm above.

@@ -71,7 +71,7 @@ async function prepare(klass, arm) {
   const state = { indexed: false, attestation: null };
   if (arm === 'graph') {
     await repo.index();
-    if (!repo.isIndexed()) throw new Error('graph arm was not indexed — that is a mislabelled nograph arm');
+    if (!(await repo.isIndexed())) throw new Error('graph arm was not indexed — that is a mislabelled nograph arm');
     if (klass.id === 'C6-torn-graph-safety') state.attestation = await repo.tear();
   }
   // ⛔ MEASURED FOR BOTH ARMS, NOT ASSUMED FOR ONE. `indexed` used to be initialised false and only
@@ -82,8 +82,12 @@ async function prepare(klass, arm) {
   // ⚠ WHY IT MATTERS MORE THAN IT LOOKS: if an index ever leaked into the control arm, every cell
   // would compare graph against graph and report "same" — and "the graph made no difference" is the
   // most damaging false result available here, because it is indistinguishable from a genuine null.
-  // `isIndexed()` is one existsSync; there is no reason not to measure both.
-  state.indexed = repo.isIndexed();
+  // ⚠ THIS COMMENT USED TO READ "`isIndexed()` is one existsSync; there is no reason not to measure
+  // both." The conclusion was right and the reason was the defect: one existsSync is CHEAP, and it also
+  // could not tell an indexed graph from an empty database file, which is the leak this field certifies
+  // against. `isIndexed()` now reads the graph and requires code nodes, so it is one small query rather
+  // than one stat — still no reason not to measure both, and now the measurement means something.
+  state.indexed = await repo.isIndexed();
   return { repo, state };
 }
 

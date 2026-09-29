@@ -110,13 +110,38 @@ async function phantomsIn(repo, dbPath) {
 // independent of anything the pass chose to write. A tracked file that is indexable and still on disk
 // MUST have at least one node.
 //
-// ⚠ AND A GAP IS NOT AUTOMATICALLY A DEFECT, which is why `skippedFiles` is consulted. The pass has
+// ⛔⛔ THE NAME CARRIES THE LIMIT, and that is dashboard-manager's point rather than a style choice.
+// The limit below ("blind to untracked files, so never reuse this as a completeness check") lived in a
+// note for one commit. A note is read by whoever wrote it. `coverageIn` is what somebody greps for when
+// they want to know whether the graph is complete, and they would find it, call it, and never open the
+// note. `coverageOfTrackedFiles` states the fail-open direction at every call site, so a misuse is
+// visible in the diff instead of in a document the reuser never opens.
+//
+// ⚠ AND A GAP IS NOT AUTOMATICALLY A DEFECT, which is why the skip report is consulted. The pass has
 // branches that DELIBERATELY leave a file with no nodes and say so — the >1 MB cap at
 // `orchestrator.js:643` is the clearest. A gap the pass DECLARED is accounted for; a gap it did not
-// declare is the failure this limb exists to catch. ⛔ `skippedFiles` is truncated to 50 entries by
-// `orchestrator.js:1028`, so past 50 skips a declared gap can read as unexplained. That direction is
-// FAIL-CLOSED — it over-reports rather than going quiet — which is the direction to be wrong in.
-async function coverageIn(repo, dbPath, skippedFiles) {
+// declare is the failure this limb exists to catch.
+//
+// ⛔⛔ AND IT REFUSES RATHER THAN CLASSIFYING WHEN THE SKIP REPORT MIGHT BE INCOMPLETE. The first
+// version said the truncation at `orchestrator.js:1028` was "fail-closed in direction, which is the
+// direction to be wrong in", and that was not good enough. dashboard-manager walked it one step
+// further: past 50 skips, a DECLARED gap reads as unexplained, so the first person to hit 51 sees a red
+// that is A LIE ABOUT A FILE THE CAP DELIBERATELY LEFT ALONE — and the repair they reach for is
+// widening the allowance, which loses the real direction permanently and quietly.
+//
+// ⇒ A CHECK THAT CANNOT TELL WHICH OF TWO WORLDS IT IS IN MUST NOT REPORT EITHER. Classifying against a
+// list known to be truncated is reading an instrument that silently under-reports.
+//
+// ⭐ AND THE DETECTION COMES FROM THE ARTIFACT, NOT FROM A PRODUCER FLAG — their second warning, which
+// would otherwise have landed on this exact line. Completeness is established by comparing two views of
+// ONE array: how many the pass says it skipped (`skippedFileCount`) against how many it actually handed
+// over (`skippedFiles.length`). Nothing here asks the producer "did you truncate?", and nothing hardcodes
+// 50, which would be a number to remember to update when the cap moves.
+//
+// ⚠ IT FAILS CLOSED ON ITS OWN PRECONDITION: completeness must be POSITIVELY established. A missing or
+// non-numeric count refuses rather than defaulting to "complete", because `undefined > n` is false and a
+// naive comparison would have read a missing count as nothing-was-truncated.
+async function coverageOfTrackedFiles(repo, dbPath, skipReport) {
   const tracked = gitOut(repo, 'ls-files').split(/\r?\n/).filter(Boolean);
   const indexable = [];
   for (const f of tracked) {
@@ -140,10 +165,28 @@ async function coverageIn(repo, dbPath, skippedFiles) {
   }
 
   const gaps = indexable.filter((f) => !covered.has(f));
-  const declared = new Set((skippedFiles ?? []).map((s) => s.file));
+
+  // The precondition, checked before any classification is attempted.
+  const list = skipReport?.files ?? [];
+  const claimedCount = skipReport?.count;
+  const complete = typeof claimedCount === 'number' && claimedCount === list.length;
+  if (!complete) {
+    return {
+      population: indexable.length,
+      gaps,
+      refused: typeof claimedCount !== 'number'
+        ? `skip report carries no numeric count (got ${JSON.stringify(claimedCount)}), so completeness cannot be established`
+        : `the pass reports ${claimedCount} skipped file(s) but handed over ${list.length}, so the skip report is TRUNCATED`,
+      unexplained: null,
+      declared: null,
+    };
+  }
+
+  const declared = new Set(list.map((s) => s.file));
   return {
     population: indexable.length,
     gaps,
+    refused: null,
     unexplained: gaps.filter((g) => !declared.has(g)),
     declared: gaps.filter((g) => declared.has(g)),
   };
@@ -157,11 +200,17 @@ async function coverageIn(repo, dbPath, skippedFiles) {
 function coverageLine(cov, expectPopulation) {
   const vacuous = cov.population === 0;
   const popOk = cov.population === expectPopulation;
-  return `  COVERAGE (git-derived, the INVERSE of the phantom walk): population ${cov.population} `
-    + `${vacuous ? '⛔ VACUOUS — every verdict from this limb is void' : popOk ? `(${expectPopulation}, as the fixture defines)` : `⛔ NOT ${expectPopulation} — fixture or predicate changed`}`
-    + `\n    files on disk, tracked and indexable, with NO node: `
+  const head = `  COVERAGE of TRACKED files (the INVERSE of the phantom walk): population ${cov.population} `
+    + `${vacuous ? '⛔ VACUOUS — every verdict from this limb is void' : popOk ? `(${expectPopulation}, as the fixture defines)` : `⛔ NOT ${expectPopulation} — fixture or predicate changed`}`;
+  // A REFUSAL IS NOT A CLEAN RESULT AND MUST NOT READ LIKE ONE. It prints the precondition it could not
+  // meet and takes the arm red, because the audit cannot certify what it cannot separate.
+  if (cov.refused) {
+    return `${head}\n    ⛔ REFUSED TO CLASSIFY: ${cov.refused}`
+      + `\n    (${cov.gaps.length} gap(s) found, left UNCLASSIFIED — declared and undeclared cannot be told apart in this run)`;
+  }
+  return `${head}\n    files on disk, tracked and indexable, with NO node: `
     + `${cov.unexplained.length ? `⛔ ${JSON.stringify(cov.unexplained)}` : 'NONE'}`
-    + `${cov.declared.length ? `\n    gaps the pass DECLARED via skippedFiles (accounted for): ${JSON.stringify(cov.declared)}` : ''}`;
+    + `${cov.declared.length ? `\n    gaps the pass DECLARED, accounted for: ${JSON.stringify(cov.declared)}` : ''}`;
 }
 
 function importsIn(dbPath) {
@@ -227,7 +276,9 @@ async function runArm({ name, intent, mutate, expectImports, expectUnresolved, e
     const fullImports = importsIn(dbOf(full));
     const incPhantoms = await phantomsIn(inc, dbOf(inc));
     const incUnresolved = unresolvedIn(dbOf(inc));
-    const incCoverage = await coverageIn(inc, dbOf(inc), incResult?.skippedFiles);
+    const incCoverage = await coverageOfTrackedFiles(inc, dbOf(inc), {
+      files: incResult?.skippedFiles, count: incResult?.skippedFileCount,
+    });
 
     const missing = fullImports.filter((x) => !incImports.includes(x));
     const extra = incImports.filter((x) => !fullImports.includes(x));
@@ -256,7 +307,8 @@ async function runArm({ name, intent, mutate, expectImports, expectUnresolved, e
       // The population assertion is HALF THE LIMB, not decoration: without it an empty population
       // reports "NONE unexplained" and passes.
       && incCoverage.population === expectPopulation
-      && incCoverage.unexplained.length === 0;
+      && !incCoverage.refused
+      && incCoverage.unexplained?.length === 0;
     console.log(`\n  EXPECTED ${expectImports} IMPORTS and ${expectUnresolved} unresolved, `
       + `GOT ${incImports.length} and ${incUnresolved.length}  =>  ${ok ? `ARM ${name} PASSES` : `⛔ ARM ${name} FAILS`}`);
     return { name, ok };
@@ -444,7 +496,7 @@ async function runSameBasenameArm() {
     console.log(`  POSITIVE  both absolute pairs present at baseline: ${baseOk ? 'YES' : '⛔ NO — every verdict below is void'}`);
     // The coverage limb runs here too, BEFORE the plant, so this arm's own fixture cannot quietly stop
     // being indexed. 4 files: a/shared.js, b/shared.js, refA.js, refB.js.
-    const gCoverage = await coverageIn(repo, dbOf(repo), []);
+    const gCoverage = await coverageOfTrackedFiles(repo, dbOf(repo), { files: [], count: 0 });
     console.log(coverageLine(gCoverage, 4));
 
     // ⭐ THE PLANT, IN THE ARTIFACT THE CHECK READS: repoint refA's IMPORTS edge at the OTHER
@@ -474,7 +526,7 @@ async function runSameBasenameArm() {
     console.log(`  PAIRS     wrong pairing named: ${pairsSaw ? 'YES — src/refA.js -> src/b/shared.js' : '⛔ NO — the pair check cannot see a mis-repoint either'}`);
 
     const ok = baseOk && planted && countBlind && pairsSaw
-      && gCoverage.population === 4 && gCoverage.unexplained.length === 0;
+      && gCoverage.population === 4 && !gCoverage.refused && gCoverage.unexplained?.length === 0;
     console.log(`\n  =>  ${ok ? 'ARM G PASSES — absolute pairs catch what the count and the rebuild-differential miss' : '⛔ ARM G FAILS'}`);
     return { name: 'G', ok };
   } finally {
@@ -504,7 +556,7 @@ async function runCoverageControl() {
   const repo = await buildFixture();
   try {
     await ensureFresh({ repoRoot: repo });
-    const before = await coverageIn(repo, dbOf(repo), []);
+    const before = await coverageOfTrackedFiles(repo, dbOf(repo), { files: [], count: 0 });
 
     console.log(`\n${'='.repeat(94)}\nARM H: the coverage limb's own control — and does it see what the phantom walk cannot?\n${'='.repeat(94)}`);
     console.log(`  POSITIVE  clean fixture, coverage population ${before.population}, unexplained `
@@ -525,29 +577,70 @@ async function runCoverageControl() {
     console.log(`  PLANT     deleted ${plantedRows} node(s) for src/outerA.js, file left on disk and tracked: `
       + `${plantedRows > 0 ? 'done' : '⛔ FAILED — nothing deleted, arm is void'}`);
 
-    const after = await coverageIn(repo, dbOf(repo), []);
+    const after = await coverageOfTrackedFiles(repo, dbOf(repo), { files: [], count: 0 });
     const phantomsAfter = await phantomsIn(repo, dbOf(repo));
 
-    const coverageSaw = after.unexplained.includes('src/outerA.js');
+    // ⛔⛔ EQUALITY AGAINST EXACTLY THE PLANTED SET, NOT MEMBERSHIP — and this is the one change in this
+    // file that came from a FALSIFIED PREDICTION rather than from a defect anybody found.
+    //
+    // dashboard-manager pre-registered, without having opened this repo: "mutate `coverageIn` so it
+    // returns ALL tracked files rather than the uncovered ones; my prediction is STILL GREEN on ARM H".
+    // Measured: the ARM went RED, so the prediction was wrong. But THIS LINE stayed green, because
+    // `includes(...)` is satisfied by a limb that names every tracked file. What took the arm red was the
+    // BASELINE control and the DECLARED limb — neither of which is the assertion under test.
+    //
+    // ⇒ So the arm had TWO RESCUERS a differently-shaped fixture would not have had, and the green was
+    // luck about which controls happened to exist. That is this file's own header defect for the third
+    // time: "the arm was rescued by" something other than the thing being tested.
+    //
+    // ⇒ Equality stops the assertion being CARRIED. It is not that it gets stronger; it is that it now
+    // fails on its own when the limb saturates, instead of depending on a neighbour to notice.
+    const coverageSaw = after.unexplained?.length === 1 && after.unexplained[0] === 'src/outerA.js';
     const phantomBlind = phantomsAfter.length === 0;
-    console.log(`  COVERAGE  names the uncovered file: ${coverageSaw
-      ? 'YES — src/outerA.js' : '⛔ NO — the limb cannot report a gap, so its NONE means nothing'}`);
+    // ⚠ THE FAILURE MESSAGE PRINTS WHAT IT ACTUALLY GOT, because the two ways this assertion can fail
+    // need different repairs and a fixed message named only one of them. Under `gaps = []` the limb
+    // reports nothing; under a saturated limb it reports everything. The first draft said "cannot report
+    // a gap" for both, which is a red stating the wrong reason — as uninformative as a green for the
+    // wrong reason, and it would have sent the next reader at the opposite bug.
+    console.log(`  COVERAGE  names EXACTLY the uncovered file: ${coverageSaw
+      ? 'YES — ["src/outerA.js"]'
+      : `⛔ NO — got ${JSON.stringify(after.unexplained)}; `
+        + `${after.unexplained?.length === 0 ? 'reports nothing, so its NONE means nothing'
+          : 'reports more than the planted set, so the limb is SATURATED and a green here would be vacuous'}`}`);
     console.log(`  PHANTOM   walk over the same graph: ${phantomBlind
       ? 'SILENT — confirms the direction it structurally cannot see'
       : `⛔ reported ${JSON.stringify(phantomsAfter)} — then this plant is not the case being demonstrated`}`);
 
     // ⭐ AND THE OTHER HALF OF THE ACCOUNTING, so a DECLARED gap is proven not to fail the limb.
     // Same plant, same graph, but handed the skip record the pass would have produced.
-    const declaredView = await coverageIn(repo, dbOf(repo), [{ file: 'src/outerA.js', phase: 'too_large' }]);
-    const declaredOk = declaredView.unexplained.length === 0 && declaredView.declared.includes('src/outerA.js');
+    const declaredView = await coverageOfTrackedFiles(repo, dbOf(repo),
+      { files: [{ file: 'src/outerA.js', phase: 'too_large' }], count: 1 });
+    const declaredOk = declaredView.unexplained?.length === 0 && declaredView.declared?.includes('src/outerA.js');
     console.log(`  DECLARED  the same gap, handed the pass's own skip record: ${declaredOk
       ? 'accounted for, not a failure — the two categories are genuinely separate'
-      : '⛔ the skippedFiles accounting does not work'}`);
+      : '⛔ the skip accounting does not work'}`);
 
-    const ok = before.population === 5 && before.unexplained.length === 0
-      && plantedRows > 0 && coverageSaw && phantomBlind && declaredOk;
+    // ⭐ THE REFUSAL, WATCHED RATHER THAN ASSUMED. A limb that refuses is only useful if the refusal
+    // actually fires on a truncated report AND is not mistaken for a clean result. Two shapes, both of
+    // which a naive comparison would have passed: a count LARGER than the list it handed over, and a
+    // missing count (`undefined > n` is false, so absence would have read as nothing-was-truncated).
+    const truncatedView = await coverageOfTrackedFiles(repo, dbOf(repo),
+      { files: [{ file: 'src/outerA.js', phase: 'too_large' }], count: 51 });
+    const noCountView = await coverageOfTrackedFiles(repo, dbOf(repo),
+      { files: [{ file: 'src/outerA.js', phase: 'too_large' }] });
+    const refusesTruncated = Boolean(truncatedView.refused) && truncatedView.unexplained === null;
+    const refusesNoCount = Boolean(noCountView.refused) && noCountView.unexplained === null;
+    console.log(`  REFUSAL   count(51) > list(1), i.e. a truncated report: ${refusesTruncated
+      ? 'REFUSED to classify, and returned no verdict to misread' : '⛔ classified anyway'}`);
+    console.log(`  REFUSAL   no numeric count at all: ${refusesNoCount
+      ? 'REFUSED — absence is not treated as completeness' : '⛔ absence read as complete'}`);
+
+    const ok = before.population === 5 && !before.refused && before.unexplained.length === 0
+      && plantedRows > 0 && coverageSaw && phantomBlind && declaredOk
+      && refusesTruncated && refusesNoCount;
     console.log(`\n  =>  ${ok
-      ? 'ARM H PASSES — the coverage limb reports a gap the phantom walk is blind to, and declared gaps do not fail it'
+      ? 'ARM H PASSES — the coverage limb names EXACTLY the gap the phantom walk is blind to, declared gaps do '
+        + 'not fail it, and it REFUSES rather than classifying when the skip report may be truncated'
       : '⛔ ARM H FAILS'}`);
     return { name: 'H', ok };
   } finally {

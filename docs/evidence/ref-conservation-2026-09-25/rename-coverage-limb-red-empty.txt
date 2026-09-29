@@ -116,13 +116,13 @@ ARM H: the coverage limb's own control — and does it see what the phantom walk
 ==============================================================================================
   POSITIVE  clean fixture, coverage population 5, unexplained 0: CLEAN, as it must be
   PLANT     deleted 3 node(s) for src/outerA.js, file left on disk and tracked: done
-  COVERAGE  names EXACTLY the uncovered file: YES — ["src/outerA.js"]
+  COVERAGE  names EXACTLY the uncovered file: ⛔ NO — got []; reports nothing, so its NONE means nothing
   PHANTOM   walk over the same graph: SILENT — confirms the direction it structurally cannot see
-  DECLARED  the same gap, handed the pass's own skip record: accounted for, not a failure — the two categories are genuinely separate
+  DECLARED  the same gap, handed the pass's own skip record: ⛔ the skip accounting does not work
   REFUSAL   count(51) > list(1), i.e. a truncated report: REFUSED to classify, and returned no verdict to misread
   REFUSAL   no numeric count at all: REFUSED — absence is not treated as completeness
 
-  =>  ARM H PASSES — the coverage limb names EXACTLY the gap the phantom walk is blind to, declared gaps do not fail it, and it REFUSES rather than classifying when the skip report may be truncated
+  =>  ⛔ ARM H FAILS
 
 ==============================================================================================
 VERDICT
@@ -134,6 +134,6 @@ VERDICT
   ARM F: PASS
   ARM G: PASS
   ARM E: PASS
-  ARM H: PASS
+  ARM H: FAIL
 
-  => Renames leave no phantom (no node names a missing file), no tracked indexable file is left without a node, and BOTH detectors are proven able to report their own failure.
+  => ⛔ NOT CLEAN — read the failing arm above.

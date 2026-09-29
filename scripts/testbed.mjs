@@ -245,14 +245,22 @@ if (args.has('--status')) {
   const rows = REPOS.map((r) => {
     const root = join(CORPUS, r.name);
     const present = existsSync(root);
+    // ⛔ `indexed` USED TO BE `existsSync(graph.sqlite)`, which is the same defect this file already
+    // diagnoses and fixes 110 lines below for `steps.index` — existence is not success for a mutable
+    // artifact that survives a failed run, and a graph holding only Document/Directory/Config nodes is
+    // the shape an interrupted index leaves. Both sites now use the same predicate. The counts were
+    // already being computed two lines down, so the honest answer was in hand the whole time.
+    const counts = present ? graphCounts(root) : null;
+    const codeNodes = present ? codeNodeCount(root) : 0;
     return {
       name: r.name,
       language: r.language,
       cloned: present,
       installed: present && existsSync(join(root, '.mcp.json')),
-      indexed: present && existsSync(join(root, '.aify-graph', 'graph.sqlite')),
+      indexed: Boolean(counts?.nodes > 0 && codeNodes > 0),
+      indexEvidence: { totalNodes: counts?.nodes ?? null, codeNodes },
       sizeMb: present ? dirSizeMb(root) : null,
-      graph: present ? graphCounts(root) : null,
+      graph: counts,
       note: r.note,
     };
   });

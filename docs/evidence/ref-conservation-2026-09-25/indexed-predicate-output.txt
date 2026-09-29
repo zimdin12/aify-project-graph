@@ -1,0 +1,7 @@
+Driving the REAL ScratchRepo.isIndexed() through three states:
+
+  ok  no .aify-graph directory at all                isIndexed() = false (want false)
+  ok  EMPTY graph.sqlite on disk                     isIndexed() = false (want false)  <- existsSync says true, so the OLD implementation returned TRUE here
+  ok  a REAL graph copied in                         isIndexed() = true  (want true)  <- the method can also say true
+
+=> PASS — isIndexed() reads the graph. An empty database file no longer counts as indexed.

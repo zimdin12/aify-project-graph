@@ -84,9 +84,45 @@ export class ScratchRepo {
     return attestation;
   }
 
-  /** Did indexing actually produce a graph? An unindexed "graph arm" is a mislabelled grep arm. */
-  isIndexed() {
-    return existsSync(join(this.#dir, '.aify-graph', 'graph.sqlite'));
+  /**
+   * Did indexing actually produce a graph? An unindexed "graph arm" is a mislabelled grep arm.
+   *
+   * ⛔⛔ THIS READS THE GRAPH. IT USED TO CHECK THAT A FILE EXISTED, which is a different question, and
+   * the docstring above already promised the harder one.
+   *
+   * The shape, named by dashboard-manager 2026-09-29: a predicate that decides whether work happened by
+   * the PRESENCE OF A NAMED ARTIFACT rather than by reading it. An index that exits 0 having written
+   * only Directory/Config nodes — the shape an interrupted run leaves — satisfies `existsSync` and
+   * reports the graph arm as treated while it is effectively untreated.
+   *
+   * ⇒ WHY IT MATTERS HERE SPECIFICALLY, and the caller says it better than this comment can: if the
+   * arms stop differing, every cell compares graph against graph and reports "same", and "the graph
+   * made no difference" is indistinguishable from a genuine null. A guard against that must not be
+   * satisfiable by an empty database.
+   *
+   * ⭐ THE CORRECT PREDICATE ALREADY EXISTED IN THE TREE at `scripts/testbed.mjs:365`, with a comment
+   * explaining exactly why existence is not success for a mutable artifact — fixed there, never
+   * propagated here or to `testbed.mjs:253`. Same predicate now in all three.
+   */
+  async isIndexed() {
+    const dbPath = join(this.#dir, '.aify-graph', 'graph.sqlite');
+    if (!existsSync(dbPath)) return false;
+    const { openExistingDb } = await import('../../mcp/stdio/storage/db.js');
+    let db;
+    try {
+      db = openExistingDb(dbPath);
+      const total = db.get('SELECT COUNT(*) c FROM nodes');
+      const code = db.get(
+        "SELECT COUNT(*) c FROM nodes WHERE type IN ('Function','Method','Class','Interface','Type','Symbol','Test')",
+      );
+      return total?.c > 0 && code?.c > 0;
+    } catch {
+      // A database that cannot be opened or queried is not an indexed one. Fail closed: this guard's
+      // whole job is to refuse a mislabelled arm, and a guard that passes on a broken input is decoration.
+      return false;
+    } finally {
+      db?.close?.();
+    }
   }
 
   dispose() {
