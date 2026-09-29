@@ -161,7 +161,13 @@ describe('the resolver distinguishes three states — synthetic controls', () =>
   it('★★★ OVERLAP: counting is NON-OVERLAPPING, stated because it changes the number', () => {
     // `aa` in `aaa` is ONE occurrence here, not two. Overlapping matches cannot both be replaced —
     // mutating one destroys the other — so the count that governs mutation uses the same semantics.
-    expect(resolveAnchor('aaa', 'aa')).toEqual({ state: 'unique', index: 0 });
+    // ⚠ `matchedLength` ADDED 2026-09-29, and this assertion kept EXACT rather than loosened to
+    // `toMatchObject`. The resolver now reports how many bytes it matched, because a CRLF file makes the
+    // matched span longer than an anchor written with `\n`, and `applyAnchor` must splice the length that
+    // was FOUND — re-deriving it in the mutator would be the second search this module exists to forbid.
+    // The counting semantics this arm tests are unchanged; only the result shape grew. Asserting the new
+    // field here rather than dropping to a partial match also pins that a 2-byte anchor matched 2 bytes.
+    expect(resolveAnchor('aaa', 'aa')).toEqual({ state: 'unique', index: 0, matchedLength: 2 });
     expect(resolveAnchor('aaaa', 'aa').state, 'four a-s hold two non-overlapping pairs').toBe('duplicate');
   });
 
