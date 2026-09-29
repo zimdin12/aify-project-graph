@@ -45,6 +45,9 @@ const { openDb } = await load('mcp', 'stdio', 'storage', 'db.js');
 // disagreed with the pass about WHICH FILES OUGHT TO BE COVERED would manufacture both false alarms
 // and false silence, and there would be no way to tell which one you were looking at.
 const { getLanguageConfig } = await load('mcp', 'stdio', 'ingest', 'languages', 'index.js');
+// PURE, AND TESTED — `tests/unit/scripts/coverage-verdict.test.js`. See that module's header for why the
+// predicates live there rather than in this script.
+const { classifyCoverage, coverageIsVacuous } = await load('scripts', 'lib', 'coverage-verdict.mjs');
 
 const git = (repo, ...args) => execFileSync('git', ['-C', repo, ...args], { stdio: 'ignore' });
 const gitOut = (repo, ...args) => execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8' });
@@ -166,30 +169,11 @@ async function coverageOfTrackedFiles(repo, dbPath, skipReport) {
 
   const gaps = indexable.filter((f) => !covered.has(f));
 
-  // The precondition, checked before any classification is attempted.
-  const list = skipReport?.files ?? [];
-  const claimedCount = skipReport?.count;
-  const complete = typeof claimedCount === 'number' && claimedCount === list.length;
-  if (!complete) {
-    return {
-      population: indexable.length,
-      gaps,
-      refused: typeof claimedCount !== 'number'
-        ? `skip report carries no numeric count (got ${JSON.stringify(claimedCount)}), so completeness cannot be established`
-        : `the pass reports ${claimedCount} skipped file(s) but handed over ${list.length}, so the skip report is TRUNCATED`,
-      unexplained: null,
-      declared: null,
-    };
-  }
-
-  const declared = new Set(list.map((s) => s.file));
-  return {
-    population: indexable.length,
-    gaps,
-    refused: null,
-    unexplained: gaps.filter((g) => !declared.has(g)),
-    declared: gaps.filter((g) => declared.has(g)),
-  };
+  // ⭐ The precondition and the split live in `lib/coverage-verdict.mjs`, imported rather than inlined here.
+  // Not tidiness: this file is a 664-line self-executing script with no tests of its internals, and a
+  // predicate written inside it CANNOT BE REACHED BY THE SUITE. dashboard-manager measured that the
+  // script/module boundary — not priority or judgement — decides which guards ever get checked.
+  return classifyCoverage({ population: indexable.length, gaps, skipReport });
 }
 
 // ⭐⭐ PRINT THE POPULATION BESIDE THE VERDICT. The reachable failure of the limb above is not a wrong
@@ -198,7 +182,7 @@ async function coverageOfTrackedFiles(repo, dbPath, skipReport) {
 // empty population and a fully-covered one produce the identical verdict, so the count is the only
 // thing that can tell them apart and it is asserted, not merely displayed.
 function coverageLine(cov, expectPopulation) {
-  const vacuous = cov.population === 0;
+  const vacuous = coverageIsVacuous(cov);
   const popOk = cov.population === expectPopulation;
   const head = `  COVERAGE of TRACKED files (the INVERSE of the phantom walk): population ${cov.population} `
     + `${vacuous ? '⛔ VACUOUS — every verdict from this limb is void' : popOk ? `(${expectPopulation}, as the fixture defines)` : `⛔ NOT ${expectPopulation} — fixture or predicate changed`}`;

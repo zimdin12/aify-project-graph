@@ -218,6 +218,32 @@ const KNOWN_SOURCE_CONTRACT = new Set([
   //   ⚠ Its own blind spot is STATED and gated: the matcher only reads an inline object
   //     literal, so a COVERAGE CONTROL asserts matched sites === total invocations. Without
   //     it, `buildAbsenceTrustLine(opts)` would be unenrolled and reported green.
+  'unit/scripts/audit-preconditions-still-hold.test.js',
+  //   ↳ ⚠ ADDED 2026-09-29, on the same narrow argument as remedy-names-a-reachable-verb and
+  //     every-absence-names-its-unmodelled-constructs: THE ARTIFACT UNDER TEST IS THE SET OF
+  //     `await load(...)` CALL SITES inside three hand-run audits. The claim is "every module these
+  //     audits load still exists and still exports every symbol they destructure", and the population
+  //     has to be WHAT THE AUDIT ACTUALLY WRITES.
+  //   ⚠ THE SEAM WAS CONSIDERED AND REJECTED FOR A REASON THIS LIST ALREADY USES. The obvious
+  //     structural version is a manifest module the audits and this test both import. Then both sides
+  //     read ONE REGISTERED LIST, and any load the audit writes directly is invisible — a register
+  //     drifting from the code it describes, which is the exact defect class removed elsewhere in the
+  //     tree today. That is the "drive the misses it can construct and silently pass on the ones it
+  //     cannot" failure the 2026-08-19 entry describes.
+  //   ⚠ AND IMPORTING THE AUDITS TO INTROSPECT THEM IS NOT AVAILABLE: each self-executes its entire
+  //     audit at import time, building git fixtures and indexing them. There is no import that does
+  //     not run a multi-minute audit.
+  //   ⚠ NOT fully source-only in fact, and this is the half that separates it from the three files
+  //     retired on 2026-08-11: only the POPULATION is parsed. The PREDICATE is runtime — a real
+  //     dynamic `import()` of the real module and `name in mod` — so a product-side rename is caught
+  //     behaviourally. WATCHED: renaming `getLanguageConfig` to `getLanguageConfigRENAMED` turns all
+  //     three audit arms red naming the exact module and symbol, while the controls stay green. The
+  //     three files this ratchet was built for could not fail on a behaviour change at all.
+  //   ⚠ Its own blind spot is STATED and gated: a reflowed or re-idiomed `load(` call makes the regex
+  //     match FEWER sites, so the arm would go quiet rather than red. A POPULATION CONTROL asserts the
+  //     derived audit count and the total load count, and a parser control feeds it all three
+  //     spellings present in the tree — including the ALIASING destructure whose omission made this
+  //     guard's first run a false positive.
   'unit/integrations/skill-parity.test.js',
   //   ↳ The artifact under test is markdown we SHIP. There is no code whose behaviour this
   //     stands in for: the four SKILL.md trees are the product, and "these four files agree,
