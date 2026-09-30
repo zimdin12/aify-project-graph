@@ -9,6 +9,7 @@
 //   APG_DASHBOARD_KEY      required; or APG_DASHBOARD_ENV pointing at a .env holding API_KEY=
 //   APG_DASHBOARD_HOST     default host-a
 //   APG_DASHBOARD_PROJECT  required
+//   APG_DASHBOARD_REPORTER default aify-project-graph; the name this sweep reports under
 //
 // ⛔ THE SWEEP DOES NOT RECONFIRM, AND THAT IS DELIBERATE. `reconfirm` is one of only two acts allowed to
 // SETTLE a mark, and their own design calls it "a deliberate act by something that looked". A sweeper that
@@ -60,6 +61,9 @@ function config() {
     apiKey: process.env.APG_DASHBOARD_KEY ?? keyFromFile,
     hostKey: process.env.APG_DASHBOARD_HOST ?? 'host-a',
     projectId: process.env.APG_DASHBOARD_PROJECT,
+    // ⛔ CONFIGURATION, NOT A CONSTANT. The reporter name varies by deployment, and it is also the field that
+    // makes the two-reporter experiment in `docs/evidence/dashboard-seam-2026-09-30/` possible at all.
+    reporterId: process.env.APG_DASHBOARD_REPORTER ?? 'aify-project-graph',
   };
 }
 
@@ -78,6 +82,7 @@ async function main() {
   const dryRun = process.argv.includes('--dry-run');
   const client = new DashboardSignalsClient(config());
   console.log(`endpoint      ${client.describe()}`);
+  console.log(`reporter      ${client.reporterId}`);
 
   // 1. Read the set. The revision read here is the one posted back, unchanged.
   const set = await client.readWatchSet();

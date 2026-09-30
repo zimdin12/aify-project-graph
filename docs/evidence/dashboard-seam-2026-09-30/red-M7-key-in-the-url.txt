@@ -1,0 +1,63 @@
+MUTATION M7-key-in-the-url — the api key is put in the URL, where every access log keeps it
+What was replaced:
+      const response = await this.fetchImpl(`${this.baseUrl}${path}`, {
+With:
+      const response = await this.fetchImpl(`${this.baseUrl}${path}?k=${this.#apiKey}`, { // MUTANT M7
+
+
+ RUN  v3.2.4 C:/Docker/aify-project-graph
+
+ ❯ tests/unit/scripts/dashboard-signals-client.test.js (9 tests | 2 failed) 10ms
+   ✓ the batch body carries what the route requires > ★★★ reporterId is in the BODY — the field whose absence is a 400 2ms
+   ✓ the batch body carries what the route requires > ★★★ the reporter name is CONFIGURABLE, because two reporters is a real case 0ms
+   × the batch body carries what the route requires > ★★★ the URL and method are the ones the service publishes 5ms
+     → expected 'http://localhost:9700/api/v1/host/hos…' to be 'http://localhost:9700/api/v1/host/hos…' // Object.is equality
+   × the key is held, never carried anywhere it could be read > ★★★ it travels ONLY in the x-api-key header 0ms
+     → expected 'http://localhost:9700/api/v1/host/hos…' not to contain 'sk-test-not-a-real-key-0123456789'
+   ✓ the key is held, never carried anywhere it could be read > ★★★ describe() names where it points and NOT what it holds 0ms
+   ✓ the key is held, never carried anywhere it could be read > ★★★ a missing key FAILS CLOSED at construction, before any request 1ms
+   ✓ a refusal keeps the part that says what to do about it > ★★★ a 409 is flagged for RE-READ rather than left to a string match 1ms
+   ✓ a refusal keeps the part that says what to do about it > ★★★ an ordinary refusal is NOT flagged for re-read 0ms
+   ✓ a refusal keeps the part that says what to do about it > ★★★ a non-JSON body is reported as itself, not as a parse crash 0ms
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 7 passed (9)
+   Start at  15:54:36
+   Duration  293ms (transform 24ms, setup 0ms, collect 37ms, tests 10ms, environment 0ms, prepare 77ms)
+
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/scripts/dashboard-signals-client.test.js > the batch body carries what the route requires > ★★★ the URL and method are the ones the service publishes
+AssertionError: expected 'http://localhost:9700/api/v1/host/hos…' to be 'http://localhost:9700/api/v1/host/hos…' // Object.is equality
+
+Expected: "http://localhost:9700/api/v1/host/host-a/projects/PROJ/watch-set"
+Received: "http://localhost:9700/api/v1/host/host-a/projects/PROJ/watch-set?k=sk-test-not-a-real-key-0123456789"
+
+ ❯ tests/unit/scripts/dashboard-signals-client.test.js:79:36
+     77|     await c.readWatchSet();
+     78|     await c.postSignals(batch);
+     79|     expect(fetchImpl.calls[0].url).toBe('http://localhost:9700/api/v1/…
+       |                                    ^
+     80|     expect(fetchImpl.calls[0].init.method).toBe('GET');
+     81|     expect(fetchImpl.calls[1].url).toBe('http://localhost:9700/api/v1/…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/unit/scripts/dashboard-signals-client.test.js > the key is held, never carried anywhere it could be read > ★★★ it travels ONLY in the x-api-key header
+AssertionError: expected 'http://localhost:9700/api/v1/host/hos…' not to contain 'sk-test-not-a-real-key-0123456789'
+
+Expected: "sk-test-not-a-real-key-0123456789"
+Received: "http://localhost:9700/api/v1/host/host-a/projects/PROJ/signals?k=sk-test-not-a-real-key-0123456789"
+
+ ❯ tests/unit/scripts/dashboard-signals-client.test.js:96:21
+     94|     expect(init.headers['x-api-key'], 'the key must be sent, or these …
+     95|     // ⛔ AND NOWHERE ELSE. A key in a URL lands in every access log an…
+     96|     expect(url).not.toContain(SECRET);
+       |                     ^
+     97|     expect(init.body).not.toContain(SECRET);
+     98|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+

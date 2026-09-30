@@ -1,0 +1,69 @@
+MUTATION M6-reporterid-missing-from-the-body — the batch omits reporterId — the bug that shipped, and a 400 from the live route
+What was replaced:
+        reporterId: this.reporterId, head, watchRevision, results, unwatched,
+With:
+        head, watchRevision, results, unwatched, // MUTANT M6
+
+
+ RUN  v3.2.4 C:/Docker/aify-project-graph
+
+ ❯ tests/unit/scripts/dashboard-signals-client.test.js (9 tests | 2 failed) 10ms
+   × the batch body carries what the route requires > ★★★ reporterId is in the BODY — the field whose absence is a 400 6ms
+     → their route reads required(raw, "reporterId"); without it this is a 400: expected undefined to be 'aify-project-graph' // Object.is equality
+   × the batch body carries what the route requires > ★★★ the reporter name is CONFIGURABLE, because two reporters is a real case 0ms
+     → expected undefined to be 'apg-second-independent-sweeper' // Object.is equality
+   ✓ the batch body carries what the route requires > ★★★ the URL and method are the ones the service publishes 0ms
+   ✓ the key is held, never carried anywhere it could be read > ★★★ it travels ONLY in the x-api-key header 0ms
+   ✓ the key is held, never carried anywhere it could be read > ★★★ describe() names where it points and NOT what it holds 0ms
+   ✓ the key is held, never carried anywhere it could be read > ★★★ a missing key FAILS CLOSED at construction, before any request 1ms
+   ✓ a refusal keeps the part that says what to do about it > ★★★ a 409 is flagged for RE-READ rather than left to a string match 1ms
+   ✓ a refusal keeps the part that says what to do about it > ★★★ an ordinary refusal is NOT flagged for re-read 0ms
+   ✓ a refusal keeps the part that says what to do about it > ★★★ a non-JSON body is reported as itself, not as a parse crash 0ms
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 7 passed (9)
+   Start at  15:54:35
+   Duration  290ms (transform 23ms, setup 0ms, collect 37ms, tests 10ms, environment 0ms, prepare 76ms)
+
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/scripts/dashboard-signals-client.test.js > the batch body carries what the route requires > ★★★ reporterId is in the BODY — the field whose absence is a 400
+AssertionError: their route reads required(raw, "reporterId"); without it this is a 400: expected undefined to be 'aify-project-graph' // Object.is equality
+
+- Expected: 
+"aify-project-graph"
+
++ Received: 
+undefined
+
+ ❯ tests/unit/scripts/dashboard-signals-client.test.js:60:8
+     58|     // ⛔ THE ARM THAT WOULD HAVE CAUGHT THE SHIPPED BUG.
+     59|     expect(sent.reporterId, 'their route reads required(raw, "reporter…
+     60|       .toBe('aify-project-graph');
+       |        ^
+     61|     // And the rest of the contract, so a refactor cannot drop one whi…
+     62|     expect(sent.head).toBe('abc123');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/unit/scripts/dashboard-signals-client.test.js > the batch body carries what the route requires > ★★★ the reporter name is CONFIGURABLE, because two reporters is a real case
+AssertionError: expected undefined to be 'apg-second-independent-sweeper' // Object.is equality
+
+- Expected: 
+"apg-second-independent-sweeper"
+
++ Received: 
+undefined
+
+ ❯ tests/unit/scripts/dashboard-signals-client.test.js:71:65
+     69|     const fetchImpl = recordingFetch();
+     70|     await client({ fetchImpl, reporterId: 'apg-second-independent-swee…
+     71|     expect(JSON.parse(fetchImpl.calls[0].init.body).reporterId).toBe('…
+       |                                                                 ^
+     72|   });
+     73| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
