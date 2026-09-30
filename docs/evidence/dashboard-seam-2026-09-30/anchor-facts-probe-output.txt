@@ -1,0 +1,17 @@
+== Q1 does the JS extractor model `export const`? ==
+  mcp/stdio/storage/taxonomy.js                      nodes=2 symbols=0 []
+    carries structural_fp / dependency_fp?           n/a / n/a
+  mcp/stdio/ingest/fingerprint.js                    nodes=9 symbols=7 [symbolFingerprints,structuralFingerprint,dependencyFingerprint,fileStructuralFingerprint,shapeOf,normalizedList,digest]
+    carries structural_fp / dependency_fp?           true / true
+  ⇒ POSITIVE control is fingerprint.js (symbols found). NEGATIVE-shaped case is taxonomy.js,
+    which is ALL `export const`: 0 symbols, so a symbol anchor there is UNMODELLED, not GONE.
+== Q2 is a file fingerprint stable across a comment-only edit? ==
+  comment-only edit changes the fingerprint?         NO (correct)
+  MUTATION CONTROL: renaming a function changes it?  YES (correct)
+  ⇒ Without the mutation control, "comment edit does not change it" is also what a
+    constant would report. The pair separates stable from dead.
+== Q3 what does a doc link set look like? ==
+  AGENTS.md references total / non-fenced            55 / 55
+  distinct non-fenced targets                        37
+  first five                                         ["install.claude.md","install.codex.md","install.opencode.md","install.pi.md","opencode.json"]
+  NEGATIVE CONTROL: a doc with no links              0 (must be 0)

@@ -1,0 +1,22 @@
+endpoint      http://localhost:9700 host=host-a project=01M3R0JYA2KDWSR8V8HZVCZJ2X (key held, not shown)
+watch set     revision 5ca0f2d926b772e7, 7 items
+
+  restamp    module:taxonomy  mcp/stdio/storage/taxonomy.js
+             stamp apg-file-structural-1 525d364e7dd988c8
+  restamp    module:coverage  mcp/stdio/code-intel/coverage.js
+             stamp apg-file-structural-1 bb48e1260e65caab
+  restamp    module:compileDb  mcp/stdio/code-intel/compile-db.js
+             stamp apg-file-structural-1 e2d4f2b9df48d44e
+  restamp    module:orchestrator  mcp/stdio/freshness/orchestrator.js
+             stamp apg-file-structural-1 6e9bbb4c0028189b
+  restamp    file:AGENTS.md  AGENTS.md
+             stamp apg-doc-linkset-1 abc133afa9adf8a7
+  UNWATCHED  symbol:NODE_TYPES  mcp/stdio/storage/taxonomy.js
+             the file parses and is covered, but aify-project-graph extracted NO symbols from it at all, so i
+  UNWATCHED  file:.gitattributes  .gitattributes
+             aify-project-graph has no code extractor and no document handler for this file type, so it was n
+
+head          662f9d08c01feb47a9ecbf339e3c1843c99e72a1  ⚠ 6 uncommitted path(s) — the sweep read the TREE, the batch names the COMMIT
+batch         5 results, 2 unwatched, 7 watched
+
+--dry-run: nothing was sent.

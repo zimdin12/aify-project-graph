@@ -121,7 +121,7 @@ function containsEdge(fromNode, toNode) {
 // ⚠ THE COST IS NODE COUNT, AND IT IS BOUNDED AND MEASURED: this repo 71 -> 151 documents, echoes
 // 103 -> 122. Not a flood, because the ignore layer has already pruned the trees where markdown
 // multiplies.
-function isDocument(relPath) {
+export function isDocument(relPath) {
   return DOCUMENT_EXTENSIONS.has(extname(relPath).toLowerCase());
 }
 

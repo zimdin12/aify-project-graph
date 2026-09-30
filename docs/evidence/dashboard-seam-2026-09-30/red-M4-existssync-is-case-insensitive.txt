@@ -1,0 +1,55 @@
+MUTATION M4-existssync-is-case-insensitive — the case-insensitive filesystem answers the exact-case question
+What was replaced:
+    if (segments.length === 0) return false;
+With:
+    if (segments.length >= 0) return existsSync(join(repoRoot, relPath)); // MUTANT M4
+
+
+ RUN  v3.2.4 C:/Docker/aify-project-graph
+
+ ❯ tests/unit/scripts/anchor-resolver.test.js (15 tests | 1 failed) 72ms
+   ✓ resolveAnchor decides only what it observed > ★★★ a NULL baseline is `restamp`, never `changed` 7ms
+   ✓ resolveAnchor decides only what it observed > ★★★ an UNCOMPARABLE stamp version is `restamp`, and says so 4ms
+   ✓ resolveAnchor decides only what it observed > ★★★ an equal stamp is `unchanged` and a different one is `changed` 4ms
+   ✓ resolveAnchor decides only what it observed > ★★★ a file absent from the tree is `gone`, decided by the filesystem 4ms
+   × resolveAnchor decides only what it observed > ★★★ a WRONG-CASE path is `gone` — the case-insensitive filesystem must not answer this 11ms
+     → the wrong case must be ABSENT: expected true to be false // Object.is equality
+   ✓ the three coverage paths are all asked before an absence is reported > ★★★ a MARKDOWN anchor resolves on the DOCUMENT path although languageOf THROWS 6ms
+   ✓ the three coverage paths are all asked before an absence is reported > ★★★ kind "file" is a WHOLE-FILE anchor, not an unknown kind 4ms
+   ✓ the three coverage paths are all asked before an absence is reported > ★★★ a file covered by NEITHER path is `unwatched`, naming the absence as an absence 4ms
+   ✓ a symbol anchor reports the population before the verdict > ★★★ ZERO symbols extracted is `unwatched`, NOT `gone` 4ms
+   ✓ a symbol anchor reports the population before the verdict > ★★★ INSTRUMENT CONTROL — with symbols present, a missing name IS `gone` 4ms
+   ✓ a symbol anchor reports the population before the verdict > ★★★ a found symbol is stamped on its own shape, and says the body is not hashed 4ms
+   ✓ a symbol anchor reports the population before the verdict > ★★★ a symbol anchor on a NON-CODE file refuses instead of guessing 4ms
+   ✓ the batch proves its own completeness > ★★★ every watchId appears exactly once, and both failures are NAMED 4ms
+   ✓ the batch proves its own completeness > ★★★ an unknown reason key THROWS rather than sending an empty reason 4ms
+   ✓ a doc link set is a set, and excludes what the doc layer excludes > ★★★ fenced references are dropped, duplicates collapse, order does not matter 4ms
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 14 passed (15)
+   Start at  05:25:15
+   Duration  369ms (transform 30ms, setup 0ms, collect 54ms, tests 72ms, environment 0ms, prepare 82ms)
+
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/scripts/anchor-resolver.test.js > resolveAnchor decides only what it observed > ★★★ a WRONG-CASE path is `gone` — the case-insensitive filesystem must not answer this
+AssertionError: the wrong case must be ABSENT: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/unit/scripts/anchor-resolver.test.js:131:92
+    129|     // POSITIVE CONTROL FIRST, so the negative below is about case and…
+    130|     expect(presentWithExactCase(repoRoot, 'src/code.js'), 'the real sp…
+    131|     expect(presentWithExactCase(repoRoot, 'src/CODE.js'), 'the wrong c…
+       |                                                                                            ^
+    132| 
+    133|     const item = moduleItem({ anchor: { path: 'src/CODE.js', name: 'co…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

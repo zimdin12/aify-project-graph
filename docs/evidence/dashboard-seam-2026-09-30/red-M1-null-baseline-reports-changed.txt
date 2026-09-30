@@ -1,0 +1,86 @@
+MUTATION M1-null-baseline-reports-changed — a first sweep claims every anchor CHANGED
+What was replaced:
+      return result(watchId, 'restamp', { ...base, evidence: `first baseline for this anchor — ${evidence}` });
+With:
+      return result(watchId, 'changed', { ...base, evidence: `MUTANT M1 ${evidence}` });
+
+
+ RUN  v3.2.4 C:/Docker/aify-project-graph
+
+ ❯ tests/unit/scripts/anchor-resolver.test.js (15 tests | 3 failed) 79ms
+   × resolveAnchor decides only what it observed > ★★★ a NULL baseline is `restamp`, never `changed` 16ms
+     → expected 'changed' to be 'restamp' // Object.is equality
+   ✓ resolveAnchor decides only what it observed > ★★★ an UNCOMPARABLE stamp version is `restamp`, and says so 6ms
+   ✓ resolveAnchor decides only what it observed > ★★★ an equal stamp is `unchanged` and a different one is `changed` 5ms
+   ✓ resolveAnchor decides only what it observed > ★★★ a file absent from the tree is `gone`, decided by the filesystem 5ms
+   ✓ resolveAnchor decides only what it observed > ★★★ a WRONG-CASE path is `gone` — the case-insensitive filesystem must not answer this 5ms
+   × the three coverage paths are all asked before an absence is reported > ★★★ a MARKDOWN anchor resolves on the DOCUMENT path although languageOf THROWS 5ms
+     → expected 'changed' to be 'restamp' // Object.is equality
+   ✓ the three coverage paths are all asked before an absence is reported > ★★★ kind "file" is a WHOLE-FILE anchor, not an unknown kind 4ms
+   ✓ the three coverage paths are all asked before an absence is reported > ★★★ a file covered by NEITHER path is `unwatched`, naming the absence as an absence 4ms
+   ✓ a symbol anchor reports the population before the verdict > ★★★ ZERO symbols extracted is `unwatched`, NOT `gone` 4ms
+   ✓ a symbol anchor reports the population before the verdict > ★★★ INSTRUMENT CONTROL — with symbols present, a missing name IS `gone` 4ms
+   × a symbol anchor reports the population before the verdict > ★★★ a found symbol is stamped on its own shape, and says the body is not hashed 4ms
+     → expected 'changed' to be 'restamp' // Object.is equality
+   ✓ a symbol anchor reports the population before the verdict > ★★★ a symbol anchor on a NON-CODE file refuses instead of guessing 4ms
+   ✓ the batch proves its own completeness > ★★★ every watchId appears exactly once, and both failures are NAMED 4ms
+   ✓ the batch proves its own completeness > ★★★ an unknown reason key THROWS rather than sending an empty reason 4ms
+   ✓ a doc link set is a set, and excludes what the doc layer excludes > ★★★ fenced references are dropped, duplicates collapse, order does not matter 4ms
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 12 passed (15)
+   Start at  05:25:08
+   Duration  1.15s (transform 31ms, setup 0ms, collect 53ms, tests 79ms, environment 0ms, prepare 98ms)
+
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/scripts/anchor-resolver.test.js > resolveAnchor decides only what it observed > ★★★ a NULL baseline is `restamp`, never `changed`
+AssertionError: expected 'changed' to be 'restamp' // Object.is equality
+
+Expected: "restamp"
+Received: "changed"
+
+ ❯ tests/unit/scripts/anchor-resolver.test.js:84:28
+     82|     // ⛔ THE WHOLE POINT. With seven anchors and no stamps, `changed` …
+     83|     // sweep and tell an operator the entire repository moved while no…
+     84|     expect(out.row.status).toBe('restamp');
+       |                            ^
+     85|     expect(out.row.stamp).toEqual({ hash: 'FP1', stampVersion: STAMP_V…
+     86|     expect(out.row.evidence).toMatch(/first baseline/u);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/unit/scripts/anchor-resolver.test.js > the three coverage paths are all asked before an absence is reported > ★★★ a MARKDOWN anchor resolves on the DOCUMENT path although languageOf THROWS
+AssertionError: expected 'changed' to be 'restamp' // Object.is equality
+
+Expected: "restamp"
+Received: "changed"
+
+ ❯ tests/unit/scripts/anchor-resolver.test.js:149:28
+    147|     const out = resolveAnchor({ repoRoot, item, deps: deps() });
+    148|     expect(out.kind, 'a covered document must NOT be reported as unwat…
+    149|     expect(out.row.status).toBe('restamp');
+       |                            ^
+    150|     // ⭐ And it stamps with the DOC version, in the same batch as code…
+    151|     // per watch id, so one batch carries mixed versions.
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  tests/unit/scripts/anchor-resolver.test.js > a symbol anchor reports the population before the verdict > ★★★ a found symbol is stamped on its own shape, and says the body is not hashed
+AssertionError: expected 'changed' to be 'restamp' // Object.is equality
+
+Expected: "restamp"
+Received: "changed"
+
+ ❯ tests/unit/scripts/anchor-resolver.test.js:245:28
+    243|       deps: deps({ symbols: [{ type: 'Function', label: 'a', structura…
+    244|     });
+    245|     expect(out.row.status).toBe('restamp');
+       |                            ^
+    246|     expect(out.row.stamp.stampVersion).toBe(STAMP_VERSIONS.symbol);
+    247|     // ⚠ THE LIMIT TRAVELS WITH THE CLAIM. `structuralFingerprint` has…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+

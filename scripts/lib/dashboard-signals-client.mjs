@@ -1,0 +1,101 @@
+// The wire to the dashboard's code-graph seam. One object, one endpoint, no decisions.
+//
+// ⛔ THIS CLASS DECIDES NOTHING ABOUT THE REPOSITORY. It reads a watch set and posts a batch; every verdict
+// in that batch comes from `anchor-resolver.mjs`. Keeping the transport free of judgement is what lets the
+// judgement be tested without a network and the transport be read without a parser in your head.
+//
+// ⛔ THE KEY IS NEVER LOGGED, NEVER RETURNED, AND NEVER PUT IN AN ERROR. It is read from the environment or
+// from a file by the caller and held here. `describe()` exists so a run can print WHERE it is pointed without
+// printing what it is holding.
+
+/** What the service refused, in the shape the caller has to act on. Their codes, not invented here. */
+export class SignalsRefused extends Error {
+  constructor(status, body) {
+    const code = body?.code ?? body?.error ?? `http_${status}`;
+    super(`${code}: ${body?.message ?? 'no message'}`);
+    this.name = 'SignalsRefused';
+    this.status = status;
+    this.code = code;
+    this.body = body;
+    // ⛔ A STALE REVISION IS THE ONE REFUSAL WITH A CORRECT AUTOMATIC RESPONSE — re-read and recompute. Named
+    // as a flag rather than left for the caller to string-match, because a string match on a message is a
+    // check that breaks when the wording improves.
+    this.shouldReread = status === 409 || code === 'stale_watch_revision';
+  }
+}
+
+export class DashboardSignalsClient {
+  #apiKey;
+
+  constructor({ baseUrl, apiKey, hostKey, projectId, fetchImpl = fetch }) {
+    if (!baseUrl || !hostKey || !projectId) {
+      throw new Error('DashboardSignalsClient needs a baseUrl, a hostKey and a projectId');
+    }
+    // ⛔ FAIL CLOSED ON A MISSING KEY, HERE, rather than letting the request go out and come back 401. A guard
+    // that passes when its input is missing is decoration.
+    if (typeof apiKey !== 'string' || apiKey.trim() === '') {
+      throw new Error('DashboardSignalsClient needs an apiKey; refusing to send an unauthenticated request');
+    }
+    this.baseUrl = String(baseUrl).replace(/\/+$/u, '');
+    this.hostKey = hostKey;
+    this.projectId = projectId;
+    this.#apiKey = apiKey.trim();
+    this.fetchImpl = fetchImpl;
+  }
+
+  /** Where this client points, with nothing secret in it. Safe to print in a run log. */
+  describe() {
+    return `${this.baseUrl} host=${this.hostKey} project=${this.projectId} (key held, not shown)`;
+  }
+
+  get #watchSetPath() {
+    return `/api/v1/host/${this.hostKey}/projects/${this.projectId}/watch-set`;
+  }
+
+  get #signalsPath() {
+    return `/api/v1/host/${this.hostKey}/projects/${this.projectId}/signals`;
+  }
+
+  /**
+   * The anchors this project watches, and the revision they were read at.
+   *
+   * ⛔ THE REVISION MUST TRAVEL WITH THE ITEMS AND BE SENT BACK UNCHANGED. It is a compare-and-set: the
+   * service refuses a batch computed against a set that has since moved, because a mark for an anchor that
+   * has been deleted names a target no document holds — visible nowhere, clearable by nobody.
+   */
+  async readWatchSet() {
+    const body = await this.#send('GET', this.#watchSetPath, undefined);
+    return {
+      watchRevision: body.watchRevision,
+      items: body.items ?? [],
+      graphs: body.graphs ?? [],
+    };
+  }
+
+  /** Post one complete batch. Throws `SignalsRefused` on anything but a 2xx. */
+  async postSignals({ head, watchRevision, results, unwatched }) {
+    return this.#send('POST', this.#signalsPath, { head, watchRevision, results, unwatched });
+  }
+
+  async #send(method, path, payload) {
+    const response = await this.fetchImpl(`${this.baseUrl}${path}`, {
+      method,
+      headers: {
+        'x-api-key': this.#apiKey,
+        ...(payload === undefined ? {} : { 'content-type': 'application/json' }),
+      },
+      ...(payload === undefined ? {} : { body: JSON.stringify(payload) }),
+    });
+    // ⚠ Read the body BEFORE branching on status. A refusal carries the message that says what to do about
+    // it, and a client that throws on the status alone throws away the only useful part.
+    const text = await response.text();
+    let body = null;
+    try {
+      body = text === '' ? null : JSON.parse(text);
+    } catch {
+      body = { message: `response was not JSON: ${text.slice(0, 300)}` };
+    }
+    if (!response.ok) throw new SignalsRefused(response.status, body);
+    return body;
+  }
+}
