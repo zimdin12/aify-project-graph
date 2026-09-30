@@ -1,0 +1,48 @@
+== guards ==
+before start: server/ clean, identical to 28001b3 (checkout HEAD 28001b3)
+port probe: live 9700 answers=true (positive control), scratch 9790 answers=false
+C1 674aaca
+service: schema 39
+
+== 1. baseline: reconfirm alpha at C1 ==
+  reconfirm exit 0: CONFIRMED     26:01M3TBPVF1MZ1D465E7FW869KK:alpha  settled []
+
+== 2. C2 77084ad: alpha starts calling gamma ==
+  sweep exit 0: changed, candidate 71a955e7ece24f48
+  ACCEPTED      {"kind":"applied","watchRevision":"3bf9157b7a70b351","marked":1,"quiet":0,"recorded":1,"graphs":["01M3TBPVF1MZ1D465E7FW869KK"]}
+  PASS  C2 is `changed`
+  mark: version 1, acknowledgedAt null, lastReportedAt 1790812319690
+  PASS  C2 raised an OPEN mark
+
+== 3. acknowledge that mark ==
+  acknowledge: 200
+  mark: version 1, acknowledgedAt 1790812319705, lastReportedAt 1790812319690
+  PASS  the mark is acknowledged
+
+== A1. C3 010e19a: README only ==
+  sweep exit 0: changed, candidate 71a955e7ece24f48
+  ACCEPTED      {"kind":"applied","watchRevision":"3bf9157b7a70b351","marked":1,"quiet":0,"recorded":1,"graphs":["01M3TBPVF1MZ1D465E7FW869KK"]}
+  mark: version 1, acknowledgedAt 1790812319705, lastReportedAt 1790812321565
+  PASS  A1 is `changed` with the SAME candidate  (71a955e7ece24f48 vs 71a955e7ece24f48)
+  PASS  A1 report REACHED the mark (lastReportedAt moved)
+  PASS  A1 mark STILL acknowledged, version unchanged
+
+== A2. C4 2154435: an unrelated function added to the same file ==
+  sweep exit 0: changed, candidate 71a955e7ece24f48
+  ACCEPTED      {"kind":"applied","watchRevision":"3bf9157b7a70b351","marked":1,"quiet":0,"recorded":1,"graphs":["01M3TBPVF1MZ1D465E7FW869KK"]}
+  mark: version 1, acknowledgedAt 1790812319705, lastReportedAt 1790812322965
+  PASS  A2 is `changed` with the SAME candidate  (71a955e7ece24f48 vs 71a955e7ece24f48)
+  PASS  A2 report REACHED the mark
+  PASS  A2 mark STILL acknowledged, version unchanged
+
+== B. C5 820959d: alpha calls beta instead of gamma ==
+  sweep exit 0: changed, candidate 186d30bcb46f8d1a
+  ACCEPTED      {"kind":"applied","watchRevision":"3bf9157b7a70b351","marked":1,"quiet":0,"recorded":1,"graphs":["01M3TBPVF1MZ1D465E7FW869KK"]}
+  mark: version 2, acknowledgedAt null, lastReportedAt 1790812324357
+  PASS  B is `changed` with a DIFFERENT candidate  (186d30bcb46f8d1a vs 71a955e7ece24f48)
+  PASS  B RE-OPENED the mark, version moved
+
+== guard ==
+after stop: server/ clean, identical to 28001b3 (checkout HEAD 28001b3)
+
+ALL PRE-REGISTERED CHECKS HELD
