@@ -1,0 +1,24 @@
+HEAD 2ac44b2ec8e2da2a295874d916eac4d2b324f9b8
+parent da72c53500241362dc790cd179f93a2326efcfb4
+dirty paths: 0
+=== the commit ===
+2ac44b2 alpha and beta start calling gamma
+
+ src/proof.js | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+diff --git a/src/proof.js b/src/proof.js
+index 0d6588a..5d05a45 100644
+--- a/src/proof.js
++++ b/src/proof.js
+@@ -3,9 +3,9 @@ export function gamma(value) {
+ }
+ 
+ export function alpha(value) {
+-  return value + 1;
++  return gamma(value) + 1;
+ }
+ 
+ export function beta(value) {
+-  return value - 1;
++  return gamma(value) - 1;
+ }

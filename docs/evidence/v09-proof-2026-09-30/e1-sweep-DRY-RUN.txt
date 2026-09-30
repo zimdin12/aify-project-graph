@@ -1,0 +1,13 @@
+endpoint      http://127.0.0.1:9788 host=v09-proof-host project=01M3SNKWSFVBQXPD7ZXP35Z85H (key held, not shown)
+reporter      apg-v09-proof
+watch set     revision 93322feeb726da91, 2 items
+
+  changed    symbol:alpha  src/proof.js
+             stamp apg-symbol-shape-1 71a955e7ece24f48
+  changed    symbol:beta  src/proof.js
+             stamp apg-symbol-shape-1 2baa1e6a869f0567
+
+head          2ac44b2ec8e2da2a295874d916eac4d2b324f9b8
+batch         2 results, 0 unwatched, 2 watched
+
+--dry-run: nothing was sent.

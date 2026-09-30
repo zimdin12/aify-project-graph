@@ -1,0 +1,3 @@
+revision 93322feeb726da91 | items 2
+  26:01M3SNKWSQEXX3BSJ1XKKQNZ1E:alpha | {"project":"aify-v09-proof","path":"src/proof.js","name":"alpha","kind":"symbol"} | stamp null
+  26:01M3SNKWSQEXX3BSJ1XKKQNZ1E:beta | {"project":"aify-v09-proof","path":"src/proof.js","name":"beta","kind":"symbol"} | stamp null

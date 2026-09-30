@@ -1,0 +1,7 @@
+HTTP 200 | revision 93322feeb726da91
+  alpha  | standing recorded | conflicted false
+     head 2ac44b2ec8e2 agree | changed at 2ac44b2ec8e2da2a295874d916eac4d2b324f9b8 — from EXTRACTED, which did not see everything
+       report apg-v09-proof sent as apg-v09-proof
+  beta   | standing recorded | conflicted false
+     head 2ac44b2ec8e2 agree | changed at 2ac44b2ec8e2da2a295874d916eac4d2b324f9b8 — from EXTRACTED, which did not see everything
+       report apg-v09-proof sent as apg-v09-proof
