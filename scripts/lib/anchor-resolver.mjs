@@ -44,6 +44,32 @@ export const STAMP_VERSIONS = Object.freeze({
   doc: 'apg-doc-linkset-1',
 });
 
+/**
+ * Stamp versions this provider USED to produce, per family. Empty: no format has ever been bumped.
+ *
+ * ⛔ A REGISTRY, NOT A NAMING CONVENTION. Telling "my own older format" from "a format I never produced" by parsing
+ * `apg-<family>-<n>` would make the version string's spelling load-bearing. When a family is bumped, its old version
+ * goes here, and `restampCause` reports `format-version` for it instead of `unknown-format`.
+ */
+export const RETIRED_STAMP_VERSIONS = Object.freeze({ code: Object.freeze([]), symbol: Object.freeze([]), doc: Object.freeze([]) });
+
+/**
+ * Why a stored baseline cannot be compared with what this provider computes for the anchor NOW.
+ *
+ * Measured 2026-10-01: the version-mismatch branch merged three different situations under one word. Split:
+ *   `anchor-changed`  the stored version is one of my CURRENT families, just not the one this anchor needs — the
+ *                     document's anchor was edited (say symbol -> module) under a watchId that survives revisions;
+ *   `format-version`  it is a RETIRED version of the family this anchor needs — I bumped my own format;
+ *   `unknown-format`  I have never produced it — refusing to guess whose it is.
+ * (`first-baseline` is decided before this is called; a missing or malformed stamp never reaches it.)
+ */
+export function restampCause(storedVersion, neededVersion, retired = RETIRED_STAMP_VERSIONS) {
+  if (Object.values(STAMP_VERSIONS).includes(storedVersion)) return 'anchor-changed';
+  const family = Object.keys(STAMP_VERSIONS).find((key) => STAMP_VERSIONS[key] === neededVersion);
+  if (family !== undefined && (retired[family] ?? []).includes(storedVersion)) return 'format-version';
+  return 'unknown-format';
+}
+
 /** Reasons an anchor goes unwatched. Each names what was not looked at, and why, in an operator's terms. */
 export const UNWATCHED_REASONS = Object.freeze({
   unhandled_language: 'aify-project-graph has no code extractor and no document handler for this file type, '
@@ -63,6 +89,8 @@ export const UNWATCHED_REASONS = Object.freeze({
     + 'kind "symbol"; it cannot honestly resolve this anchor kind and has not guessed at what its author '
     + 'meant',
   no_path: 'the anchor carries no usable repo-relative path, so there is nothing to resolve it against',
+  unreadable_baseline: 'the stored baseline for this anchor is missing its hash or its version, so it cannot be '
+    + 'compared with anything — a damaged baseline is reported, not re-baselined over and not read as a change',
 });
 
 // The extraction cap the orchestrator enforces. Named once so the reason string and the check cannot disagree.
@@ -297,11 +325,22 @@ function decide(watchId, stamp, stampVersion, hash, { evidence, gone = false }) 
   if (gone) return result(watchId, 'gone', { evidence, trust: EXTRACTED_TRUST });
   const base = { evidence, trust: EXTRACTED_TRUST, stamp: { hash, stampVersion } };
   if (stamp === null || stamp === undefined) {
-    return result(watchId, 'restamp', { ...base, evidence: `first baseline for this anchor — ${evidence}` });
+    return result(watchId, 'restamp', {
+      ...base, cause: 'first-baseline', evidence: `first baseline for this anchor — ${evidence}`,
+    });
   }
+  // ⛔ A DAMAGED BASELINE IS REFUSED BEFORE IT CAN BE COMPARED. Measured on the previous code: a stamp with a valid
+  // version and NO hash passed the version check below and compared `undefined` with a real hash, answering
+  // `changed` — "the code behind this changed" — from a damaged row. And one with no version landed in the
+  // format branch as "stamped undefined". The service refuses such a stamp on write, so this needs a damaged row,
+  // which is exactly when a person should be told rather than shown a change or have it silently re-baselined.
+  const readable = typeof stamp?.hash === 'string' && stamp.hash !== ''
+    && typeof stamp?.stampVersion === 'string' && stamp.stampVersion !== '';
+  if (!readable) return unwatched(watchId, 'unreadable_baseline');
   if (stamp.stampVersion !== stampVersion) {
     return result(watchId, 'restamp', {
       ...base,
+      cause: restampCause(stamp.stampVersion, stampVersion),
       evidence: `stored baseline was stamped ${stamp.stampVersion}, this provider stamps ${stampVersion}, so `
         + `the two are not comparable and this re-baselines rather than claiming a change — ${evidence}`,
     });
@@ -329,7 +368,10 @@ function unwatched(watchId, reasonKey) {
   if (typeof reason !== 'string' || reason === '') {
     throw new Error(`anchor-resolver: no reason string for "${reasonKey}" — refusing to send an empty reason`);
   }
-  return { kind: 'unwatched', row: { watchId, reason } };
+  // `reasonCode` is the typed key this function was always given and used to drop before the row left. Additive:
+  // the dashboard's observation identity for an unwatched row is built from the prose `reason`, so adding the
+  // code re-applies nothing.
+  return { kind: 'unwatched', row: { watchId, reason, reasonCode: reasonKey } };
 }
 
 /**

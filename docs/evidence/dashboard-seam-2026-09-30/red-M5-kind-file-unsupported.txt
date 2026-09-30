@@ -7,34 +7,34 @@ With:
 
  RUN  v3.2.4 C:/Docker/aify-project-graph
 
- ❯ tests/unit/scripts/anchor-resolver.test.js (20 tests | 2 failed) 230ms
-   ✓ resolveAnchor decides only what it observed > ★★★ a NULL baseline is `restamp`, never `changed` 12ms
-   ✓ resolveAnchor decides only what it observed > ★★★ an UNCOMPARABLE stamp version is `restamp`, and says so 8ms
-   ✓ resolveAnchor decides only what it observed > ★★★ an equal stamp is `unchanged` and a different one is `changed` 6ms
-   ✓ resolveAnchor decides only what it observed > ★★★ a file absent from the tree is `gone`, decided by the filesystem 8ms
-   ✓ resolveAnchor decides only what it observed > ★★★ a WRONG-CASE path is `gone` — the case-insensitive filesystem must not answer this 13ms
-   ✓ the three coverage paths are all asked before an absence is reported > ★★★ a MARKDOWN anchor resolves on the DOCUMENT path although languageOf THROWS 8ms
-   × the three coverage paths are all asked before an absence is reported > ★★★ kind "file" is a WHOLE-FILE anchor, not an unknown kind 25ms
+ ❯ tests/unit/scripts/anchor-resolver.test.js (20 tests | 2 failed) 86ms
+   ✓ resolveAnchor decides only what it observed > ★★★ a NULL baseline is `restamp`, never `changed` 8ms
+   ✓ resolveAnchor decides only what it observed > ★★★ an UNCOMPARABLE stamp version is `restamp`, and says so 4ms
+   ✓ resolveAnchor decides only what it observed > ★★★ an equal stamp is `unchanged` and a different one is `changed` 4ms
+   ✓ resolveAnchor decides only what it observed > ★★★ a file absent from the tree is `gone`, decided by the filesystem 4ms
+   ✓ resolveAnchor decides only what it observed > ★★★ a WRONG-CASE path is `gone` — the case-insensitive filesystem must not answer this 5ms
+   ✓ the three coverage paths are all asked before an absence is reported > ★★★ a MARKDOWN anchor resolves on the DOCUMENT path although languageOf THROWS 4ms
+   × the three coverage paths are all asked before an absence is reported > ★★★ kind "file" is a WHOLE-FILE anchor, not an unknown kind 10ms
      → expected 'unwatched' to be 'result' // Object.is equality
-   ✓ the three coverage paths are all asked before an absence is reported > ★★★ a file covered by NEITHER path is `unwatched`, naming the absence as an absence 8ms
-   ✓ a symbol anchor reports the population before the verdict > ★★★ ZERO symbols extracted is `unwatched`, NOT `gone` 8ms
-   ✓ a symbol anchor reports the population before the verdict > ★★★ INSTRUMENT CONTROL — with symbols present, a missing name IS `gone` 13ms
-   ✓ a symbol anchor reports the population before the verdict > ★★★ a found symbol is stamped on its own shape, and says the body is not hashed 13ms
-   ✓ a symbol anchor reports the population before the verdict > ★★★ a symbol anchor on a NON-CODE file refuses instead of guessing 10ms
-   ✓ an extraction that cannot say it is complete gets no verdict > ★★★ a PARSE ERROR is `unparseable`, never a verdict — the reason that used to be unreachable 10ms
-   ✓ an extraction that cannot say it is complete gets no verdict > ★★★ a DEPTH-CAP bail is `extraction_truncated`, never a verdict 9ms
-   ✓ an extraction that cannot say it is complete gets no verdict > ★★★ a MISSING coverage report FAILS CLOSED as `coverage_unknown` 14ms
-   ✓ an extraction that cannot say it is complete gets no verdict > ★★★ INSTRUMENT CONTROL — the SAME world with a complete report DOES get a verdict 18ms
-   × an extraction that cannot say it is complete gets no verdict > ★★★ the DOCUMENT path does not depend on extractor coverage 14ms
+   ✓ the three coverage paths are all asked before an absence is reported > ★★★ a file covered by NEITHER path is `unwatched`, naming the absence as an absence 4ms
+   ✓ a symbol anchor reports the population before the verdict > ★★★ ZERO symbols extracted is `unwatched`, NOT `gone` 4ms
+   ✓ a symbol anchor reports the population before the verdict > ★★★ INSTRUMENT CONTROL — with symbols present, a missing name IS `gone` 4ms
+   ✓ a symbol anchor reports the population before the verdict > ★★★ a found symbol is stamped on its own shape, and says the body is not hashed 4ms
+   ✓ a symbol anchor reports the population before the verdict > ★★★ a symbol anchor on a NON-CODE file refuses instead of guessing 3ms
+   ✓ an extraction that cannot say it is complete gets no verdict > ★★★ a PARSE ERROR is `unparseable`, never a verdict — the reason that used to be unreachable 3ms
+   ✓ an extraction that cannot say it is complete gets no verdict > ★★★ a DEPTH-CAP bail is `extraction_truncated`, never a verdict 4ms
+   ✓ an extraction that cannot say it is complete gets no verdict > ★★★ a MISSING coverage report FAILS CLOSED as `coverage_unknown` 3ms
+   ✓ an extraction that cannot say it is complete gets no verdict > ★★★ INSTRUMENT CONTROL — the SAME world with a complete report DOES get a verdict 4ms
+   × an extraction that cannot say it is complete gets no verdict > ★★★ the DOCUMENT path does not depend on extractor coverage 3ms
      → expected 'unwatched' to be 'result' // Object.is equality
-   ✓ the batch proves its own completeness > ★★★ every watchId appears exactly once, and both failures are NAMED 12ms
-   ✓ the batch proves its own completeness > ★★★ an unknown reason key THROWS rather than sending an empty reason 8ms
-   ✓ a doc link set is a set, and excludes what the doc layer excludes > ★★★ fenced references are dropped, duplicates collapse, order does not matter 9ms
+   ✓ the batch proves its own completeness > ★★★ every watchId appears exactly once, and both failures are NAMED 4ms
+   ✓ the batch proves its own completeness > ★★★ an unknown reason key THROWS rather than sending an empty reason 3ms
+   ✓ a doc link set is a set, and excludes what the doc layer excludes > ★★★ fenced references are dropped, duplicates collapse, order does not matter 3ms
 
  Test Files  1 failed (1)
       Tests  2 failed | 18 passed (20)
-   Start at  20:19:25
-   Duration  1.12s (transform 51ms, setup 0ms, collect 93ms, tests 230ms, environment 0ms, prepare 178ms)
+   Start at  00:52:22
+   Duration  376ms (transform 31ms, setup 0ms, collect 53ms, tests 86ms, environment 0ms, prepare 69ms)
 
 
 

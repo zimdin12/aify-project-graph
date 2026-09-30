@@ -1,0 +1,63 @@
+MUTATION M20-damaged-baseline-becomes-a-false-change — a stamp with no hash is compared as if it had one, and answers changed
+What was replaced:
+    if (!readable) return unwatched(watchId, 'unreadable_baseline');
+With:
+    // MUTANT M20: damaged-baseline check removed
+
+
+ RUN  v3.2.4 C:/Docker/aify-project-graph
+
+ ❯ tests/unit/scripts/anchor-resolver-causes.test.js (9 tests | 2 failed) 34ms
+   × a damaged baseline is refused, never turned into a verdict > ★★★ a stored stamp with a version but NO HASH is `unwatched`, not a false `changed` 11ms
+     → a baseline with no hash must not be compared as if it had one: expected 'result' to be 'unwatched' // Object.is equality
+   × a damaged baseline is refused, never turned into a verdict > ★★★ a stored stamp with a hash but NO VERSION is `unwatched`, not a "format" restamp 3ms
+     → expected 'result' to be 'unwatched' // Object.is equality
+   ✓ a damaged baseline is refused, never turned into a verdict > ★★★ INSTRUMENT CONTROL — a WELL-FORMED matching stamp still gets its verdict 4ms
+   ✓ restamp says which cause it is > ★★★ no stored stamp is `first-baseline` 2ms
+   ✓ restamp says which cause it is > ★★★ a stamp from ANOTHER of my current families is `anchor-changed` — the anchor, not the format, moved 2ms
+   ✓ restamp says which cause it is > ★★★ a version this provider has never produced is `unknown-format`, not a guess 2ms
+   ✓ restamp says which cause it is > ★★★ a RETIRED version of the needed family is `format-version` — the classifier, with an injected registry 2ms
+   ✓ restamp says which cause it is > ★★★ only a restamp carries `cause` — an answered anchor does not 3ms
+   ✓ an unwatched row keeps its typed reason > ★★★ every unwatched row carries `reasonCode` equal to its key — derived from the table, not listed 3ms
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 7 passed (9)
+   Start at  00:52:54
+   Duration  296ms (transform 28ms, setup 0ms, collect 44ms, tests 34ms, environment 0ms, prepare 65ms)
+
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/scripts/anchor-resolver-causes.test.js > a damaged baseline is refused, never turned into a verdict > ★★★ a stored stamp with a version but NO HASH is `unwatched`, not a false `changed`
+AssertionError: a baseline with no hash must not be compared as if it had one: expected 'result' to be 'unwatched' // Object.is equality
+
+Expected: "unwatched"
+Received: "result"
+
+ ❯ tests/unit/scripts/anchor-resolver-causes.test.js:62:87
+     60|   it('★★★ a stored stamp with a version but NO HASH is `unwatched`, no…
+     61|     const out = symbol({ stampVersion: STAMP_VERSIONS.symbol, commit: …
+     62|     expect(out.kind, 'a baseline with no hash must not be compared as …
+       |                                                                                       ^
+     63|     expect(out.row.reasonCode).toBe('unreadable_baseline');
+     64|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/unit/scripts/anchor-resolver-causes.test.js > a damaged baseline is refused, never turned into a verdict > ★★★ a stored stamp with a hash but NO VERSION is `unwatched`, not a "format" restamp
+AssertionError: expected 'result' to be 'unwatched' // Object.is equality
+
+Expected: "unwatched"
+Received: "result"
+
+ ❯ tests/unit/scripts/anchor-resolver-causes.test.js:68:22
+     66|   it('★★★ a stored stamp with a hash but NO VERSION is `unwatched`, no…
+     67|     const out = symbol({ hash: liveHash(), commit: 'c1' });
+     68|     expect(out.kind).toBe('unwatched');
+       |                      ^
+     69|     expect(out.row.reasonCode).toBe('unreadable_baseline');
+     70|     expect(out.row.reason).toBe(UNWATCHED_REASONS.unreadable_baseline);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+

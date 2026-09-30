@@ -3,11 +3,11 @@ BASELINE: tests/unit/scripts/dashboard-signals-client.test.js must be GREEN unmu
 
  RUN  v3.2.4 C:/Docker/aify-project-graph
 
- ✓ tests/unit/scripts/dashboard-signals-client.test.js (11 tests) 9ms
+ ✓ tests/unit/scripts/dashboard-signals-client.test.js (11 tests) 7ms
 
  Test Files  1 passed (1)
       Tests  11 passed (11)
-   Start at  20:18:49
-   Duration  1.30s (transform 43ms, setup 0ms, collect 80ms, tests 9ms, environment 0ms, prepare 282ms)
+   Start at  00:52:03
+   Duration  273ms (transform 25ms, setup 0ms, collect 42ms, tests 7ms, environment 0ms, prepare 67ms)
 
 

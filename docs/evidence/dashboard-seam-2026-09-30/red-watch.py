@@ -30,6 +30,7 @@ EXTRACTOR = 'mcp/stdio/ingest/extractors/generic.js'
 EXTRACTOR_TEST = 'tests/unit/ingest/extraction-reports-its-coverage.test.js'
 PLAN = 'scripts/lib/reconfirm-plan.mjs'
 PLAN_TEST = 'tests/unit/scripts/reconfirm-plan.test.js'
+CAUSES_TEST = 'tests/unit/scripts/anchor-resolver-causes.test.js'
 EVIDENCE = 'docs/evidence/dashboard-seam-2026-09-30'
 
 # Each mutation is the change an ORDINARY REFACTOR would produce, never a contrived break. M2 in particular
@@ -39,8 +40,10 @@ MUTATIONS = [
     (
         RESOLVER, RESOLVER_TEST,
         'M1-null-baseline-reports-changed',
-        "    return result(watchId, 'restamp', { ...base, evidence: `first baseline for this anchor — ${evidence}` });",
-        "    return result(watchId, 'changed', { ...base, evidence: `MUTANT M1 ${evidence}` });",
+        # Retargeted 2026-10-01: the first-baseline row now carries `cause`, so the old single-line needle stopped
+        # matching and the harness refused (anchor count 0) rather than recording a red over unmutated code.
+        "    return result(watchId, 'restamp', {\n      ...base, cause: 'first-baseline',",
+        "    return result(watchId, 'changed', { // MUTANT M1\n      ...base, cause: 'first-baseline',",
         'a first sweep claims every anchor CHANGED',
     ),
     (
@@ -168,6 +171,30 @@ MUTATIONS += [
      "        'x-aify-agent': this.reporterId,",
      '        // MUTANT M19: agent header removed',
      'requests carry no agent name, so a reconfirm is recorded as the anonymous "an agent"'),
+]
+
+# ── Typed causes and damaged baselines. Added 2026-10-01.
+MUTATIONS += [
+    (RESOLVER, CAUSES_TEST,
+     'M20-damaged-baseline-becomes-a-false-change',
+     "  if (!readable) return unwatched(watchId, 'unreadable_baseline');",
+     '  // MUTANT M20: damaged-baseline check removed',
+     'a stamp with no hash is compared as if it had one, and answers changed'),
+    (RESOLVER, CAUSES_TEST,
+     'M21-first-baseline-untyped',
+     "      ...base, cause: 'first-baseline', evidence: `first baseline for this anchor — ${evidence}`,",
+     '      ...base, evidence: `first baseline for this anchor — ${evidence}`, // MUTANT M21',
+     'a first baseline is sent without its cause, back to prose only'),
+    (RESOLVER, CAUSES_TEST,
+     'M22-anchor-edit-read-as-a-format-bump',
+     "  if (Object.values(STAMP_VERSIONS).includes(storedVersion)) return 'anchor-changed';",
+     "  if (Object.values(STAMP_VERSIONS).includes(storedVersion)) return 'format-version'; // MUTANT M22",
+     'an edited anchor is reported as a format bump, sending the operator after the wrong cause'),
+    (RESOLVER, CAUSES_TEST,
+     'M23-reason-code-dropped',
+     "  return { kind: 'unwatched', row: { watchId, reason, reasonCode: reasonKey } };",
+     "  return { kind: 'unwatched', row: { watchId, reason } }; // MUTANT M23",
+     'the typed reason key is dropped again, leaving prose only'),
 ]
 
 IMPORT_OLD = "import { readdirSync } from 'node:fs';"

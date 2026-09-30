@@ -23,8 +23,8 @@ With:
 
  Test Files  1 failed (1)
       Tests  1 failed | 10 passed (11)
-   Start at  20:20:06
-   Duration  374ms (transform 30ms, setup 0ms, collect 53ms, tests 15ms, environment 0ms, prepare 113ms)
+   Start at  00:52:50
+   Duration  326ms (transform 28ms, setup 0ms, collect 51ms, tests 15ms, environment 0ms, prepare 86ms)
 
 
 

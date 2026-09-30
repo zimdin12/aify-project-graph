@@ -1,0 +1,89 @@
+MUTATION M23-reason-code-dropped — the typed reason key is dropped again, leaving prose only
+What was replaced:
+    return { kind: 'unwatched', row: { watchId, reason, reasonCode: reasonKey } };
+With:
+    return { kind: 'unwatched', row: { watchId, reason } }; // MUTANT M23
+
+
+ RUN  v3.2.4 C:/Docker/aify-project-graph
+
+ ❯ tests/unit/scripts/anchor-resolver-causes.test.js (9 tests | 3 failed) 33ms
+   × a damaged baseline is refused, never turned into a verdict > ★★★ a stored stamp with a version but NO HASH is `unwatched`, not a false `changed` 10ms
+     → expected undefined to be 'unreadable_baseline' // Object.is equality
+   × a damaged baseline is refused, never turned into a verdict > ★★★ a stored stamp with a hash but NO VERSION is `unwatched`, not a "format" restamp 3ms
+     → expected undefined to be 'unreadable_baseline' // Object.is equality
+   ✓ a damaged baseline is refused, never turned into a verdict > ★★★ INSTRUMENT CONTROL — a WELL-FORMED matching stamp still gets its verdict 4ms
+   ✓ restamp says which cause it is > ★★★ no stored stamp is `first-baseline` 3ms
+   ✓ restamp says which cause it is > ★★★ a stamp from ANOTHER of my current families is `anchor-changed` — the anchor, not the format, moved 2ms
+   ✓ restamp says which cause it is > ★★★ a version this provider has never produced is `unknown-format`, not a guess 2ms
+   ✓ restamp says which cause it is > ★★★ a RETIRED version of the needed family is `format-version` — the classifier, with an injected registry 2ms
+   ✓ restamp says which cause it is > ★★★ only a restamp carries `cause` — an answered anchor does not 3ms
+   × an unwatched row keeps its typed reason > ★★★ every unwatched row carries `reasonCode` equal to its key — derived from the table, not listed 2ms
+     → expected undefined to be 'unsupported_anchor_kind' // Object.is equality
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 6 passed (9)
+   Start at  00:53:00
+   Duration  309ms (transform 30ms, setup 0ms, collect 48ms, tests 33ms, environment 0ms, prepare 67ms)
+
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/scripts/anchor-resolver-causes.test.js > a damaged baseline is refused, never turned into a verdict > ★★★ a stored stamp with a version but NO HASH is `unwatched`, not a false `changed`
+AssertionError: expected undefined to be 'unreadable_baseline' // Object.is equality
+
+- Expected: 
+"unreadable_baseline"
+
++ Received: 
+undefined
+
+ ❯ tests/unit/scripts/anchor-resolver-causes.test.js:63:32
+     61|     const out = symbol({ stampVersion: STAMP_VERSIONS.symbol, commit: …
+     62|     expect(out.kind, 'a baseline with no hash must not be compared as …
+     63|     expect(out.row.reasonCode).toBe('unreadable_baseline');
+       |                                ^
+     64|   });
+     65| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/unit/scripts/anchor-resolver-causes.test.js > a damaged baseline is refused, never turned into a verdict > ★★★ a stored stamp with a hash but NO VERSION is `unwatched`, not a "format" restamp
+AssertionError: expected undefined to be 'unreadable_baseline' // Object.is equality
+
+- Expected: 
+"unreadable_baseline"
+
++ Received: 
+undefined
+
+ ❯ tests/unit/scripts/anchor-resolver-causes.test.js:69:32
+     67|     const out = symbol({ hash: liveHash(), commit: 'c1' });
+     68|     expect(out.kind).toBe('unwatched');
+     69|     expect(out.row.reasonCode).toBe('unreadable_baseline');
+       |                                ^
+     70|     expect(out.row.reason).toBe(UNWATCHED_REASONS.unreadable_baseline);
+     71|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  tests/unit/scripts/anchor-resolver-causes.test.js > an unwatched row keeps its typed reason > ★★★ every unwatched row carries `reasonCode` equal to its key — derived from the table, not listed
+AssertionError: expected undefined to be 'unsupported_anchor_kind' // Object.is equality
+
+- Expected: 
+"unsupported_anchor_kind"
+
++ Received: 
+undefined
+
+ ❯ tests/unit/scripts/anchor-resolver-causes.test.js:128:34
+    126|       const out = resolveAnchor({ repoRoot, deps, item: { watchId: 'w'…
+    127|       expect(out.kind).toBe('unwatched');
+    128|       expect(out.row.reasonCode).toBe(expected);
+       |                                  ^
+    129|       expect(out.row.reason, 'the prose still travels beside the code'…
+    130|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+

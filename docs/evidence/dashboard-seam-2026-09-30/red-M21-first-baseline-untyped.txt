@@ -1,0 +1,49 @@
+MUTATION M21-first-baseline-untyped — a first baseline is sent without its cause, back to prose only
+What was replaced:
+        ...base, cause: 'first-baseline', evidence: `first baseline for this anchor — ${evidence}`,
+With:
+        ...base, evidence: `first baseline for this anchor — ${evidence}`, // MUTANT M21
+
+
+ RUN  v3.2.4 C:/Docker/aify-project-graph
+
+ ❯ tests/unit/scripts/anchor-resolver-causes.test.js (9 tests | 1 failed) 34ms
+   ✓ a damaged baseline is refused, never turned into a verdict > ★★★ a stored stamp with a version but NO HASH is `unwatched`, not a false `changed` 6ms
+   ✓ a damaged baseline is refused, never turned into a verdict > ★★★ a stored stamp with a hash but NO VERSION is `unwatched`, not a "format" restamp 3ms
+   ✓ a damaged baseline is refused, never turned into a verdict > ★★★ INSTRUMENT CONTROL — a WELL-FORMED matching stamp still gets its verdict 3ms
+   × restamp says which cause it is > ★★★ no stored stamp is `first-baseline` 9ms
+     → expected undefined to be 'first-baseline' // Object.is equality
+   ✓ restamp says which cause it is > ★★★ a stamp from ANOTHER of my current families is `anchor-changed` — the anchor, not the format, moved 4ms
+   ✓ restamp says which cause it is > ★★★ a version this provider has never produced is `unknown-format`, not a guess 3ms
+   ✓ restamp says which cause it is > ★★★ a RETIRED version of the needed family is `format-version` — the classifier, with an injected registry 2ms
+   ✓ restamp says which cause it is > ★★★ only a restamp carries `cause` — an answered anchor does not 3ms
+   ✓ an unwatched row keeps its typed reason > ★★★ every unwatched row carries `reasonCode` equal to its key — derived from the table, not listed 2ms
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 passed (9)
+   Start at  00:52:56
+   Duration  808ms (transform 29ms, setup 0ms, collect 52ms, tests 34ms, environment 0ms, prepare 111ms)
+
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/scripts/anchor-resolver-causes.test.js > restamp says which cause it is > ★★★ no stored stamp is `first-baseline`
+AssertionError: expected undefined to be 'first-baseline' // Object.is equality
+
+- Expected: 
+"first-baseline"
+
++ Received: 
+undefined
+
+ ❯ tests/unit/scripts/anchor-resolver-causes.test.js:85:27
+     83|     const out = symbol(null);
+     84|     expect(out.row.status).toBe('restamp');
+     85|     expect(out.row.cause).toBe('first-baseline');
+       |                           ^
+     86|   });
+     87| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

@@ -3,11 +3,11 @@ AFTER RESTORE: tests/unit/scripts/dashboard-signals-client.test.js must be GREEN
 
  RUN  v3.2.4 C:/Docker/aify-project-graph
 
- ✓ tests/unit/scripts/dashboard-signals-client.test.js (11 tests) 7ms
+ ✓ tests/unit/scripts/dashboard-signals-client.test.js (11 tests) 6ms
 
  Test Files  1 passed (1)
       Tests  11 passed (11)
-   Start at  20:20:16
-   Duration  299ms (transform 25ms, setup 0ms, collect 44ms, tests 7ms, environment 0ms, prepare 87ms)
+   Start at  00:53:11
+   Duration  273ms (transform 24ms, setup 0ms, collect 40ms, tests 6ms, environment 0ms, prepare 70ms)
 
 
