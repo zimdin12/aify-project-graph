@@ -3,11 +3,11 @@ AFTER RESTORE: tests/unit/scripts/anchor-resolver.test.js must be GREEN again
 
  RUN  v3.2.4 C:/Docker/aify-project-graph
 
- ✓ tests/unit/scripts/anchor-resolver.test.js (20 tests) 144ms
+ ✓ tests/unit/scripts/anchor-resolver.test.js (20 tests) 94ms
 
  Test Files  1 passed (1)
       Tests  20 passed (20)
-   Start at  18:46:22
-   Duration  535ms (transform 37ms, setup 0ms, collect 65ms, tests 144ms, environment 0ms, prepare 121ms)
+   Start at  20:20:14
+   Duration  423ms (transform 32ms, setup 0ms, collect 56ms, tests 94ms, environment 0ms, prepare 94ms)
 
 

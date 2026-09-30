@@ -1,0 +1,48 @@
+MUTATION M18-reconfirm-under-the-host-prefix — the host prefix is copied from the provider routes, which is a 404 on the live service
+What was replaced:
+      return `/api/v1/projects/${this.projectId}/watch-set/reconfirm`;
+With:
+      return `/api/v1/host/${this.hostKey}/projects/${this.projectId}/watch-set/reconfirm`; // MUTANT M18
+
+
+ RUN  v3.2.4 C:/Docker/aify-project-graph
+
+ ❯ tests/unit/scripts/dashboard-signals-client.test.js (11 tests | 1 failed) 15ms
+   ✓ the batch body carries what the route requires > ★★★ reporterId is in the BODY — the field whose absence is a 400 2ms
+   ✓ the batch body carries what the route requires > ★★★ the reporter name is CONFIGURABLE, because two reporters is a real case 0ms
+   ✓ the batch body carries what the route requires > ★★★ the URL and method are the ones the service publishes 0ms
+   × reconfirm reaches the per-project route, one anchor, fully stamped > ★★★ it posts to /projects/:id/watch-set/reconfirm — NOT under /host/:hostKey 7ms
+     → expected 'http://localhost:9700/api/v1/host/hos…' to be 'http://localhost:9700/api/v1/projects…' // Object.is equality
+   ✓ every request names its sender > ★★★ x-aify-agent carries the reporter name on reads, batches and reconfirms 1ms
+   ✓ the key is held, never carried anywhere it could be read > ★★★ it travels ONLY in the x-api-key header 0ms
+   ✓ the key is held, never carried anywhere it could be read > ★★★ describe() names where it points and NOT what it holds 0ms
+   ✓ the key is held, never carried anywhere it could be read > ★★★ a missing key FAILS CLOSED at construction, before any request 1ms
+   ✓ a refusal keeps the part that says what to do about it > ★★★ a 409 is flagged for RE-READ rather than left to a string match 1ms
+   ✓ a refusal keeps the part that says what to do about it > ★★★ an ordinary refusal is NOT flagged for re-read 0ms
+   ✓ a refusal keeps the part that says what to do about it > ★★★ a non-JSON body is reported as itself, not as a parse crash 0ms
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 10 passed (11)
+   Start at  20:20:06
+   Duration  374ms (transform 30ms, setup 0ms, collect 53ms, tests 15ms, environment 0ms, prepare 113ms)
+
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/scripts/dashboard-signals-client.test.js > reconfirm reaches the per-project route, one anchor, fully stamped > ★★★ it posts to /projects/:id/watch-set/reconfirm — NOT under /host/:hostKey
+AssertionError: expected 'http://localhost:9700/api/v1/host/hos…' to be 'http://localhost:9700/api/v1/projects…' // Object.is equality
+
+Expected: "http://localhost:9700/api/v1/projects/PROJ/watch-set/reconfirm"
+Received: "http://localhost:9700/api/v1/host/host-a/projects/PROJ/watch-set/reconfirm"
+
+ ❯ tests/unit/scripts/dashboard-signals-client.test.js:94:36
+     92|     const out = await client({ fetchImpl }).reconfirm({ watchId: 'w1',…
+     93| 
+     94|     expect(fetchImpl.calls[0].url).toBe('http://localhost:9700/api/v1/…
+       |                                    ^
+     95|     expect(fetchImpl.calls[0].url, 'the host key must not appear in a …
+     96|     expect(fetchImpl.calls[0].init.method).toBe('POST');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

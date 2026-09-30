@@ -53,6 +53,12 @@ export class DashboardSignalsClient {
     return `/api/v1/host/${this.hostKey}/projects/${this.projectId}/watch-set`;
   }
 
+  // ⚠ NOT under `/host/:hostKey` like the two above. Reconfirm is a per-PROJECT act (auth "either"), so an
+  // operator in a browser and a provider on a host reach the same route. Copying the host prefix here would 404.
+  get #reconfirmPath() {
+    return `/api/v1/projects/${this.projectId}/watch-set/reconfirm`;
+  }
+
   get #signalsPath() {
     return `/api/v1/host/${this.hostKey}/projects/${this.projectId}/signals`;
   }
@@ -87,6 +93,22 @@ export class DashboardSignalsClient {
    * report under any name. Raised with them rather than worked around: the weaker provenance is on the path
    * that WRITES marks.
    */
+  /**
+   * Take a new baseline for ONE anchor. Throws `SignalsRefused` on anything but a 2xx.
+   *
+   * ⛔ ONE ANCHOR, NAMED BY THE CALLER, AND NEVER CALLED BY A SWEEP. Reconfirm is one of only two acts the
+   * service allows to SETTLE a mark, and its design calls it "a deliberate act by something that looked". A
+   * sweep that reconfirmed what it had just reported would clear its own marks in the same breath. So this
+   * method takes exactly one watchId, and the only caller is an entry point that requires the operator to name
+   * each anchor (`scripts/reconfirm-anchor.mjs`). There is no "reconfirm all".
+   *
+   * The stamp must carry `hash`, `stampVersion` AND `commit` — `watch.ts stampFrom` refuses a stamp missing any
+   * of them as `bad_stamp`, because a baseline with no commit cannot say what it was taken against.
+   */
+  async reconfirm({ watchId, watchRevision, stamp }) {
+    return this.#send('POST', this.#reconfirmPath, { watchId, watchRevision, stamp });
+  }
+
   async postSignals({ head, watchRevision, results, unwatched }) {
     return this.#send('POST', this.#signalsPath, {
       reporterId: this.reporterId, head, watchRevision, results, unwatched,
@@ -98,6 +120,11 @@ export class DashboardSignalsClient {
       method,
       headers: {
         'x-api-key': this.#apiKey,
+        // ⛔ WITHOUT THIS, A RECONFIRM IS RECORDED AS "an agent". The key admits the request as kind `agent`, and
+        // `whoAsked` (routes/provider.ts:301) names the actor from this header or falls back to the anonymous
+        // "an agent". It is a CLAIM, not an identity — one shared key authenticates every agent — but a named
+        // claim beside the body's `reporterId` makes the two comparable instead of leaving one blank.
+        'x-aify-agent': this.reporterId,
         ...(payload === undefined ? {} : { 'content-type': 'application/json' }),
       },
       ...(payload === undefined ? {} : { body: JSON.stringify(payload) }),

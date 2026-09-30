@@ -1,0 +1,51 @@
+MUTATION M19-sender-unnamed — requests carry no agent name, so a reconfirm is recorded as the anonymous "an agent"
+What was replaced:
+          'x-aify-agent': this.reporterId,
+With:
+          // MUTANT M19: agent header removed
+
+
+ RUN  v3.2.4 C:/Docker/aify-project-graph
+
+ ❯ tests/unit/scripts/dashboard-signals-client.test.js (11 tests | 1 failed) 11ms
+   ✓ the batch body carries what the route requires > ★★★ reporterId is in the BODY — the field whose absence is a 400 2ms
+   ✓ the batch body carries what the route requires > ★★★ the reporter name is CONFIGURABLE, because two reporters is a real case 0ms
+   ✓ the batch body carries what the route requires > ★★★ the URL and method are the ones the service publishes 0ms
+   ✓ reconfirm reaches the per-project route, one anchor, fully stamped > ★★★ it posts to /projects/:id/watch-set/reconfirm — NOT under /host/:hostKey 1ms
+   × every request names its sender > ★★★ x-aify-agent carries the reporter name on reads, batches and reconfirms 5ms
+     → expected undefined to be 'apg@StevenZ-L/win32/abc123' // Object.is equality
+   ✓ the key is held, never carried anywhere it could be read > ★★★ it travels ONLY in the x-api-key header 0ms
+   ✓ the key is held, never carried anywhere it could be read > ★★★ describe() names where it points and NOT what it holds 0ms
+   ✓ the key is held, never carried anywhere it could be read > ★★★ a missing key FAILS CLOSED at construction, before any request 1ms
+   ✓ a refusal keeps the part that says what to do about it > ★★★ a 409 is flagged for RE-READ rather than left to a string match 1ms
+   ✓ a refusal keeps the part that says what to do about it > ★★★ an ordinary refusal is NOT flagged for re-read 0ms
+   ✓ a refusal keeps the part that says what to do about it > ★★★ a non-JSON body is reported as itself, not as a parse crash 0ms
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 10 passed (11)
+   Start at  20:20:09
+   Duration  346ms (transform 26ms, setup 0ms, collect 47ms, tests 11ms, environment 0ms, prepare 105ms)
+
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/scripts/dashboard-signals-client.test.js > every request names its sender > ★★★ x-aify-agent carries the reporter name on reads, batches and reconfirms
+AssertionError: expected undefined to be 'apg@StevenZ-L/win32/abc123' // Object.is equality
+
+- Expected: 
+"apg@StevenZ-L/win32/abc123"
+
++ Received: 
+undefined
+
+ ❯ tests/unit/scripts/dashboard-signals-client.test.js:116:49
+    114|     expect(fetchImpl.calls).toHaveLength(3);
+    115|     for (const call of fetchImpl.calls) {
+    116|       expect(call.init.headers['x-aify-agent']).toBe('apg@StevenZ-L/wi…
+       |                                                 ^
+    117|     }
+    118|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

@@ -1,0 +1,56 @@
+MUTATION M15-stamp-without-a-commit — the stamp is sent without its commit, which the service refuses as bad_stamp
+What was replaced:
+    return { ok: true, watchId, stamp: { hash: stamp.hash, stampVersion: stamp.stampVersion, commit: head } };
+With:
+    return { ok: true, watchId, stamp: { hash: stamp.hash, stampVersion: stamp.stampVersion } }; // MUTANT M15
+
+
+ RUN  v3.2.4 C:/Docker/aify-project-graph
+
+ ❯ tests/unit/scripts/reconfirm-plan.test.js (9 tests | 1 failed) 51ms
+   ✓ planReconfirm refuses where there is nothing to vouch for > ★★★ a GONE anchor is refused — there is nothing to take a baseline of 8ms
+   ✓ planReconfirm refuses where there is nothing to vouch for > ★★★ an UNWATCHED anchor is refused, whatever else the row holds 4ms
+   ✓ planReconfirm refuses where there is nothing to vouch for > ★★★ a result with no usable stamp, or no commit, is refused 4ms
+   × planReconfirm refuses where there is nothing to vouch for > ★★★ INSTRUMENT CONTROL — a `changed` result IS reconfirmable, with the commit attached 13ms
+     → expected { ok: true, watchId: 'w', …(1) } to deeply equal { ok: true, watchId: 'w', …(1) }
+   ✓ ⭐ a baseline set by reconfirm is one the sweep recognises > ★★★ ROUND TRIP: reconfirm the resolved stamp, and the next sweep of the same code says `unchanged` 7ms
+   ✓ ⭐ a baseline set by reconfirm is one the sweep recognises > ★★★ NEGATIVE CONTROL — the same baseline against MOVED code says `changed` 3ms
+   ✓ parseReconfirmArgs refuses to be a sweep > ★★★ NO anchor named is a refusal — there is deliberately no "all" 4ms
+   ✓ parseReconfirmArgs refuses to be a sweep > ★★★ a malformed argument is refused rather than guessed at 3ms
+   ✓ parseReconfirmArgs refuses to be a sweep > ★★★ each named anchor is collected, in order — the positive control for the refusals above 4ms
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 passed (9)
+   Start at  20:19:58
+   Duration  583ms (transform 37ms, setup 0ms, collect 81ms, tests 51ms, environment 0ms, prepare 176ms)
+
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/scripts/reconfirm-plan.test.js > planReconfirm refuses where there is nothing to vouch for > ★★★ INSTRUMENT CONTROL — a `changed` result IS reconfirmable, with the commit attached
+AssertionError: expected { ok: true, watchId: 'w', …(1) } to deeply equal { ok: true, watchId: 'w', …(1) }
+
+- Expected
++ Received
+
+  {
+    "ok": true,
+    "stamp": {
+-     "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "hash": "h2",
+      "stampVersion": "v",
+    },
+    "watchId": "w",
+  }
+
+ ❯ tests/unit/scripts/reconfirm-plan.test.js:94:52
+     92|     // And `changed` specifically, because reconfirming after a change…
+     93|     const changed = { kind: 'result', row: { watchId: 'w', status: 'ch…
+     94|     expect(planReconfirm(changed, { head: HEAD })).toEqual({
+       |                                                    ^
+     95|       ok: true, watchId: 'w', stamp: { hash: 'h2', stampVersion: 'v', …
+     96|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

@@ -83,6 +83,41 @@ describe('the batch body carries what the route requires', () => {
   });
 });
 
+describe('reconfirm reaches the per-project route, one anchor, fully stamped', () => {
+  it('★★★ it posts to /projects/:id/watch-set/reconfirm — NOT under /host/:hostKey', async () => {
+    // ⛔ Reconfirm is a per-PROJECT act (auth "either"), unlike the two host-scoped provider routes. Copying the
+    // host prefix from them is the natural mistake, and it is a 404 on the live service.
+    const fetchImpl = recordingFetch({ body: { watchId: 'w1', settled: ['code_changed'] } });
+    const stamp = { hash: 'h', stampVersion: 'apg-symbol-shape-1', commit: 'c0ffee' };
+    const out = await client({ fetchImpl }).reconfirm({ watchId: 'w1', watchRevision: 'rev1', stamp });
+
+    expect(fetchImpl.calls[0].url).toBe('http://localhost:9700/api/v1/projects/PROJ/watch-set/reconfirm');
+    expect(fetchImpl.calls[0].url, 'the host key must not appear in a per-project route').not.toContain('host-a');
+    expect(fetchImpl.calls[0].init.method).toBe('POST');
+    // ⛔ All three stamp fields: the service's `stampFrom` refuses a stamp missing any one as `bad_stamp`.
+    expect(JSON.parse(fetchImpl.calls[0].init.body)).toEqual({ watchId: 'w1', watchRevision: 'rev1', stamp });
+    // The answer is handed back whole, so a caller can print what it SETTLED rather than assume it.
+    expect(out.settled).toEqual(['code_changed']);
+  });
+});
+
+describe('every request names its sender', () => {
+  it('★★★ x-aify-agent carries the reporter name on reads, batches and reconfirms', async () => {
+    // ⛔ Without this header the service records a reconfirm's actor as the anonymous "an agent"
+    // (routes/provider.ts whoAsked), and a receipt's `admitted_as` as null. It is a CLAIM — one shared key
+    // authenticates every agent — but a named one, comparable with the body's `reporterId`.
+    const fetchImpl = recordingFetch();
+    const c = client({ fetchImpl, reporterId: 'apg@StevenZ-L/win32/abc123' });
+    await c.readWatchSet();
+    await c.postSignals(batch);
+    await c.reconfirm({ watchId: 'w1', watchRevision: 'rev1', stamp: { hash: 'h', stampVersion: 'v', commit: 'c' } });
+    expect(fetchImpl.calls).toHaveLength(3);
+    for (const call of fetchImpl.calls) {
+      expect(call.init.headers['x-aify-agent']).toBe('apg@StevenZ-L/win32/abc123');
+    }
+  });
+});
+
 describe('the key is held, never carried anywhere it could be read', () => {
   it('★★★ it travels ONLY in the x-api-key header', async () => {
     const fetchImpl = recordingFetch();

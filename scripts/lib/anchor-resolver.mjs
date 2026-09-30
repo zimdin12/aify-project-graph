@@ -280,8 +280,9 @@ export function resolveAnchor({ repoRoot, item, deps }) {
   }
   return decide(watchId, stamp, STAMP_VERSIONS.symbol, hashOf([match.structural_fp, match.dependency_fp]), {
     evidence: `shape of ${name} in ${relPath}: signature, decorators, parent class and node type, plus its `
-      + 'outgoing call/reference/type/import set. ⚠ THE BODY IS NOT HASHED — a rewrite that changes no '
-      + 'signature and no outgoing call reports `unchanged`, which is why trust.exhaustive is false',
+      + 'outgoing call/reference/type/import set. ⚠ THE BODY TEXT IS NOT HASHED, ONLY THE NAMES IT REFERENCES — '
+      + 'an edit that keeps the signature and the set of referenced names (a changed literal, an operator, a '
+      + 'reorder, a comment) reports `unchanged`, which is why trust.exhaustive is false',
   });
 }
 

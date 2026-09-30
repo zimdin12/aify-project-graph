@@ -17,70 +17,17 @@
 // the "page full of real signals becomes clean in one click" failure the per-anchor rule exists to prevent.
 // ⇒ The consequence is stated rather than hidden: with no baseline, an honest provider reports `restamp`
 // every sweep, so `unchanged` is unreachable here. That is raised as a question, not worked around.
-import { readFileSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
-import { join } from 'node:path';
-
-import { extractFile } from '../mcp/stdio/ingest/extractors/generic.js';
-import { getLanguageConfig } from '../mcp/stdio/ingest/languages/index.js';
-import { fileStructuralFingerprint } from '../mcp/stdio/ingest/fingerprint.js';
-import { scanDocReferences } from '../mcp/stdio/analysis/doc-links.js';
-import { isDocument } from '../mcp/stdio/ingest/sweep.js';
 import { resolveAnchor, splitBatch } from './lib/anchor-resolver.mjs';
 import { DashboardSignalsClient, SignalsRefused } from './lib/dashboard-signals-client.mjs';
+import { makeInstruments, readProviderConfig, headOf, dirtyCountOf } from './lib/provider-runtime.mjs';
 
+// The repository is the working directory, so pointing this at a scratch repo is `cd` and nothing else.
 const repoRoot = process.cwd();
-
-/**
- * The real instruments, wired to the resolver's injection points.
- *
- * ⚠ EVERY ONE OF THESE IS THE PRODUCTION PATH, not a re-implementation. `isDocument` is imported from
- * `sweep.js` — where the indexer's own copy lives — rather than re-listing document extensions here, because
- * a second list is a defect with a delay on it. (`presentWithExactCase` is the one deliberate exception, and
- * the resolver says why.)
- */
-const instruments = {
-  languageOf: (relPath) => getLanguageConfig(relPath),
-  isDocument: (relPath) => isDocument(relPath),
-  readSource: (relPath) => readFileSync(join(repoRoot, relPath), 'utf8'),
-  extract: ({ relPath, source, config }) => extractFile({ filePath: relPath, source, config }),
-  fileFingerprint: (extracted) => fileStructuralFingerprint(extracted),
-  docReferences: (source) => scanDocReferences(source),
-};
-
-function config() {
-  const envFile = process.env.APG_DASHBOARD_ENV;
-  let keyFromFile;
-  if (envFile) {
-    // Read, matched, and never printed. The value does not reach stdout, a log line or an error message.
-    const match = readFileSync(envFile, 'utf8').match(/^\s*API_KEY\s*=\s*(.+?)\s*$/mu);
-    keyFromFile = match?.[1];
-  }
-  return {
-    baseUrl: process.env.APG_DASHBOARD_URL ?? 'http://localhost:9700',
-    apiKey: process.env.APG_DASHBOARD_KEY ?? keyFromFile,
-    hostKey: process.env.APG_DASHBOARD_HOST ?? 'host-a',
-    projectId: process.env.APG_DASHBOARD_PROJECT,
-    // ⛔ CONFIGURATION, NOT A CONSTANT. The reporter name varies by deployment, and it is also the field that
-    // makes the two-reporter experiment in `docs/evidence/dashboard-seam-2026-09-30/` possible at all.
-    reporterId: process.env.APG_DASHBOARD_REPORTER ?? 'aify-project-graph',
-  };
-}
-
-/** The commit this sweep describes. ⛔ The COMMIT, because the tree can move under a long sweep. */
-function head() {
-  return execFileSync('git', ['-C', repoRoot, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
-}
-
-/** Whether the tree matches that commit. Reported, never corrected — the caller decides what it means. */
-function dirtyFiles() {
-  const out = execFileSync('git', ['-C', repoRoot, 'status', '--porcelain'], { encoding: 'utf8' });
-  return out.split('\n').filter((l) => l.trim() !== '').length;
-}
+const instruments = makeInstruments(repoRoot);
 
 async function main() {
   const dryRun = process.argv.includes('--dry-run');
-  const client = new DashboardSignalsClient(config());
+  const client = new DashboardSignalsClient(readProviderConfig());
   console.log(`endpoint      ${client.describe()}`);
   console.log(`reporter      ${client.reporterId}`);
 
@@ -112,8 +59,8 @@ async function main() {
     console.log(`  ${'UNWATCHED'.padEnd(10)} ${a.kind}:${a.name}  ${a.path}`);
     console.log(`             ${row.reason.slice(0, 96)}`);
   }
-  const commit = head();
-  const dirty = dirtyFiles();
+  const commit = headOf(repoRoot);
+  const dirty = dirtyCountOf(repoRoot);
   console.log('');
   console.log(`head          ${commit}${dirty > 0 ? `  ⚠ ${dirty} uncommitted path(s) — the sweep read the TREE, the batch names the COMMIT` : ''}`);
   console.log(`batch         ${batch.results.length} results, ${batch.unwatched.length} unwatched, ${set.items.length} watched`);

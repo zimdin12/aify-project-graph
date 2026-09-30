@@ -7,17 +7,17 @@ With:
 
  RUN  v3.2.4 C:/Docker/aify-project-graph
 
- ❯ tests/unit/ingest/extraction-reports-its-coverage.test.js (4 tests | 1 failed) 65ms
+ ❯ tests/unit/ingest/extraction-reports-its-coverage.test.js (4 tests | 1 failed) 69ms
    ✓ extractFile reports its own coverage > ★★★ a clean file reports a COMPLETE extraction — the control that makes the other arms mean something 25ms
-   ✓ extractFile reports its own coverage > ★★★ a SYNTAX ERROR is reported, on the same file that was clean above 20ms
+   ✓ extractFile reports its own coverage > ★★★ a SYNTAX ERROR is reported, on the same file that was clean above 22ms
    × extractFile reports its own coverage > ★★★ the DEPTH CAP firing is reported, and a shallow file does not report it 8ms
      → a hundred and twenty levels must reach it: expected false to be true // Object.is equality
-   ✓ extractFile reports its own coverage > ★★★ adding `coverage` CANNOT move a fingerprint — the blast-radius claim, bounded 12ms
+   ✓ extractFile reports its own coverage > ★★★ adding `coverage` CANNOT move a fingerprint — the blast-radius claim, bounded 13ms
 
  Test Files  1 failed (1)
       Tests  1 failed | 3 passed (4)
-   Start at  18:45:55
-   Duration  1.15s (transform 91ms, setup 0ms, collect 361ms, tests 65ms, environment 0ms, prepare 94ms)
+   Start at  20:19:37
+   Duration  758ms (transform 98ms, setup 0ms, collect 395ms, tests 69ms, environment 0ms, prepare 96ms)
 
 
 

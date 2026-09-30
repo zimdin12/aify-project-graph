@@ -1,0 +1,49 @@
+MUTATION M13-gone-anchor-gets-a-baseline — a baseline is written for an anchor whose target is not in the tree
+What was replaced:
+    if (resolved.row.status === 'gone') return refuse('gone');
+With:
+    // MUTANT M13: gone check removed
+
+
+ RUN  v3.2.4 C:/Docker/aify-project-graph
+
+ ❯ tests/unit/scripts/reconfirm-plan.test.js (9 tests | 1 failed) 38ms
+   × planReconfirm refuses where there is nothing to vouch for > ★★★ a GONE anchor is refused — there is nothing to take a baseline of 14ms
+     → expected true to be false // Object.is equality
+   ✓ planReconfirm refuses where there is nothing to vouch for > ★★★ an UNWATCHED anchor is refused, whatever else the row holds 3ms
+   ✓ planReconfirm refuses where there is nothing to vouch for > ★★★ a result with no usable stamp, or no commit, is refused 3ms
+   ✓ planReconfirm refuses where there is nothing to vouch for > ★★★ INSTRUMENT CONTROL — a `changed` result IS reconfirmable, with the commit attached 3ms
+   ✓ ⭐ a baseline set by reconfirm is one the sweep recognises > ★★★ ROUND TRIP: reconfirm the resolved stamp, and the next sweep of the same code says `unchanged` 3ms
+   ✓ ⭐ a baseline set by reconfirm is one the sweep recognises > ★★★ NEGATIVE CONTROL — the same baseline against MOVED code says `changed` 3ms
+   ✓ parseReconfirmArgs refuses to be a sweep > ★★★ NO anchor named is a refusal — there is deliberately no "all" 3ms
+   ✓ parseReconfirmArgs refuses to be a sweep > ★★★ a malformed argument is refused rather than guessed at 3ms
+   ✓ parseReconfirmArgs refuses to be a sweep > ★★★ each named anchor is collected, in order — the positive control for the refusals above 3ms
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 passed (9)
+   Start at  20:19:54
+   Duration  356ms (transform 29ms, setup 0ms, collect 59ms, tests 38ms, environment 0ms, prepare 83ms)
+
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/scripts/reconfirm-plan.test.js > planReconfirm refuses where there is nothing to vouch for > ★★★ a GONE anchor is refused — there is nothing to take a baseline of
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/unit/scripts/reconfirm-plan.test.js:66:21
+     64|     const resolved = { kind: 'result', row: { watchId: 'w', status: 'g…
+     65|     const plan = planReconfirm(resolved, { head: HEAD });
+     66|     expect(plan.ok).toBe(false);
+       |                     ^
+     67|     expect(plan.refusal).toBe('gone');
+     68|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

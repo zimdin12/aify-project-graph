@@ -28,6 +28,8 @@ CLIENT = 'scripts/lib/dashboard-signals-client.mjs'
 CLIENT_TEST = 'tests/unit/scripts/dashboard-signals-client.test.js'
 EXTRACTOR = 'mcp/stdio/ingest/extractors/generic.js'
 EXTRACTOR_TEST = 'tests/unit/ingest/extraction-reports-its-coverage.test.js'
+PLAN = 'scripts/lib/reconfirm-plan.mjs'
+PLAN_TEST = 'tests/unit/scripts/reconfirm-plan.test.js'
 EVIDENCE = 'docs/evidence/dashboard-seam-2026-09-30'
 
 # Each mutation is the change an ORDINARY REFACTOR would produce, never a contrived break. M2 in particular
@@ -127,6 +129,45 @@ MUTATIONS += [
         '  // MUTANT M12: depth check removed',
         'an extraction cut off at the depth cap is answered as if it were whole',
     ),
+]
+
+# ── Reconfirm: the planning module, the client route and the sender header. Added 2026-09-30.
+MUTATIONS += [
+    (PLAN, PLAN_TEST,
+     'M13-gone-anchor-gets-a-baseline',
+     "  if (resolved.row.status === 'gone') return refuse('gone');",
+     '  // MUTANT M13: gone check removed',
+     'a baseline is written for an anchor whose target is not in the tree'),
+    (PLAN, PLAN_TEST,
+     'M14-unwatched-refused-for-the-wrong-reason',
+     "  if (resolved?.kind === 'unwatched') return refuse('unwatched');",
+     '  // MUTANT M14: unwatched check removed',
+     'an unwatched anchor is still refused, but the operator is told the wrong reason'),
+    (PLAN, PLAN_TEST,
+     'M15-stamp-without-a-commit',
+     '  return { ok: true, watchId, stamp: { hash: stamp.hash, stampVersion: stamp.stampVersion, commit: head } };',
+     '  return { ok: true, watchId, stamp: { hash: stamp.hash, stampVersion: stamp.stampVersion } }; // MUTANT M15',
+     'the stamp is sent without its commit, which the service refuses as bad_stamp'),
+    (PLAN, PLAN_TEST,
+     'M16-baseline-the-sweep-cannot-recognise',
+     '  return { ok: true, watchId, stamp: { hash: stamp.hash, stampVersion: stamp.stampVersion, commit: head } };',
+     "  return { ok: true, watchId, stamp: { hash: stamp.hash, stampVersion: 'apg-symbol-shape-0', commit: head } }; // MUTANT M16",
+     'reconfirm stamps a format the sweep does not produce, so every later sweep reads restamp'),
+    (PLAN, PLAN_TEST,
+     'M17-no-anchors-means-all',
+     '  if (watchIds.length === 0) {',
+     '  if (false) { // MUTANT M17',
+     'naming no anchor is accepted, so a reconfirm can run as a sweep that settles its own marks'),
+    (CLIENT, CLIENT_TEST,
+     'M18-reconfirm-under-the-host-prefix',
+     '    return `/api/v1/projects/${this.projectId}/watch-set/reconfirm`;',
+     '    return `/api/v1/host/${this.hostKey}/projects/${this.projectId}/watch-set/reconfirm`; // MUTANT M18',
+     'the host prefix is copied from the provider routes, which is a 404 on the live service'),
+    (CLIENT, CLIENT_TEST,
+     'M19-sender-unnamed',
+     "        'x-aify-agent': this.reporterId,",
+     '        // MUTANT M19: agent header removed',
+     'requests carry no agent name, so a reconfirm is recorded as the anonymous "an agent"'),
 ]
 
 IMPORT_OLD = "import { readdirSync } from 'node:fs';"

@@ -256,15 +256,20 @@ describe('a symbol anchor reports the population before the verdict', () => {
     expect(out.row.status).toBe('restamp');
     expect(out.row.stamp.stampVersion).toBe(STAMP_VERSIONS.symbol);
     // ⚠ THE LIMIT IS RECORDED, AND — CORRECTED — IT DOES NOT REACH THE OPERATOR. `structuralFingerprint`
-    // hashes signature/decorators/parent/type and `dependencyFingerprint` the outgoing set; neither hashes
-    // the body, so a rewrite changing no signature and no outgoing call reports `unchanged`.
+    // hashes signature/decorators/parent/type and `dependencyFingerprint` the set of names the body references.
+    //
+    // ⛔ CORRECTED AGAIN, BY MEASUREMENT. This used to say neither hashes "the body", so a rewrite "changing no
+    // signature and no outgoing call" reports `unchanged`. Too broad: adding only a LOCAL VARIABLE moves the
+    // stamp, because the body's referenced names are hashed. Measured over twelve edits: calls added, removed or
+    // renamed, a new local, a renamed or added parameter all MOVE it; a literal, an operator, a reorder or a
+    // comment do not. The precise limit is "only the referenced names", and the evidence now says exactly that.
     //
     // ⛔ THIS COMMENT USED TO END "and the consumer is told so rather than left to infer it". THAT WAS FALSE.
     // `detailFor` (their watch.ts:204) reads only the `keys` and `goneHints` ARRAYS out of `evidence`, and
     // `readStrings` returns [] for a string, so none of this prose renders. What does reach them is `trust`,
     // asserted on the next line. A false caveat costs a reader exactly what a missing one does, so the arm
     // now checks the prose exists in OUR record and does not pretend it is delivered.
-    expect(out.row.evidence).toMatch(/THE BODY IS NOT HASHED/u);
+    expect(out.row.evidence).toMatch(/THE BODY TEXT IS NOT HASHED, ONLY THE NAMES IT REFERENCES/u);
     expect(out.row.trust).toEqual({ provenance: 'EXTRACTED', exhaustive: false });
   });
 

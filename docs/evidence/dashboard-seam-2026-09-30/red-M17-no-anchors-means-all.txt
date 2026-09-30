@@ -1,0 +1,49 @@
+MUTATION M17-no-anchors-means-all — naming no anchor is accepted, so a reconfirm can run as a sweep that settles its own marks
+What was replaced:
+    if (watchIds.length === 0) {
+With:
+    if (false) { // MUTANT M17
+
+
+ RUN  v3.2.4 C:/Docker/aify-project-graph
+
+ ❯ tests/unit/scripts/reconfirm-plan.test.js (9 tests | 1 failed) 40ms
+   ✓ planReconfirm refuses where there is nothing to vouch for > ★★★ a GONE anchor is refused — there is nothing to take a baseline of 6ms
+   ✓ planReconfirm refuses where there is nothing to vouch for > ★★★ an UNWATCHED anchor is refused, whatever else the row holds 3ms
+   ✓ planReconfirm refuses where there is nothing to vouch for > ★★★ a result with no usable stamp, or no commit, is refused 3ms
+   ✓ planReconfirm refuses where there is nothing to vouch for > ★★★ INSTRUMENT CONTROL — a `changed` result IS reconfirmable, with the commit attached 3ms
+   ✓ ⭐ a baseline set by reconfirm is one the sweep recognises > ★★★ ROUND TRIP: reconfirm the resolved stamp, and the next sweep of the same code says `unchanged` 5ms
+   ✓ ⭐ a baseline set by reconfirm is one the sweep recognises > ★★★ NEGATIVE CONTROL — the same baseline against MOVED code says `changed` 4ms
+   × parseReconfirmArgs refuses to be a sweep > ★★★ NO anchor named is a refusal — there is deliberately no "all" 9ms
+     → expected [Function] to throw an error
+   ✓ parseReconfirmArgs refuses to be a sweep > ★★★ a malformed argument is refused rather than guessed at 3ms
+   ✓ parseReconfirmArgs refuses to be a sweep > ★★★ each named anchor is collected, in order — the positive control for the refusals above 3ms
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 passed (9)
+   Start at  20:20:03
+   Duration  388ms (transform 32ms, setup 0ms, collect 65ms, tests 40ms, environment 0ms, prepare 96ms)
+
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/scripts/reconfirm-plan.test.js > parseReconfirmArgs refuses to be a sweep > ★★★ NO anchor named is a refusal — there is deliberately no "all"
+AssertionError: expected [Function] to throw an error
+
+- Expected: 
+null
+
++ Received: 
+undefined
+
+ ❯ tests/unit/scripts/reconfirm-plan.test.js:134:42
+    132| describe('parseReconfirmArgs refuses to be a sweep', () => {
+    133|   it('★★★ NO anchor named is a refusal — there is deliberately no "all…
+    134|     expect(() => parseReconfirmArgs([])).toThrow(/deliberately no "all…
+       |                                          ^
+    135|     expect(() => parseReconfirmArgs(['--dry-run'])).toThrow(/deliberat…
+    136|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
