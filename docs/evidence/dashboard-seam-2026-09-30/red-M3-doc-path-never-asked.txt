@@ -7,20 +7,20 @@ With:
 
  RUN  v3.2.4 C:/Docker/aify-project-graph
 
- ❯ tests/unit/scripts/anchor-resolver.test.js (15 tests | 2 failed) 81ms
-   ✓ resolveAnchor decides only what it observed > ★★★ a NULL baseline is `restamp`, never `changed` 8ms
-   ✓ resolveAnchor decides only what it observed > ★★★ an UNCOMPARABLE stamp version is `restamp`, and says so 5ms
-   ✓ resolveAnchor decides only what it observed > ★★★ an equal stamp is `unchanged` and a different one is `changed` 5ms
+ ❯ tests/unit/scripts/anchor-resolver.test.js (15 tests | 2 failed) 78ms
+   ✓ resolveAnchor decides only what it observed > ★★★ a NULL baseline is `restamp`, never `changed` 6ms
+   ✓ resolveAnchor decides only what it observed > ★★★ an UNCOMPARABLE stamp version is `restamp`, and says so 4ms
+   ✓ resolveAnchor decides only what it observed > ★★★ an equal stamp is `unchanged` and a different one is `changed` 4ms
    ✓ resolveAnchor decides only what it observed > ★★★ a file absent from the tree is `gone`, decided by the filesystem 4ms
-   ✓ resolveAnchor decides only what it observed > ★★★ a WRONG-CASE path is `gone` — the case-insensitive filesystem must not answer this 5ms
-   × the three coverage paths are all asked before an absence is reported > ★★★ a MARKDOWN anchor resolves on the DOCUMENT path although languageOf THROWS 12ms
+   ✓ resolveAnchor decides only what it observed > ★★★ a WRONG-CASE path is `gone` — the case-insensitive filesystem must not answer this 4ms
+   × the three coverage paths are all asked before an absence is reported > ★★★ a MARKDOWN anchor resolves on the DOCUMENT path although languageOf THROWS 13ms
      → a covered document must NOT be reported as unwatched: expected 'unwatched' to be 'result' // Object.is equality
    × the three coverage paths are all asked before an absence is reported > ★★★ kind "file" is a WHOLE-FILE anchor, not an unknown kind 7ms
      → a document anchored as kind "file" is still a document: expected 'unwatched' to be 'result' // Object.is equality
    ✓ the three coverage paths are all asked before an absence is reported > ★★★ a file covered by NEITHER path is `unwatched`, naming the absence as an absence 5ms
    ✓ a symbol anchor reports the population before the verdict > ★★★ ZERO symbols extracted is `unwatched`, NOT `gone` 5ms
    ✓ a symbol anchor reports the population before the verdict > ★★★ INSTRUMENT CONTROL — with symbols present, a missing name IS `gone` 4ms
-   ✓ a symbol anchor reports the population before the verdict > ★★★ a found symbol is stamped on its own shape, and says the body is not hashed 4ms
+   ✓ a symbol anchor reports the population before the verdict > ★★★ a found symbol is stamped on its own shape, and says the body is not hashed 5ms
    ✓ a symbol anchor reports the population before the verdict > ★★★ a symbol anchor on a NON-CODE file refuses instead of guessing 4ms
    ✓ the batch proves its own completeness > ★★★ every watchId appears exactly once, and both failures are NAMED 4ms
    ✓ the batch proves its own completeness > ★★★ an unknown reason key THROWS rather than sending an empty reason 4ms
@@ -28,8 +28,8 @@ With:
 
  Test Files  1 failed (1)
       Tests  2 failed | 13 passed (15)
-   Start at  05:25:12
-   Duration  765ms (transform 31ms, setup 0ms, collect 56ms, tests 81ms, environment 0ms, prepare 84ms)
+   Start at  05:46:41
+   Duration  372ms (transform 32ms, setup 0ms, collect 52ms, tests 78ms, environment 0ms, prepare 81ms)
 
 
 

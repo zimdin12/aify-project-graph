@@ -3,11 +3,11 @@ AFTER RESTORE: the suite must be GREEN again
 
  RUN  v3.2.4 C:/Docker/aify-project-graph
 
- ✓ tests/unit/scripts/anchor-resolver.test.js (15 tests) 62ms
+ ✓ tests/unit/scripts/anchor-resolver.test.js (15 tests) 61ms
 
  Test Files  1 passed (1)
       Tests  15 passed (15)
-   Start at  05:25:19
-   Duration  376ms (transform 30ms, setup 0ms, collect 48ms, tests 62ms, environment 0ms, prepare 90ms)
+   Start at  05:46:47
+   Duration  363ms (transform 31ms, setup 0ms, collect 48ms, tests 61ms, environment 0ms, prepare 87ms)
 
 

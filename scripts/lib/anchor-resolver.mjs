@@ -92,6 +92,31 @@ const FILE_LEVEL_TYPES = Object.freeze(['File', 'Module', 'Directory', 'Document
  */
 export const EXTRACTED_TRUST = Object.freeze({ provenance: 'EXTRACTED', exhaustive: false });
 
+// ⛔⛔ WHAT ACTUALLY REACHES AN OPERATOR, MEASURED IN THEIR CODE RATHER THAN ASSUMED — AND I HAD IT WRONG.
+//
+// `provider/watch.ts:204 detailFor(status, head, evidence, trust)` builds the sentence a human reads. It
+// takes TWO things from `evidence`, via `readStrings`: the arrays `keys` and `goneHints`. `readStrings`
+// begins `if (typeof evidence !== "object") return []`, so an evidence STRING — which is what every
+// `evidence` below is — contributes NOTHING. The rendered mark is:
+//
+//     "restamp at <head> — from EXTRACTED, which did not see everything"
+//
+// ⇒ So `trust` DOES travel (`trustWords`, watch.ts:235) and the prose DOES NOT. Worse, `observationOf`
+// (signals.ts:306) derives a batch's identity from `detailFor` itself, deliberately, so "a field nobody
+// renders cannot churn it" — the prose cannot even distinguish two batches. It is not a channel.
+//
+// ⚠ THE PROSE IS KEPT ANYWAY, and this comment is the reason rather than an excuse. It is the honest record
+// of why each verdict was chosen, it is what a human reads in this repo's own run output and evidence files,
+// and `unwatched` reasons DO render as prose (`the provider did not watch this: ${reason}`) — so refusals
+// carry their argument and results do not. That asymmetry is raised with them as a question.
+//
+// ⛔ AND `keys` IS NOT REACHABLE BY GUESSING. It means "the symbols this signal is about". For a whole-file
+// anchor a provider would have to name WHICH symbols changed, and a stamp is a single hash — comparing two
+// hashes says something moved, never what. To fill `keys` honestly a provider needs the previous
+// EXTRACTION, not the previous hash. So it is left empty rather than padded with a path or a digest, which
+// would put a plausible-looking list in front of an operator that named nothing.
+
+
 /**
  * Is this path present, spelled EXACTLY as given?
  *

@@ -27,7 +27,7 @@ export class SignalsRefused extends Error {
 export class DashboardSignalsClient {
   #apiKey;
 
-  constructor({ baseUrl, apiKey, hostKey, projectId, fetchImpl = fetch }) {
+  constructor({ baseUrl, apiKey, hostKey, projectId, reporterId = 'aify-project-graph', fetchImpl = fetch }) {
     if (!baseUrl || !hostKey || !projectId) {
       throw new Error('DashboardSignalsClient needs a baseUrl, a hostKey and a projectId');
     }
@@ -40,6 +40,7 @@ export class DashboardSignalsClient {
     this.hostKey = hostKey;
     this.projectId = projectId;
     this.#apiKey = apiKey.trim();
+    this.reporterId = reporterId;
     this.fetchImpl = fetchImpl;
   }
 
@@ -72,9 +73,24 @@ export class DashboardSignalsClient {
     };
   }
 
-  /** Post one complete batch. Throws `SignalsRefused` on anything but a 2xx. */
+  /**
+   * Post one complete batch. Throws `SignalsRefused` on anything but a 2xx.
+   *
+   * ⛔ `reporterId` IS REQUIRED IN THE BODY, and only the route says so. `WatchSignals.apply` takes it as a
+   * parameter, which tells you nothing about where it comes from; `routes/provider.ts:224` is the line that
+   * reads `required(raw, "reporterId")`. Omitting it is a 400 before any of the seam's own reasoning runs —
+   * found by reading the handler the request actually reaches rather than the class it calls. READ THE
+   * ARTIFACT THE OPERATION WILL USE.
+   *
+   * ⚠ And note it is SELF-DECLARED. `reconfirm` derives its actor from `whoAsked(context.principal)`, the
+   * authenticated key; signals takes the reporter's name from the request body, so any valid agent key may
+   * report under any name. Raised with them rather than worked around: the weaker provenance is on the path
+   * that WRITES marks.
+   */
   async postSignals({ head, watchRevision, results, unwatched }) {
-    return this.#send('POST', this.#signalsPath, { head, watchRevision, results, unwatched });
+    return this.#send('POST', this.#signalsPath, {
+      reporterId: this.reporterId, head, watchRevision, results, unwatched,
+    });
   }
 
   async #send(method, path, payload) {

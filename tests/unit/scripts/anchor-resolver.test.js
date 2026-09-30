@@ -244,9 +244,15 @@ describe('a symbol anchor reports the population before the verdict', () => {
     });
     expect(out.row.status).toBe('restamp');
     expect(out.row.stamp.stampVersion).toBe(STAMP_VERSIONS.symbol);
-    // ⚠ THE LIMIT TRAVELS WITH THE CLAIM. `structuralFingerprint` hashes signature/decorators/parent/type and
-    // `dependencyFingerprint` the outgoing set; neither hashes the body. A rewrite changing no signature and
-    // no outgoing call reports `unchanged`, and the consumer is told so rather than left to infer it.
+    // ⚠ THE LIMIT IS RECORDED, AND — CORRECTED — IT DOES NOT REACH THE OPERATOR. `structuralFingerprint`
+    // hashes signature/decorators/parent/type and `dependencyFingerprint` the outgoing set; neither hashes
+    // the body, so a rewrite changing no signature and no outgoing call reports `unchanged`.
+    //
+    // ⛔ THIS COMMENT USED TO END "and the consumer is told so rather than left to infer it". THAT WAS FALSE.
+    // `detailFor` (their watch.ts:204) reads only the `keys` and `goneHints` ARRAYS out of `evidence`, and
+    // `readStrings` returns [] for a string, so none of this prose renders. What does reach them is `trust`,
+    // asserted on the next line. A false caveat costs a reader exactly what a missing one does, so the arm
+    // now checks the prose exists in OUR record and does not pretend it is delivered.
     expect(out.row.evidence).toMatch(/THE BODY IS NOT HASHED/u);
     expect(out.row.trust).toEqual({ provenance: 'EXTRACTED', exhaustive: false });
   });

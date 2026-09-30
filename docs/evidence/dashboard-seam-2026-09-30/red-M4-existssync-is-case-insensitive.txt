@@ -7,14 +7,14 @@ With:
 
  RUN  v3.2.4 C:/Docker/aify-project-graph
 
- ❯ tests/unit/scripts/anchor-resolver.test.js (15 tests | 1 failed) 72ms
-   ✓ resolveAnchor decides only what it observed > ★★★ a NULL baseline is `restamp`, never `changed` 7ms
+ ❯ tests/unit/scripts/anchor-resolver.test.js (15 tests | 1 failed) 70ms
+   ✓ resolveAnchor decides only what it observed > ★★★ a NULL baseline is `restamp`, never `changed` 8ms
    ✓ resolveAnchor decides only what it observed > ★★★ an UNCOMPARABLE stamp version is `restamp`, and says so 4ms
    ✓ resolveAnchor decides only what it observed > ★★★ an equal stamp is `unchanged` and a different one is `changed` 4ms
    ✓ resolveAnchor decides only what it observed > ★★★ a file absent from the tree is `gone`, decided by the filesystem 4ms
-   × resolveAnchor decides only what it observed > ★★★ a WRONG-CASE path is `gone` — the case-insensitive filesystem must not answer this 11ms
+   × resolveAnchor decides only what it observed > ★★★ a WRONG-CASE path is `gone` — the case-insensitive filesystem must not answer this 10ms
      → the wrong case must be ABSENT: expected true to be false // Object.is equality
-   ✓ the three coverage paths are all asked before an absence is reported > ★★★ a MARKDOWN anchor resolves on the DOCUMENT path although languageOf THROWS 6ms
+   ✓ the three coverage paths are all asked before an absence is reported > ★★★ a MARKDOWN anchor resolves on the DOCUMENT path although languageOf THROWS 4ms
    ✓ the three coverage paths are all asked before an absence is reported > ★★★ kind "file" is a WHOLE-FILE anchor, not an unknown kind 4ms
    ✓ the three coverage paths are all asked before an absence is reported > ★★★ a file covered by NEITHER path is `unwatched`, naming the absence as an absence 4ms
    ✓ a symbol anchor reports the population before the verdict > ★★★ ZERO symbols extracted is `unwatched`, NOT `gone` 4ms
@@ -27,8 +27,8 @@ With:
 
  Test Files  1 failed (1)
       Tests  1 failed | 14 passed (15)
-   Start at  05:25:15
-   Duration  369ms (transform 30ms, setup 0ms, collect 54ms, tests 72ms, environment 0ms, prepare 82ms)
+   Start at  05:46:43
+   Duration  369ms (transform 29ms, setup 0ms, collect 48ms, tests 70ms, environment 0ms, prepare 81ms)
 
 
 
