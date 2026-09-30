@@ -299,6 +299,9 @@ export function resolveAnchor({ repoRoot, item, deps }) {
   if (!match) {
     // The instrument demonstrably speaks here — it found other symbols in this very file — so an absence is
     // now evidence rather than silence.
+    // ⚠ THE COUNT AND THE LIST MOVE WHEN UNRELATED FUNCTIONS COME AND GO, so this text is not a stable identity
+    // for the finding. Kept deliberately: they are the population beside the verdict, and the dashboard keys a
+    // gone finding on status + anchor + baseline, never on this text (agreed 2026-10-01).
     return decide(watchId, stamp, STAMP_VERSIONS.symbol, null, {
       gone: true,
       evidence: `${name} is not among the ${symbols.length} symbols extracted from ${relPath} `
@@ -348,7 +351,9 @@ function decide(watchId, stamp, stampVersion, hash, { evidence, gone = false }) 
   if (stamp.hash === hash) return result(watchId, 'unchanged', base);
   return result(watchId, 'changed', {
     ...base,
-    evidence: `${evidence}. Baseline was ${stamp.hash} at ${stamp.commit ?? 'an unrecorded commit'}`,
+    // ⛔ NAME WHAT IS THERE NOW, not only the baseline. Naming only the baseline made two DIFFERENT changes read
+    // identically, so acknowledging the first would have silently hidden the second.
+    evidence: `${evidence}. Now ${hash}. Baseline was ${stamp.hash} at ${stamp.commit ?? 'an unrecorded commit'}`,
   });
 }
 
