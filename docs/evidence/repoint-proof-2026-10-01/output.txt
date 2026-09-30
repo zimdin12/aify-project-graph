@@ -1,0 +1,25 @@
+== guard ==
+before start: server/ clean, identical to ed1f440 (checkout HEAD 9e5ef72)
+service: gitSha null, schema 38
+
+== 1. baseline: reconfirm the node while it names alpha ==
+reconfirm exit 0: CONFIRMED     26:01M3T6RDJ5EJM2XMTK0VZW1DQP:alpha  settled []
+stamp now: 784aec1d8172 @ 6e2e429b
+
+== 2. CONTROL: sweep the untouched anchor ==
+verdict: unchanged  symbol:alpha  src/proof.js
+
+== 3. CONTROL: edit an UNRELATED field (the label) — the baseline must SURVIVE ==
+revision 2; stamp now: 784aec1d8172 @ 6e2e429b
+verdict: unchanged  symbol:alpha  src/proof.js
+
+== 4. RE-POINT: the same node now names beta. No code changed. ==
+revision 3; same watchId: true; anchor.name beta; stamp now: null
+verdict (dry run): restamp    symbol:beta  src/proof.js
+
+== 5. POST that sweep, and read what the page is told ==
+ACCEPTED      {"kind":"applied","watchRevision":"d16f39822c745534","marked":1,"quiet":0,"recorded":1,"graphs":["01M3T6RDJ5EJM2XMTK0VZW1DQP"]}
+marks on the graph: {"outstanding":[{"reason":"unconfirmed","heading":"nobody has confirmed this since it was written","marks":[{"id":"01M3T6REYK51ZSEMYHBQMY7VP3","graphId":"01M3T6RDJ5EJM2XMTK0VZW1DQP","target":"alpha","reason":"unconfirmed","detail":"restamp at 6e2e429b51a52069b4563c10107dde5779ea83df — from EXTRACTED, which did not see everything","source":"the code-graph provider, via apg-repoint-proof","since":1790807129043,"version":1,"acknowledgedBy":null,"acknowledgedAt":null}]}],"all":[{"id":"01M3T6REYK51ZSEMYHBQMY7VP3","graphId":"01M3T6RDJ5EJM2XMTK0VZW1DQP","target":"alpha","reason":"unconfirmed","detail":"restamp at 6e2e429b51a52069b4563c10107dde5779ea83df — from EXTRACTED, which did not see everything","source":"the code-graph provider, via apg-repoint-proof","since":1790807129043,"version":1,"acknowledgedBy":null,"acknowledgedAt":null}]}
+
+== guard ==
+after stop: server/ clean, identical to ed1f440 (checkout HEAD 9e5ef72)
