@@ -7,30 +7,35 @@ With:
 
  RUN  v3.2.4 C:/Docker/aify-project-graph
 
- ❯ tests/unit/scripts/anchor-resolver.test.js (15 tests | 3 failed) 68ms
-   × resolveAnchor decides only what it observed > ★★★ a NULL baseline is `restamp`, never `changed` 15ms
+ ❯ tests/unit/scripts/anchor-resolver.test.js (20 tests | 3 failed) 120ms
+   × resolveAnchor decides only what it observed > ★★★ a NULL baseline is `restamp`, never `changed` 17ms
      → expected 'changed' to be 'restamp' // Object.is equality
-   ✓ resolveAnchor decides only what it observed > ★★★ an UNCOMPARABLE stamp version is `restamp`, and says so 4ms
-   ✓ resolveAnchor decides only what it observed > ★★★ an equal stamp is `unchanged` and a different one is `changed` 4ms
-   ✓ resolveAnchor decides only what it observed > ★★★ a file absent from the tree is `gone`, decided by the filesystem 3ms
-   ✓ resolveAnchor decides only what it observed > ★★★ a WRONG-CASE path is `gone` — the case-insensitive filesystem must not answer this 4ms
-   × the three coverage paths are all asked before an absence is reported > ★★★ a MARKDOWN anchor resolves on the DOCUMENT path although languageOf THROWS 4ms
+   ✓ resolveAnchor decides only what it observed > ★★★ an UNCOMPARABLE stamp version is `restamp`, and says so 6ms
+   ✓ resolveAnchor decides only what it observed > ★★★ an equal stamp is `unchanged` and a different one is `changed` 6ms
+   ✓ resolveAnchor decides only what it observed > ★★★ a file absent from the tree is `gone`, decided by the filesystem 6ms
+   ✓ resolveAnchor decides only what it observed > ★★★ a WRONG-CASE path is `gone` — the case-insensitive filesystem must not answer this 6ms
+   × the three coverage paths are all asked before an absence is reported > ★★★ a MARKDOWN anchor resolves on the DOCUMENT path although languageOf THROWS 6ms
      → expected 'changed' to be 'restamp' // Object.is equality
-   ✓ the three coverage paths are all asked before an absence is reported > ★★★ kind "file" is a WHOLE-FILE anchor, not an unknown kind 4ms
-   ✓ the three coverage paths are all asked before an absence is reported > ★★★ a file covered by NEITHER path is `unwatched`, naming the absence as an absence 3ms
-   ✓ a symbol anchor reports the population before the verdict > ★★★ ZERO symbols extracted is `unwatched`, NOT `gone` 4ms
-   ✓ a symbol anchor reports the population before the verdict > ★★★ INSTRUMENT CONTROL — with symbols present, a missing name IS `gone` 4ms
-   × a symbol anchor reports the population before the verdict > ★★★ a found symbol is stamped on its own shape, and says the body is not hashed 4ms
+   ✓ the three coverage paths are all asked before an absence is reported > ★★★ kind "file" is a WHOLE-FILE anchor, not an unknown kind 6ms
+   ✓ the three coverage paths are all asked before an absence is reported > ★★★ a file covered by NEITHER path is `unwatched`, naming the absence as an absence 5ms
+   ✓ a symbol anchor reports the population before the verdict > ★★★ ZERO symbols extracted is `unwatched`, NOT `gone` 6ms
+   ✓ a symbol anchor reports the population before the verdict > ★★★ INSTRUMENT CONTROL — with symbols present, a missing name IS `gone` 6ms
+   × a symbol anchor reports the population before the verdict > ★★★ a found symbol is stamped on its own shape, and says the body is not hashed 6ms
      → expected 'changed' to be 'restamp' // Object.is equality
-   ✓ a symbol anchor reports the population before the verdict > ★★★ a symbol anchor on a NON-CODE file refuses instead of guessing 3ms
-   ✓ the batch proves its own completeness > ★★★ every watchId appears exactly once, and both failures are NAMED 4ms
+   ✓ a symbol anchor reports the population before the verdict > ★★★ a symbol anchor on a NON-CODE file refuses instead of guessing 5ms
+   ✓ an extraction that cannot say it is complete gets no verdict > ★★★ a PARSE ERROR is `unparseable`, never a verdict — the reason that used to be unreachable 6ms
+   ✓ an extraction that cannot say it is complete gets no verdict > ★★★ a DEPTH-CAP bail is `extraction_truncated`, never a verdict 5ms
+   ✓ an extraction that cannot say it is complete gets no verdict > ★★★ a MISSING coverage report FAILS CLOSED as `coverage_unknown` 4ms
+   ✓ an extraction that cannot say it is complete gets no verdict > ★★★ INSTRUMENT CONTROL — the SAME world with a complete report DOES get a verdict 5ms
+   ✓ an extraction that cannot say it is complete gets no verdict > ★★★ the DOCUMENT path does not depend on extractor coverage 5ms
+   ✓ the batch proves its own completeness > ★★★ every watchId appears exactly once, and both failures are NAMED 5ms
    ✓ the batch proves its own completeness > ★★★ an unknown reason key THROWS rather than sending an empty reason 4ms
-   ✓ a doc link set is a set, and excludes what the doc layer excludes > ★★★ fenced references are dropped, duplicates collapse, order does not matter 3ms
+   ✓ a doc link set is a set, and excludes what the doc layer excludes > ★★★ fenced references are dropped, duplicates collapse, order does not matter 4ms
 
  Test Files  1 failed (1)
-      Tests  3 failed | 12 passed (15)
-   Start at  15:54:26
-   Duration  351ms (transform 29ms, setup 0ms, collect 48ms, tests 68ms, environment 0ms, prepare 78ms)
+      Tests  3 failed | 17 passed (20)
+   Start at  18:44:54
+   Duration  2.06s (transform 35ms, setup 0ms, collect 65ms, tests 120ms, environment 0ms, prepare 171ms)
 
 
 
@@ -42,13 +47,13 @@ AssertionError: expected 'changed' to be 'restamp' // Object.is equality
 Expected: "restamp"
 Received: "changed"
 
- ❯ tests/unit/scripts/anchor-resolver.test.js:84:28
-     82|     // ⛔ THE WHOLE POINT. With seven anchors and no stamps, `changed` …
-     83|     // sweep and tell an operator the entire repository moved while no…
-     84|     expect(out.row.status).toBe('restamp');
+ ❯ tests/unit/scripts/anchor-resolver.test.js:95:28
+     93|     // ⛔ THE WHOLE POINT. With seven anchors and no stamps, `changed` …
+     94|     // sweep and tell an operator the entire repository moved while no…
+     95|     expect(out.row.status).toBe('restamp');
        |                            ^
-     85|     expect(out.row.stamp).toEqual({ hash: 'FP1', stampVersion: STAMP_V…
-     86|     expect(out.row.evidence).toMatch(/first baseline/u);
+     96|     expect(out.row.stamp).toEqual({ hash: 'FP1', stampVersion: STAMP_V…
+     97|     expect(out.row.evidence).toMatch(/first baseline/u);
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
 
@@ -58,13 +63,13 @@ AssertionError: expected 'changed' to be 'restamp' // Object.is equality
 Expected: "restamp"
 Received: "changed"
 
- ❯ tests/unit/scripts/anchor-resolver.test.js:149:28
-    147|     const out = resolveAnchor({ repoRoot, item, deps: deps() });
-    148|     expect(out.kind, 'a covered document must NOT be reported as unwat…
-    149|     expect(out.row.status).toBe('restamp');
+ ❯ tests/unit/scripts/anchor-resolver.test.js:160:28
+    158|     const out = resolveAnchor({ repoRoot, item, deps: deps() });
+    159|     expect(out.kind, 'a covered document must NOT be reported as unwat…
+    160|     expect(out.row.status).toBe('restamp');
        |                            ^
-    150|     // ⭐ And it stamps with the DOC version, in the same batch as code…
-    151|     // per watch id, so one batch carries mixed versions.
+    161|     // ⭐ And it stamps with the DOC version, in the same batch as code…
+    162|     // per watch id, so one batch carries mixed versions.
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
 
@@ -74,13 +79,13 @@ AssertionError: expected 'changed' to be 'restamp' // Object.is equality
 Expected: "restamp"
 Received: "changed"
 
- ❯ tests/unit/scripts/anchor-resolver.test.js:245:28
-    243|       deps: deps({ symbols: [{ type: 'Function', label: 'a', structura…
-    244|     });
-    245|     expect(out.row.status).toBe('restamp');
+ ❯ tests/unit/scripts/anchor-resolver.test.js:256:28
+    254|       deps: deps({ symbols: [{ type: 'Function', label: 'a', structura…
+    255|     });
+    256|     expect(out.row.status).toBe('restamp');
        |                            ^
-    246|     expect(out.row.stamp.stampVersion).toBe(STAMP_VERSIONS.symbol);
-    247|     // ⚠ THE LIMIT IS RECORDED, AND — CORRECTED — IT DOES NOT REACH TH…
+    257|     expect(out.row.stamp.stampVersion).toBe(STAMP_VERSIONS.symbol);
+    258|     // ⚠ THE LIMIT IS RECORDED, AND — CORRECTED — IT DOES NOT REACH TH…
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
 

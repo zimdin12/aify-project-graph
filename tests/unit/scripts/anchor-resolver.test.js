@@ -45,7 +45,14 @@ afterEach(async () => {
 
 // The fake deps. Each one is a NAMED WORLD rather than a mock with behaviour scattered through the arms, so
 // an arm's expectation can be read against the world it ran in.
-function deps({ symbols = null, fp = 'FP1', docRefs = [{ written: 'src/code.js', fenced: false }] } = {}) {
+// ⚠ `coverage` defaults to a COMPLETE extraction, because that is what the real `extractFile` returns for a
+// clean file. It was absent from this fake until the extractor learned to report it; the resolver now refuses a
+// missing `coverage` (fail closed), so a fake without it would be modelling a contract that no longer exists.
+const COMPLETE = Object.freeze({ parseHadError: false, depthCapFired: false, depthCap: 80 });
+
+function deps({
+  symbols = null, fp = 'FP1', docRefs = [{ written: 'src/code.js', fenced: false }], coverage = COMPLETE,
+} = {}) {
   return {
     // Only `.js` has a code extractor here, which is the real shape: `.md` and `.gitattributes` both throw.
     languageOf: (rel) => {
@@ -62,6 +69,10 @@ function deps({ symbols = null, fp = 'FP1', docRefs = [{ written: 'src/code.js',
         // extractor produces for a file of data constants.
         ...(symbols ?? []),
       ],
+      // ⛔ `null`, NOT `undefined`, means "this world's extractor did not report coverage". A default parameter
+      // REPLACES an explicit `undefined`, so `deps({ coverage: undefined })` would silently receive COMPLETE and
+      // the arm that tests a missing report would be testing a complete one. Defaults do not replace `null`.
+      ...(coverage === null ? {} : { coverage }),
     }),
     fileFingerprint: () => fp,
     docReferences: () => docRefs,
@@ -261,6 +272,60 @@ describe('a symbol anchor reports the population before the verdict', () => {
     const out = resolveAnchor({ repoRoot, item: symbolItem('README.md', 'heading'), deps: deps() });
     expect(out.kind).toBe('unwatched');
     expect(out.row.reason).toBe(UNWATCHED_REASONS.unsupported_anchor_kind);
+  });
+});
+
+describe('an extraction that cannot say it is complete gets no verdict', () => {
+  const item = moduleItem({ stamp: { hash: 'FP1', stampVersion: STAMP_VERSIONS.code, commit: 'abc' } });
+
+  it('★★★ a PARSE ERROR is `unparseable`, never a verdict — the reason that used to be unreachable', () => {
+    // ⛔ tree-sitter does not throw on bad syntax; it returns a partial tree. So `unparseable`, which fired only
+    // on a throw, was dead for exactly the case its text describes. MEASURED on the real extractor: a file cut
+    // at 55% gave 6 symbols instead of 9 and a different fingerprint, with no complaint.
+    //
+    // ⚠ The stamp MATCHES here on purpose. A resolver that ignored coverage would answer `unchanged` — the
+    // partial instrument agreeing with its own partial view, which is the laundering this arm exists to catch.
+    const out = resolveAnchor({
+      repoRoot, item, deps: deps({ fp: 'FP1', coverage: { ...COMPLETE, parseHadError: true } }),
+    });
+    expect(out.kind, 'a partial parse must not produce a verdict').toBe('unwatched');
+    expect(out.row.reason).toBe(UNWATCHED_REASONS.unparseable);
+  });
+
+  it('★★★ a DEPTH-CAP bail is `extraction_truncated`, never a verdict', () => {
+    const out = resolveAnchor({
+      repoRoot, item, deps: deps({ fp: 'FP1', coverage: { ...COMPLETE, depthCapFired: true } }),
+    });
+    expect(out.kind).toBe('unwatched');
+    expect(out.row.reason).toBe(UNWATCHED_REASONS.extraction_truncated);
+  });
+
+  it('★★★ a MISSING coverage report FAILS CLOSED as `coverage_unknown`', () => {
+    // ⛔ `coverage?.parseHadError` on an absent field is `undefined`, which reads as "no error". A guard that
+    // passes when its input is missing is decoration, so absence refuses.
+    const out = resolveAnchor({ repoRoot, item, deps: deps({ fp: 'FP1', coverage: null }) });
+    expect(out.kind).toBe('unwatched');
+    expect(out.row.reason).toBe(UNWATCHED_REASONS.coverage_unknown);
+  });
+
+  it('★★★ INSTRUMENT CONTROL — the SAME world with a complete report DOES get a verdict', () => {
+    // ⛔ WITHOUT THIS THE THREE ARMS ABOVE PROVE NOTHING: a resolver that refused every code anchor would pass
+    // all three. Same item, same fingerprint, same stamp; only `coverage` differs, and now it must be answered.
+    const out = resolveAnchor({ repoRoot, item, deps: deps({ fp: 'FP1', coverage: COMPLETE }) });
+    expect(out.kind).toBe('result');
+    expect(out.row.status).toBe('unchanged');
+  });
+
+  it('★★★ the DOCUMENT path does not depend on extractor coverage', () => {
+    // The doc path reads references with its own scanner and never calls `extract`, so an extractor that could
+    // not report coverage must not take a covered document down with it.
+    const out = resolveAnchor({
+      repoRoot,
+      item: { watchId: 'w-doc', anchor: { path: 'README.md', name: 'r', kind: 'file' }, stamp: null },
+      deps: deps({ coverage: null }),
+    });
+    expect(out.kind).toBe('result');
+    expect(out.row.stamp.stampVersion).toBe(STAMP_VERSIONS.doc);
   });
 });
 

@@ -1,0 +1,57 @@
+MUTATION M12-truncated-extraction-still-gets-a-verdict — an extraction cut off at the depth cap is answered as if it were whole
+What was replaced:
+    if (coverage.depthCapFired) return unwatched(watchId, 'extraction_truncated');
+With:
+    // MUTANT M12: depth check removed
+
+
+ RUN  v3.2.4 C:/Docker/aify-project-graph
+
+ ❯ tests/unit/scripts/anchor-resolver.test.js (20 tests | 1 failed) 114ms
+   ✓ resolveAnchor decides only what it observed > ★★★ a NULL baseline is `restamp`, never `changed` 8ms
+   ✓ resolveAnchor decides only what it observed > ★★★ an UNCOMPARABLE stamp version is `restamp`, and says so 5ms
+   ✓ resolveAnchor decides only what it observed > ★★★ an equal stamp is `unchanged` and a different one is `changed` 5ms
+   ✓ resolveAnchor decides only what it observed > ★★★ a file absent from the tree is `gone`, decided by the filesystem 5ms
+   ✓ resolveAnchor decides only what it observed > ★★★ a WRONG-CASE path is `gone` — the case-insensitive filesystem must not answer this 5ms
+   ✓ the three coverage paths are all asked before an absence is reported > ★★★ a MARKDOWN anchor resolves on the DOCUMENT path although languageOf THROWS 6ms
+   ✓ the three coverage paths are all asked before an absence is reported > ★★★ kind "file" is a WHOLE-FILE anchor, not an unknown kind 8ms
+   ✓ the three coverage paths are all asked before an absence is reported > ★★★ a file covered by NEITHER path is `unwatched`, naming the absence as an absence 5ms
+   ✓ a symbol anchor reports the population before the verdict > ★★★ ZERO symbols extracted is `unwatched`, NOT `gone` 6ms
+   ✓ a symbol anchor reports the population before the verdict > ★★★ INSTRUMENT CONTROL — with symbols present, a missing name IS `gone` 5ms
+   ✓ a symbol anchor reports the population before the verdict > ★★★ a found symbol is stamped on its own shape, and says the body is not hashed 5ms
+   ✓ a symbol anchor reports the population before the verdict > ★★★ a symbol anchor on a NON-CODE file refuses instead of guessing 5ms
+   ✓ an extraction that cannot say it is complete gets no verdict > ★★★ a PARSE ERROR is `unparseable`, never a verdict — the reason that used to be unreachable 5ms
+   × an extraction that cannot say it is complete gets no verdict > ★★★ a DEPTH-CAP bail is `extraction_truncated`, never a verdict 12ms
+     → expected 'result' to be 'unwatched' // Object.is equality
+   ✓ an extraction that cannot say it is complete gets no verdict > ★★★ a MISSING coverage report FAILS CLOSED as `coverage_unknown` 4ms
+   ✓ an extraction that cannot say it is complete gets no verdict > ★★★ INSTRUMENT CONTROL — the SAME world with a complete report DOES get a verdict 4ms
+   ✓ an extraction that cannot say it is complete gets no verdict > ★★★ the DOCUMENT path does not depend on extractor coverage 4ms
+   ✓ the batch proves its own completeness > ★★★ every watchId appears exactly once, and both failures are NAMED 6ms
+   ✓ the batch proves its own completeness > ★★★ an unknown reason key THROWS rather than sending an empty reason 5ms
+   ✓ a doc link set is a set, and excludes what the doc layer excludes > ★★★ fenced references are dropped, duplicates collapse, order does not matter 4ms
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 19 passed (20)
+   Start at  18:46:13
+   Duration  457ms (transform 31ms, setup 0ms, collect 53ms, tests 114ms, environment 0ms, prepare 94ms)
+
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/scripts/anchor-resolver.test.js > an extraction that cannot say it is complete gets no verdict > ★★★ a DEPTH-CAP bail is `extraction_truncated`, never a verdict
+AssertionError: expected 'result' to be 'unwatched' // Object.is equality
+
+Expected: "unwatched"
+Received: "result"
+
+ ❯ tests/unit/scripts/anchor-resolver.test.js:299:22
+    297|       repoRoot, item, deps: deps({ fp: 'FP1', coverage: { ...COMPLETE,…
+    298|     });
+    299|     expect(out.kind).toBe('unwatched');
+       |                      ^
+    300|     expect(out.row.reason).toBe(UNWATCHED_REASONS.extraction_truncated…
+    301|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

@@ -7,32 +7,38 @@ With:
 
  RUN  v3.2.4 C:/Docker/aify-project-graph
 
- ❯ tests/unit/scripts/anchor-resolver.test.js (15 tests | 1 failed) 69ms
-   ✓ resolveAnchor decides only what it observed > ★★★ a NULL baseline is `restamp`, never `changed` 7ms
-   ✓ resolveAnchor decides only what it observed > ★★★ an UNCOMPARABLE stamp version is `restamp`, and says so 4ms
-   ✓ resolveAnchor decides only what it observed > ★★★ an equal stamp is `unchanged` and a different one is `changed` 4ms
-   ✓ resolveAnchor decides only what it observed > ★★★ a file absent from the tree is `gone`, decided by the filesystem 4ms
-   ✓ resolveAnchor decides only what it observed > ★★★ a WRONG-CASE path is `gone` — the case-insensitive filesystem must not answer this 4ms
-   ✓ the three coverage paths are all asked before an absence is reported > ★★★ a MARKDOWN anchor resolves on the DOCUMENT path although languageOf THROWS 4ms
-   × the three coverage paths are all asked before an absence is reported > ★★★ kind "file" is a WHOLE-FILE anchor, not an unknown kind 11ms
+ ❯ tests/unit/scripts/anchor-resolver.test.js (20 tests | 2 failed) 165ms
+   ✓ resolveAnchor decides only what it observed > ★★★ a NULL baseline is `restamp`, never `changed` 11ms
+   ✓ resolveAnchor decides only what it observed > ★★★ an UNCOMPARABLE stamp version is `restamp`, and says so 7ms
+   ✓ resolveAnchor decides only what it observed > ★★★ an equal stamp is `unchanged` and a different one is `changed` 8ms
+   ✓ resolveAnchor decides only what it observed > ★★★ a file absent from the tree is `gone`, decided by the filesystem 6ms
+   ✓ resolveAnchor decides only what it observed > ★★★ a WRONG-CASE path is `gone` — the case-insensitive filesystem must not answer this 7ms
+   ✓ the three coverage paths are all asked before an absence is reported > ★★★ a MARKDOWN anchor resolves on the DOCUMENT path although languageOf THROWS 6ms
+   × the three coverage paths are all asked before an absence is reported > ★★★ kind "file" is a WHOLE-FILE anchor, not an unknown kind 18ms
      → expected 'unwatched' to be 'result' // Object.is equality
-   ✓ the three coverage paths are all asked before an absence is reported > ★★★ a file covered by NEITHER path is `unwatched`, naming the absence as an absence 5ms
-   ✓ a symbol anchor reports the population before the verdict > ★★★ ZERO symbols extracted is `unwatched`, NOT `gone` 4ms
-   ✓ a symbol anchor reports the population before the verdict > ★★★ INSTRUMENT CONTROL — with symbols present, a missing name IS `gone` 4ms
-   ✓ a symbol anchor reports the population before the verdict > ★★★ a found symbol is stamped on its own shape, and says the body is not hashed 4ms
-   ✓ a symbol anchor reports the population before the verdict > ★★★ a symbol anchor on a NON-CODE file refuses instead of guessing 4ms
-   ✓ the batch proves its own completeness > ★★★ every watchId appears exactly once, and both failures are NAMED 4ms
-   ✓ the batch proves its own completeness > ★★★ an unknown reason key THROWS rather than sending an empty reason 4ms
-   ✓ a doc link set is a set, and excludes what the doc layer excludes > ★★★ fenced references are dropped, duplicates collapse, order does not matter 4ms
+   ✓ the three coverage paths are all asked before an absence is reported > ★★★ a file covered by NEITHER path is `unwatched`, naming the absence as an absence 11ms
+   ✓ a symbol anchor reports the population before the verdict > ★★★ ZERO symbols extracted is `unwatched`, NOT `gone` 6ms
+   ✓ a symbol anchor reports the population before the verdict > ★★★ INSTRUMENT CONTROL — with symbols present, a missing name IS `gone` 6ms
+   ✓ a symbol anchor reports the population before the verdict > ★★★ a found symbol is stamped on its own shape, and says the body is not hashed 8ms
+   ✓ a symbol anchor reports the population before the verdict > ★★★ a symbol anchor on a NON-CODE file refuses instead of guessing 8ms
+   ✓ an extraction that cannot say it is complete gets no verdict > ★★★ a PARSE ERROR is `unparseable`, never a verdict — the reason that used to be unreachable 7ms
+   ✓ an extraction that cannot say it is complete gets no verdict > ★★★ a DEPTH-CAP bail is `extraction_truncated`, never a verdict 9ms
+   ✓ an extraction that cannot say it is complete gets no verdict > ★★★ a MISSING coverage report FAILS CLOSED as `coverage_unknown` 9ms
+   ✓ an extraction that cannot say it is complete gets no verdict > ★★★ INSTRUMENT CONTROL — the SAME world with a complete report DOES get a verdict 8ms
+   × an extraction that cannot say it is complete gets no verdict > ★★★ the DOCUMENT path does not depend on extractor coverage 8ms
+     → expected 'unwatched' to be 'result' // Object.is equality
+   ✓ the batch proves its own completeness > ★★★ every watchId appears exactly once, and both failures are NAMED 8ms
+   ✓ the batch proves its own completeness > ★★★ an unknown reason key THROWS rather than sending an empty reason 7ms
+   ✓ a doc link set is a set, and excludes what the doc layer excludes > ★★★ fenced references are dropped, duplicates collapse, order does not matter 7ms
 
  Test Files  1 failed (1)
-      Tests  1 failed | 14 passed (15)
-   Start at  15:54:33
-   Duration  361ms (transform 30ms, setup 0ms, collect 50ms, tests 69ms, environment 0ms, prepare 78ms)
+      Tests  2 failed | 18 passed (20)
+   Start at  18:45:35
+   Duration  1.47s (transform 46ms, setup 0ms, collect 96ms, tests 165ms, environment 0ms, prepare 239ms)
 
 
 
-⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
 
  FAIL  tests/unit/scripts/anchor-resolver.test.js > the three coverage paths are all asked before an absence is reported > ★★★ kind "file" is a WHOLE-FILE anchor, not an unknown kind
 AssertionError: expected 'unwatched' to be 'result' // Object.is equality
@@ -40,13 +46,29 @@ AssertionError: expected 'unwatched' to be 'result' // Object.is equality
 Expected: "result"
 Received: "unwatched"
 
- ❯ tests/unit/scripts/anchor-resolver.test.js:167:25
-    165|       deps: deps(),
-    166|     });
-    167|     expect(asFile.kind).toBe('result');
+ ❯ tests/unit/scripts/anchor-resolver.test.js:178:25
+    176|       deps: deps(),
+    177|     });
+    178|     expect(asFile.kind).toBe('result');
        |                         ^
-    168|     expect(asFile.row.stamp.stampVersion).toBe(STAMP_VERSIONS.code);
-    169| 
+    179|     expect(asFile.row.stamp.stampVersion).toBe(STAMP_VERSIONS.code);
+    180| 
 
-⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/unit/scripts/anchor-resolver.test.js > an extraction that cannot say it is complete gets no verdict > ★★★ the DOCUMENT path does not depend on extractor coverage
+AssertionError: expected 'unwatched' to be 'result' // Object.is equality
+
+Expected: "result"
+Received: "unwatched"
+
+ ❯ tests/unit/scripts/anchor-resolver.test.js:327:22
+    325|       deps: deps({ coverage: null }),
+    326|     });
+    327|     expect(out.kind).toBe('result');
+       |                      ^
+    328|     expect(out.row.stamp.stampVersion).toBe(STAMP_VERSIONS.doc);
+    329|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
 

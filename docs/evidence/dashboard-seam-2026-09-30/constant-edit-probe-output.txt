@@ -1,0 +1,15 @@
+=== mcp/stdio/storage/taxonomy.js  (0 modelled symbols)
+  CONSTANT-ONLY  add a value to the frozen NODE_TYPES list    IDENTICAL  <== invisible
+  CONTROL        no uniquely-declared function in this file — the file has none to rename
+=== mcp/stdio/code-intel/coverage.js  (10 modelled symbols)
+  CONSTANT-ONLY  add an entry to an exclude list              IDENTICAL  <== invisible
+  CONTROL        rename normalizeLang                         moved, instrument alive
+=== mcp/stdio/code-intel/compile-db.js  (43 modelled symbols)
+  CONSTANT-ONLY  lower a coverage THRESHOLD from 0.9 to 0.5   IDENTICAL  <== invisible
+  CONTROL        rename discoverCompileDbCandidates           moved, instrument alive
+=== mcp/stdio/freshness/orchestrator.js  (16 modelled symbols)
+  CONSTANT-ONLY  bump EXTRACTOR_VERSION                       IDENTICAL  <== invisible
+  CONTROL        rename buildDeferredPartialResumeResult      moved, instrument alive
+
+constant-only edits invisible: 4 of 4
+positive controls that moved:  3 (taxonomy.js has no function to rename; its control is in anchor-facts-probe)

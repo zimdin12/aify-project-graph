@@ -374,12 +374,13 @@ export function extractFile({ filePath, source, config }) {
   });
 
   const MAX_VISIT_DEPTH = 80;
+  let depthCapFired = false;
   const referenceRules = config.refs?.references ?? [
     { nodeTypes: ['identifier', 'type_identifier', 'name'] },
   ];
 
   const visit = (node, owner = null, parentClass = null, depth = 0, ancestors = [], lexicalScope = []) => {
-    if (depth > MAX_VISIT_DEPTH) return;
+    if (depth > MAX_VISIT_DEPTH) { depthCapFired = true; return; }
     const parentNode = ancestors[ancestors.length - 1] ?? null;
     const symbolRule = matchRule(node, config.symbols, parentNode);
     let nextOwner = owner;
@@ -855,5 +856,10 @@ export function extractFile({ filePath, source, config }) {
     if (extra?.edges) edges.push(...extra.edges);
   }
 
-  return { nodes, edges, refs, duplicateSites };
+  // ⛔ COVERAGE IS REPORTED, BECAUSE BOTH OF THESE WERE SILENT. tree-sitter does not throw on bad syntax: it
+  // returns a partial tree, and this function walked it and returned a confident fingerprintable result with
+  // no sign that anything was missing (measured: a file truncated at 55% gave 6 symbols instead of 9 and a
+  // different fingerprint, with no complaint). And the depth bail above returned without a trace. A caller
+  // deciding whether an extraction is COMPLETE needs both; nothing here decides it for them.
+  return { nodes, edges, refs, duplicateSites, coverage: { parseHadError: tree.rootNode.hasError, depthCapFired, depthCap: MAX_VISIT_DEPTH } };
 }

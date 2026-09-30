@@ -1,0 +1,13 @@
+BASELINE: tests/unit/scripts/anchor-resolver.test.js must be GREEN unmutated
+
+
+ RUN  v3.2.4 C:/Docker/aify-project-graph
+
+ ✓ tests/unit/scripts/anchor-resolver.test.js (20 tests) 139ms
+
+ Test Files  1 passed (1)
+      Tests  20 passed (20)
+   Start at  18:44:32
+   Duration  1.20s (transform 45ms, setup 0ms, collect 68ms, tests 139ms, environment 0ms, prepare 140ms)
+
+

@@ -26,6 +26,8 @@ RESOLVER = 'scripts/lib/anchor-resolver.mjs'
 RESOLVER_TEST = 'tests/unit/scripts/anchor-resolver.test.js'
 CLIENT = 'scripts/lib/dashboard-signals-client.mjs'
 CLIENT_TEST = 'tests/unit/scripts/dashboard-signals-client.test.js'
+EXTRACTOR = 'mcp/stdio/ingest/extractors/generic.js'
+EXTRACTOR_TEST = 'tests/unit/ingest/extraction-reports-its-coverage.test.js'
 EVIDENCE = 'docs/evidence/dashboard-seam-2026-09-30'
 
 # Each mutation is the change an ORDINARY REFACTOR would produce, never a contrived break. M2 in particular
@@ -83,6 +85,50 @@ MUTATIONS = [
     ),
 ]
 
+# ── Coverage: the extractor reports it, the resolver refuses on it. Added 2026-09-30.
+MUTATIONS += [
+    (
+        EXTRACTOR, EXTRACTOR_TEST,
+        'M8-depth-bail-leaves-no-trace',
+        '    if (depth > MAX_VISIT_DEPTH) { depthCapFired = true; return; }',
+        '    if (depth > MAX_VISIT_DEPTH) { return; } // MUTANT M8',
+        'the depth cap bails silently again, as it did before it reported',
+    ),
+    (
+        EXTRACTOR, EXTRACTOR_TEST,
+        'M9-parse-error-reported-as-clean',
+        'parseHadError: tree.rootNode.hasError,',
+        'parseHadError: false, /* MUTANT M9 */',
+        'a partial parse is reported as a clean one',
+    ),
+    (
+        RESOLVER, RESOLVER_TEST,
+        'M10-parse-error-still-gets-a-verdict',
+        "  if (coverage.parseHadError) return unwatched(watchId, 'unparseable');",
+        '  // MUTANT M10: parse check removed',
+        'a partial instrument agrees with its own partial view and reports unchanged',
+    ),
+    (
+        RESOLVER, RESOLVER_TEST,
+        'M11-missing-coverage-fails-open',
+        ("  if (typeof coverage?.parseHadError !== 'boolean' || typeof coverage?.depthCapFired !== 'boolean') {\n"
+         "    return unwatched(watchId, 'coverage_unknown');\n"
+         "  }\n"
+         "  if (coverage.parseHadError) return unwatched(watchId, 'unparseable');\n"
+         "  if (coverage.depthCapFired) return unwatched(watchId, 'extraction_truncated');"),
+        ("  if (coverage?.parseHadError) return unwatched(watchId, 'unparseable'); // MUTANT M11\n"
+         "  if (coverage?.depthCapFired) return unwatched(watchId, 'extraction_truncated');"),
+        'the NATURAL spelling: optional chaining with no guard, so an unreported coverage reads as clean',
+    ),
+    (
+        RESOLVER, RESOLVER_TEST,
+        'M12-truncated-extraction-still-gets-a-verdict',
+        "  if (coverage.depthCapFired) return unwatched(watchId, 'extraction_truncated');",
+        '  // MUTANT M12: depth check removed',
+        'an extraction cut off at the depth cap is answered as if it were whole',
+    ),
+]
+
 IMPORT_OLD = "import { readdirSync } from 'node:fs';"
 IMPORT_NEW = "import { readdirSync, existsSync } from 'node:fs';"
 
@@ -112,11 +158,12 @@ def main():
 
     # ⛔ THE POSITIVE CONTROL COMES FIRST. If the suite is not green before any mutation, every red below is
     # about something else, and a red for the wrong reason is worse than no red at all.
-    code, _ = run_tests(RESOLVER_TEST, f'{EVIDENCE}/green-before-mutations.txt',
-                        'BASELINE: unmutated source must be GREEN')
-    code_client, _ = run_tests(CLIENT_TEST, f'{EVIDENCE}/green-before-mutations-client.txt',
-                               'BASELINE: unmutated client must be GREEN')
-    code = code or code_client
+    test_files = sorted({m[1] for m in MUTATIONS})
+    code = 0
+    for tf in test_files:
+        tag = tf.rsplit('/', 1)[-1].replace('.test.js', '')
+        c, _ = run_tests(tf, f'{EVIDENCE}/green-before-{tag}.txt', f'BASELINE: {tf} must be GREEN unmutated')
+        code = code or c
     if code != 0:
         print('REFUSING: the suite is not green before any mutation. Nothing below would mean anything.')
         return 1
@@ -158,11 +205,11 @@ def main():
             assert read(path) == text, f'restore failed for {path} — a mutant may still be in the tree'
         print('restored byte-identical')
 
-    code, _ = run_tests(RESOLVER_TEST, f'{EVIDENCE}/green-after-restore.txt',
-                        'AFTER RESTORE: the suite must be GREEN again')
-    code_client, _ = run_tests(CLIENT_TEST, f'{EVIDENCE}/green-after-restore-client.txt',
-                               'AFTER RESTORE: the client suite must be GREEN again')
-    code = code or code_client
+    code = 0
+    for tf in sorted({m[1] for m in MUTATIONS}):
+        tag = tf.rsplit('/', 1)[-1].replace('.test.js', '')
+        c, _ = run_tests(tf, f'{EVIDENCE}/green-after-{tag}.txt', f'AFTER RESTORE: {tf} must be GREEN again')
+        code = code or c
     if code != 0:
         failures.append('the suite is NOT green after the restore')
     else:

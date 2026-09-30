@@ -7,12 +7,12 @@ With:
 
  RUN  v3.2.4 C:/Docker/aify-project-graph
 
- ❯ tests/unit/scripts/dashboard-signals-client.test.js (9 tests | 2 failed) 10ms
+ ❯ tests/unit/scripts/dashboard-signals-client.test.js (9 tests | 2 failed) 13ms
    ✓ the batch body carries what the route requires > ★★★ reporterId is in the BODY — the field whose absence is a 400 2ms
    ✓ the batch body carries what the route requires > ★★★ the reporter name is CONFIGURABLE, because two reporters is a real case 0ms
-   × the batch body carries what the route requires > ★★★ the URL and method are the ones the service publishes 5ms
+   × the batch body carries what the route requires > ★★★ the URL and method are the ones the service publishes 7ms
      → expected 'http://localhost:9700/api/v1/host/hos…' to be 'http://localhost:9700/api/v1/host/hos…' // Object.is equality
-   × the key is held, never carried anywhere it could be read > ★★★ it travels ONLY in the x-api-key header 0ms
+   × the key is held, never carried anywhere it could be read > ★★★ it travels ONLY in the x-api-key header 1ms
      → expected 'http://localhost:9700/api/v1/host/hos…' not to contain 'sk-test-not-a-real-key-0123456789'
    ✓ the key is held, never carried anywhere it could be read > ★★★ describe() names where it points and NOT what it holds 0ms
    ✓ the key is held, never carried anywhere it could be read > ★★★ a missing key FAILS CLOSED at construction, before any request 1ms
@@ -22,8 +22,8 @@ With:
 
  Test Files  1 failed (1)
       Tests  2 failed | 7 passed (9)
-   Start at  15:54:36
-   Duration  293ms (transform 24ms, setup 0ms, collect 37ms, tests 10ms, environment 0ms, prepare 77ms)
+   Start at  18:45:50
+   Duration  1.31s (transform 29ms, setup 0ms, collect 45ms, tests 13ms, environment 0ms, prepare 143ms)
 
 
 

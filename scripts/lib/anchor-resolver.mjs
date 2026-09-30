@@ -53,7 +53,12 @@ export const UNWATCHED_REASONS = Object.freeze({
     + 'including const-assigned arrows; it does not model data constants) — refusing rather than reporting '
     + 'this anchor as gone',
   too_large: 'file exceeds the extraction size cap and is absent from the graph by design',
-  unparseable: 'the parser failed on this file, so its symbols are absent rather than proven absent',
+  unparseable: 'this file did not parse cleanly (a syntax error, or the parser failing outright), so the '
+    + 'extraction is partial and anything it missed is absent rather than proven absent',
+  extraction_truncated: 'the extractor stopped descending at its depth limit, so constructs nested below it '
+    + 'were never read — the extraction is incomplete, not proven complete',
+  coverage_unknown: 'the extractor did not report whether its extraction was complete, so this provider will '
+    + 'not vouch for a verdict built on it',
   unsupported_anchor_kind: 'this provider resolves whole-file anchors (kind "module" or "file") and '
     + 'kind "symbol"; it cannot honestly resolve this anchor kind and has not guessed at what its author '
     + 'meant',
@@ -224,6 +229,24 @@ export function resolveAnchor({ repoRoot, item, deps }) {
     // that is about this provider rather than about the repository.
     return unwatched(watchId, 'unparseable');
   }
+
+  // ⛔⛔ AN EXTRACTION THAT CANNOT SAY IT IS COMPLETE DOES NOT GET A VERDICT.
+  //
+  // `unparseable` above used to fire ONLY on a throw — and tree-sitter never throws on bad syntax. It returns
+  // a partial tree, and `extractFile` walked it and handed back a fingerprintable result with no sign anything
+  // was missing. MEASURED: a file truncated at 55% gave 6 symbols instead of 9 and a DIFFERENT fingerprint, no
+  // complaint. So the reason written for exactly this case was unreachable for it. `extractFile` now reports
+  // `coverage`, and each condition refuses by name.
+  //
+  // ⛔ AND A MISSING `coverage` REFUSES TOO. `coverage?.parseHadError` on an absent field is `undefined`, which
+  // reads as "no error" — a guard that passes when its input is missing. Absent means the extractor did not
+  // say, and a verdict built on an extraction nobody vouched for is the laundering this exists to stop.
+  const coverage = extracted?.coverage;
+  if (typeof coverage?.parseHadError !== 'boolean' || typeof coverage?.depthCapFired !== 'boolean') {
+    return unwatched(watchId, 'coverage_unknown');
+  }
+  if (coverage.parseHadError) return unwatched(watchId, 'unparseable');
+  if (coverage.depthCapFired) return unwatched(watchId, 'extraction_truncated');
 
   if (wholeFile) {
     return decide(watchId, stamp, STAMP_VERSIONS.code, deps.fileFingerprint(extracted), {

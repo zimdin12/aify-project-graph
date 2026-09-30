@@ -1,0 +1,13 @@
+AFTER RESTORE: tests/unit/ingest/extraction-reports-its-coverage.test.js must be GREEN again
+
+
+ RUN  v3.2.4 C:/Docker/aify-project-graph
+
+ ✓ tests/unit/ingest/extraction-reports-its-coverage.test.js (4 tests) 60ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  18:46:19
+   Duration  802ms (transform 100ms, setup 0ms, collect 421ms, tests 60ms, environment 0ms, prepare 106ms)
+
+

@@ -7,8 +7,8 @@ With:
 
  RUN  v3.2.4 C:/Docker/aify-project-graph
 
- ❯ tests/unit/scripts/dashboard-signals-client.test.js (9 tests | 2 failed) 10ms
-   × the batch body carries what the route requires > ★★★ reporterId is in the BODY — the field whose absence is a 400 6ms
+ ❯ tests/unit/scripts/dashboard-signals-client.test.js (9 tests | 2 failed) 11ms
+   × the batch body carries what the route requires > ★★★ reporterId is in the BODY — the field whose absence is a 400 7ms
      → their route reads required(raw, "reporterId"); without it this is a 400: expected undefined to be 'aify-project-graph' // Object.is equality
    × the batch body carries what the route requires > ★★★ the reporter name is CONFIGURABLE, because two reporters is a real case 0ms
      → expected undefined to be 'apg-second-independent-sweeper' // Object.is equality
@@ -22,8 +22,8 @@ With:
 
  Test Files  1 failed (1)
       Tests  2 failed | 7 passed (9)
-   Start at  15:54:35
-   Duration  290ms (transform 23ms, setup 0ms, collect 37ms, tests 10ms, environment 0ms, prepare 76ms)
+   Start at  18:45:43
+   Duration  716ms (transform 33ms, setup 0ms, collect 57ms, tests 11ms, environment 0ms, prepare 120ms)
 
 
 

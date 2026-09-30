@@ -1,0 +1,13 @@
+BASELINE: tests/unit/ingest/extraction-reports-its-coverage.test.js must be GREEN unmutated
+
+
+ RUN  v3.2.4 C:/Docker/aify-project-graph
+
+ ✓ tests/unit/ingest/extraction-reports-its-coverage.test.js (4 tests) 74ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  18:44:22
+   Duration  1.32s (transform 115ms, setup 0ms, collect 472ms, tests 74ms, environment 0ms, prepare 158ms)
+
+
