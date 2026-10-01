@@ -1,0 +1,63 @@
+== guards ==
+server code: git archive of 36b62175b57eb85378a7307cb71f17b845b74637 (their working tree is NOT used)
+port probe: live 9700 answers=true (positive control), scratch 9793 answers=false
+service: schema 43
+
+== Q1. queue the calls ==
+  queue stamp-clean        stamp     -> 201 01M3VSMWCGGW1FP507X4HAZ5SM
+  queue resolve            resolve   -> 201 01M3VSMWCJZK4R5T37QAXMSR2J
+  queue subgraph           subgraph  -> 201 01M3VSMWCK2GKJVV731G2HTJDB
+  queue stamp-empty        stamp     -> 201 01M3VSMWCNZS0MX9HNZWKN2SDZ
+  queue signals            signals   -> 400 unknown_call
+  PASS  Q1 every supported call accepted (201)  (201,201,201,201)
+  PASS  Q1 a queued `signals` refused (400)  (400)
+
+== Q2. one server run ==
+  serve -> exit 0, claimed 4, stored 4
+    STORED      01M3VSMWCGGW1FP507X4HAZ5SM  stamp  ok {"stamps":[{"anchor":{"path":"src/a.js","name":"alpha","kind":"symbol"},"stamp":{"hash":"6505ae06b05fc5570e3828de472f67e
+    STORED      01M3VSMWCJZK4R5T37QAXMSR2J  resolve  ok {"results":[{"anchor":{"path":"src/a.js","name":"alpha","kind":"symbol"},"status":"found"},{"anchor":{"path":"src/a.js
+    STORED      01M3VSMWCK2GKJVV731G2HTJDB  subgraph  NOT OK: subgraph is not supported by this provider yet
+    STORED      01M3VSMWCNZS0MX9HNZWKN2SDZ  stamp  NOT OK: args.anchors is empty: there is nothing to answer
+  PASS  Q2 exit 0, every queued call claimed and stored  (claimed 4, stored 4)
+
+== Q5. a dirty tree changes nothing ==
+  queue stamp-dirty        stamp     -> 201 01M3VSMYPA0WTNGBKCF412ETJN
+  queue resolve-dirty      resolve   -> 201 01M3VSMYPC06GGTZQ5BCBAJ9QF
+  serve -> exit 0, claimed 2, stored 2
+    STORED      01M3VSMYPA0WTNGBKCF412ETJN  stamp  ok {"stamps":[{"anchor":{"path":"src/a.js","name":"alpha","kind":"symbol"},"stamp":{"hash":"6505ae06b05fc5570e3828de472f67e
+    STORED      01M3VSMYPC06GGTZQ5BCBAJ9QF  resolve  ok {"results":[{"anchor":{"path":"src/b.js","name":"beta","kind":"symbol"},"status":"found"}]}
+  PASS  Q5 the dirty run answered both (exit 0)
+
+== Q6. CONTROL: commit the edit, stamp again ==
+  queue stamp-committed    stamp     -> 201 01M3VSMZJ03Y0RKH4MQC4439C0
+  serve -> exit 0, claimed 1, stored 1
+    STORED      01M3VSMZJ03Y0RKH4MQC4439C0  stamp  ok {"stamps":[{"anchor":{"path":"src/a.js","name":"alpha","kind":"symbol"},"stamp":{"hash":"5c5bbcfd62b475e1482de95566b1c43
+  PASS  Q6 the committed run answered (exit 0)
+
+== Q7. an empty queue ==
+  serve -> exit 0, claimed 0, stored 0
+  PASS  Q7 claims 0 and exits 0
+
+== Q3/Q4. read back from the service's database ==
+  stamp-clean      stamp     succeeded=1 answered=true problem=-
+  resolve          resolve   succeeded=1 answered=true problem=-
+  subgraph         subgraph  succeeded=0 answered=true problem=subgraph is not supported by this provider yet
+  stamp-empty      stamp     succeeded=0 answered=true problem=args.anchors is empty: there is nothing to answer
+  stamp-dirty      stamp     succeeded=1 answered=true problem=-
+  resolve-dirty    resolve   succeeded=1 answered=true problem=-
+  stamp-committed  stamp     succeeded=1 answered=true problem=-
+  PASS  Q3 ok answers carry provenance at the commit read, exhaustive false
+  PASS  Q3 subgraph stored as a failure with its problem
+  PASS  Q3 an empty anchors list stored as a failure
+  PASS  Q4 alpha stamped at the commit
+  PASS  Q4 stamp refuses the ambiguous `run` and the missing file
+  PASS  Q4 resolve: found, ambiguous with BOTH candidates, gone, unwatched  (found,ambiguous,gone,unwatched)
+  ambiguous candidates: [{"name":"run","qname":"src.a.First.run","line":10},{"name":"run","qname":"src.a.Second.run","line":14}]
+  PASS  Q5 the dirty-tree stamp of alpha EQUALS the clean one
+  PASS  Q5 b.js, deleted only in the tree, resolves found
+  PASS  Q6 CONTROL: the committed edit gives a DIFFERENT stamp
+
+== cleanup ==
+junction removed first, their node_modules still present: true; scratch deleted: true
+
+ALL PRE-REGISTERED CHECKS HELD
