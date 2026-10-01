@@ -175,6 +175,12 @@ afterEach(async () => {
   }
 });
 
+// ⛔ A LIMIT ON TIME, NOT ON CORRECTNESS. Each case runs several full and incremental indexes. Alone they take
+// 6-11s (measured 2026-10-01), against vitest's default 30s. Under a full suite on a shared machine one of them
+// passed 30s and failed a run whose verdict should be about convergence. 120s keeps a real hang visible without
+// making the suite's verdict depend on load.
+const CONVERGENCE_TIMEOUT_MS = 120_000;
+
 describe('incremental indexing converges to the same graph as a clean rebuild', () => {
   it('★★★ same edit history → identical canonical nodes and edges', async () => {
     // A: baseline index, then refresh after EVERY step — the incremental path.
@@ -204,7 +210,7 @@ describe('incremental indexing converges to the same graph as a clean rebuild', 
 
     expect(a.nodes, 'incremental nodes must equal rebuild nodes').toEqual(b.nodes);
     expect(a.edges, 'incremental edges must equal rebuild edges').toEqual(b.edges);
-  });
+  }, CONVERGENCE_TIMEOUT_MS);
 
   it('★ and the unresolved sidecar agrees — resolved/unresolved crossings both ways', async () => {
     // The counts are the part a local test cannot see: step 1 RESOLVES alpha→helper and
@@ -229,5 +235,5 @@ describe('incremental indexing converges to the same graph as a clean rebuild', 
     expect(ma.dirtyEdgeCount, 'unresolved counts must agree').toBe(mb.dirtyEdgeCount);
     expect(ma.trustDirtyEdgeCount, 'trust-relevant unresolved must agree').toBe(mb.trustDirtyEdgeCount);
     expect(ma.skippedFileCount ?? 0, 'neither path may lose files the other kept').toBe(mb.skippedFileCount ?? 0);
-  });
+  }, CONVERGENCE_TIMEOUT_MS);
 });
