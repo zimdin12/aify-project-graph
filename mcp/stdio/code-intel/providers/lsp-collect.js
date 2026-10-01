@@ -336,6 +336,16 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
   const incoherentLocations = [];
   const unverifiedLocations = [];
   let anyResult = false;
+  // ⛔ A REQUEST THAT FAILED IS NOT AN ANSWER OF "NOTHING". Each of these used to sit in an empty catch: a references
+  // request that threw (the 30s timeout under load, or an error reply) recorded nothing, counted nothing and left the
+  // collection `ok`, so its symbol had no callers, which reads as "nothing calls this". A failed outline lost the
+  // whole file's symbols the same way. Counted per operation; any count makes the collection partial, with a note.
+  const failedRequests = { symbols: 0, definitions: 0, references: 0, hover: 0 };
+  let firstFailure = null;
+  const noteFailure = (op, subject, error) => {
+    failedRequests[op] += 1;
+    firstFailure ??= `${op} for ${subject ?? 'a symbol'}: ${error?.message ?? String(error)}`;
+  };
 
   try {
     await client.start();
@@ -366,7 +376,7 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
 
       let symbols = [];
       if (requestedOps.has('symbols') || requestedOps.has('definitions') || requestedOps.has('references')) {
-        try { symbols = flattenSymbols((await client.documentSymbol(uri)) || []); } catch { symbols = []; }
+        try { symbols = flattenSymbols((await client.documentSymbol(uri)) || []); } catch (error) { symbols = []; noteFailure('symbols', relPath, error); }
       }
 
       for (const sym of symbols) {
@@ -419,7 +429,7 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
               records.push({ ...recordBase(collectionId, language, prov), kind: 'definition', symbolId, qname, file: defFile, range: rangeFromLsp(d.range), confidence: 'high', freshness: fresh, result_state: 'found' });
               operations.definitions.count += 1;
             }
-          } catch { /* per-symbol */ }
+          } catch (error) { noteFailure('definitions', qname, error); }
         }
         if (requestedOps.has('references')) {
           try {
@@ -456,7 +466,7 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
               operations.references.count += kept.length;
               if (droppedRefs > 0) operations.references.status = 'partial';
             }
-          } catch { /* per-symbol */ }
+          } catch (error) { noteFailure('references', qname, error); }
         }
         if (requestedOps.has('hover')) {
           try {
@@ -465,7 +475,7 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
               records.push({ ...recordBase(collectionId, language, prov), kind: 'hover', symbolId, qname, file: relPath, range: rangeFromLsp(hov.range || bodyRange), message: typeof hov.contents === 'string' ? hov.contents : (hov.contents.value || ''), confidence: 'high', result_state: 'found' });
               operations.hover.count += 1;
             }
-          } catch { /* per-symbol */ }
+          } catch (error) { noteFailure('hover', qname, error); }
         }
       }
 
@@ -494,8 +504,22 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
   const enumTruncated = Boolean(enumStats && enumStats.truncated && !(req.files && req.files.length > 0));
   // A batch that left work behind is partial in exactly the sense callers care about: come back.
   const batchIncomplete = batchRemainder > 0;
-  const incomplete = budgetExhausted || enumTruncated || batchIncomplete;
-  if (incomplete) {
+  const requestsFailed = Object.values(failedRequests).some((n) => n > 0);
+  if (requestsFailed) {
+    for (const op of Object.keys(operations)) {
+      const own = failedRequests[op] ?? 0;
+      const viaOutline = op !== 'diagnostics' && failedRequests.symbols > 0;
+      if ((own > 0 || viaOutline) && operations[op].status === 'ok') {
+        operations[op].status = 'partial';
+        operations[op].reason = own > 0 ? `requests_failed_${own}` : `outline_failed_${failedRequests.symbols}_files`;
+      }
+    }
+  }
+  // ⛔ THE CAP BLOCK FIRES ONLY FOR A CAP. It marks every operation partial with a cap reason, and it used to fire on
+  // any incomplete collection, so a request failure relabelled complete operations `batch_capped_...`.
+  const capped = budgetExhausted || enumTruncated || batchIncomplete;
+  const incomplete = capped || requestsFailed;
+  if (capped) {
     const reason = budgetExhausted
       ? `budget_exhausted_${filesProcessed}_of_${files.length}_files`
       : enumTruncated
@@ -507,6 +531,10 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
   const notes = [];
   if (budgetExhausted) notes.push({ code: 'budget_exhausted', message: `partial: ${filesProcessed}/${files.length} files within ${budgetMs}ms — run graph_collect_code_intel again to continue.` });
   if (batchIncomplete) notes.push({ code: 'batch_capped', message: `partial: this batch took ${files.length} of ${files.length + batchRemainder} pending files (maxFiles=${maxFiles}) — run graph_collect_code_intel again to continue. Coverage so far is a FLOOR.` });
+  if (requestsFailed) {
+    const counted = Object.entries(failedRequests).filter(([, n]) => n > 0).map(([op, n]) => `${n} ${op} request(s)`).join(', ');
+    notes.push({ code: 'requests_failed', message: `partial: ${counted} failed (first: ${firstFailure}) — what they would have returned is UNKNOWN, not absent. Caller sets are a FLOOR; run graph_collect_code_intel again.` });
+  }
   if (enumTruncated) notes.push({ code: 'enumeration_truncated', message: `partial: enumeration capped at ${enumStats.after_filter}/${enumStats.total} files (max_files=${enumStats.max_files}) — raise maxFiles or pass an explicit files[] for full coverage. Caller sets are a FLOOR.` });
 
   // Persist the resume point BEFORE assembling the envelope, so a caller who kills
@@ -522,7 +550,7 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
       // tsserver/pyright block their LSP responses until the file is analyzed,
       // so a non-empty result IS index-ready. Null when nothing resolved.
       indexReady: anyResult ? true : null,
-      refsFoundSymbols, refsNotFoundSymbols,
+      refsFoundSymbols, refsNotFoundSymbols, failedRequests,
       // What was never asked — see the guards above. Without these a coverage
       // percentage over this collection reads as a rate when it is a FLOOR.
       positionGuessSkipped, anonymousSkipped, refsTruncatedSymbols, outOfRepoSkipped,

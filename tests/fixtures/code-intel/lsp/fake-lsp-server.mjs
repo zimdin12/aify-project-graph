@@ -20,6 +20,12 @@ function reply(id, result) {
   send({ jsonrpc: '2.0', id, result });
 }
 
+// A JSON-RPC error reply. The client rejects on it exactly as it does on its own request timeout, so the two
+// switches below stand for "a request failed under load" without waiting 30s for a real timeout.
+function replyError(id, message) {
+  send({ jsonrpc: '2.0', id, error: { code: -32603, message } });
+}
+
 function notify(method, params) {
   send({ jsonrpc: '2.0', method, params });
 }
@@ -144,6 +150,9 @@ function handle(msg) {
         }]
       });
     case 'textDocument/references': {
+      // FAKE_LSP_REFS_ERROR: every references request fails. The provider used to swallow that per symbol
+      // and report the collection `ok`, so a failed request read as "nobody calls this".
+      if (process.env.FAKE_LSP_REFS_ERROR === '1') return replyError(msg.id, 'fake references failure');
       const uri = msg.params.textDocument.uri;
       // Return one ref in another file
       const otherUri = uri.replace('foo.cpp', 'bar.cpp');
@@ -210,6 +219,8 @@ function handle(msg) {
       });
     }
     case 'textDocument/documentSymbol': {
+      // FAKE_LSP_DOCSYM_ERROR: the outline request fails, so the file's symbols are unknown, not absent.
+      if (process.env.FAKE_LSP_DOCSYM_ERROR === '1') return replyError(msg.id, 'fake documentSymbol failure');
       // FAKE_LSP_UNPLACEABLE: a NAMED symbol whose identifier does not appear in the
       // source text — the exact condition `positionGuessSkipped` counts. The name is
       // deliberately not anonymous, because the provider routes anonymous constructs to a
