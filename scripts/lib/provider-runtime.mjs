@@ -71,13 +71,28 @@ export function readProviderConfig(env = process.env, machine = machineFacts()) 
   return {
     baseUrl: env.APG_DASHBOARD_URL ?? 'http://localhost:9700',
     apiKey: env.APG_DASHBOARD_KEY ?? keyFromFile,
-    hostKey: env.APG_DASHBOARD_HOST ?? 'host-a',
+    // ⛔ DERIVED, NOT A FIXTURE NAME. This was 'host-a', so every run without the variable claimed and swept as a host
+    // no real machine reports. aify-env names a machine `<platform>:<host>`, lowercased; the host key is the part after
+    // the colon, so a manual run lands where the aify-env plugin does.
+    hostKey: env.APG_DASHBOARD_HOST ?? deriveHostKey(machine),
     projectId: env.APG_DASHBOARD_PROJECT,
     // ⛔ DERIVED, NOT A CONSTANT. The service keeps one sweep cursor per (project, reporter), so two installs
     // sharing a name would share a cursor. The override stays: it is what the two-reporter experiment in
     // `docs/evidence/dashboard-seam-2026-09-30/` and the live proofs use.
     reporterId: env.APG_DASHBOARD_REPORTER ?? deriveReporterId(machine),
   };
+}
+
+/**
+ * The host key aify-env would give this machine: its hostname, lowercased. PURE. A hostname that is not a plain DNS
+ * label throws, naming the override, rather than becoming a key no other component would produce.
+ */
+export function deriveHostKey({ hostname: host }) {
+  const key = String(host ?? '').toLowerCase();
+  if (!/^[a-z0-9][a-z0-9._-]*$/u.test(key)) {
+    throw new Error(`cannot derive a host key from hostname ${JSON.stringify(host)}; set APG_DASHBOARD_HOST instead`);
+  }
+  return key;
 }
 
 /** The service's limit on a reporter id (aify-dashboard DESIGN-QUIET-ANCHORS, Step 3, at 92bb8c7). */

@@ -70,6 +70,26 @@ describe('the reporter id is derived, and tells installs apart', () => {
   });
 });
 
+describe('the host key is derived the way aify-env names the machine', () => {
+  // The default was 'host-a', a fixture name from the evidence scripts. Any run without APG_DASHBOARD_HOST claimed
+  // and swept as host-a, which is how the live project's root came to sit on a host no real machine reports.
+  // aify-env names a machine `<platform>:<host>`, lowercased (the dashboard's bridge, d4a978d), and the host key is
+  // the part after the colon, so a manual run must land where the aify-env plugin does.
+  it('★★★ the default is the hostname, lowercased', () => {
+    expect(readProviderConfig({}, WIN).hostKey).toBe('stevenz-l');
+    expect(readProviderConfig({}, WSL).hostKey, 'WSL on the same PC is the same host').toBe('stevenz-l');
+  });
+
+  it('★★★ CONTROL: an explicit APG_DASHBOARD_HOST still wins', () => {
+    expect(readProviderConfig({ APG_DASHBOARD_HOST: 'scratch-host' }, WIN).hostKey).toBe('scratch-host');
+  });
+
+  it('★★★ a machine with no usable hostname is refused, naming the override, not given a fixture name', () => {
+    expect(() => readProviderConfig({}, { ...WIN, hostname: '' })).toThrow(/APG_DASHBOARD_HOST/u);
+    expect(() => readProviderConfig({}, { ...WIN, hostname: 'has space' })).toThrow(/APG_DASHBOARD_HOST/u);
+  });
+});
+
 describe('instruments can read a COMMIT instead of the working tree', () => {
   // Queued calls read the commit (`git show <head>:<path>`, amendment 2 of DESIGN-GRAPHS), so a developer's
   // uncommitted edits neither change the answer nor make the call fail.

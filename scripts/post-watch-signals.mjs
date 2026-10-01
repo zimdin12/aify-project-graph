@@ -16,7 +16,7 @@
 // Configuration comes from the environment, never from a constant in here:
 //   APG_DASHBOARD_URL      default http://localhost:9700
 //   APG_DASHBOARD_KEY      required; or APG_DASHBOARD_ENV pointing at a .env holding API_KEY=
-//   APG_DASHBOARD_HOST     default host-a
+//   APG_DASHBOARD_HOST     default this machine's hostname, lowercased (as aify-env names it)
 //   APG_DASHBOARD_PROJECT  required
 //   APG_DASHBOARD_REPORTER default derived per install (provider-runtime.mjs deriveReporterId); the name this
 //                          sweep reports under, and the name its sweep cursor is kept under
