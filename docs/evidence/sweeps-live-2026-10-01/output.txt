@@ -1,0 +1,63 @@
+== guards ==
+server code: git archive of ec5599531e15c6b1e82327c32af9c52604ca26ed (their working tree is NOT used)
+port probe: live 9700 answers=true (positive control), scratch 9792 answers=false
+service: schema 43
+
+== D. a dry run reserves nothing ==
+  post-watch-signals.mjs --dry-run -> exit 0; (no sweep line); alpha restamp
+  --dry-run: nothing was sent.
+  PASS  D dry run exits 0
+
+== baseline: reconfirm alpha ==
+  reconfirm-anchor.mjs --watch 26:01M3V0M3KFRT3Q0ACR7TWPY1BS:alpha -> exit 0; (no sweep line); alpha (no row)
+  CONFIRMED     26:01M3V0M3KFRT3Q0ACR7TWPY1BS:alpha  settled []
+  PASS  reconfirm exits 0
+
+== P1. a real CLI sweep ==
+  post-watch-signals.mjs  -> exit 0; sweep         #1, after none applied yet; alpha unchanged
+  APPLIED       {"kind":"applied","watchRevision":"5e9623735f377b8d","marked":0,"quiet":1,"firstBaselines":0,"recorded":1,"graphs":[],"sweepId":1}
+  PASS  D the first real reservation is #1 with no predecessor (the dry run reserved nothing)  (#1 after null)
+  PASS  P1 applied, exit 0
+
+== P2. the same payload twice under one sweep id ==
+  #2: APPLIED       {"kind":"applied","watchRevision":"5e9623735f377b8d","marked":0,"q | again: REPEAT        {"kind":"repeat","watchRevision":"5e9623735f377b8d","marked":0,"qu
+  PASS  P2 first post applied
+  PASS  P2 the identical post is a REPEAT, exit 0
+
+== P3. reserved before a later sweep was applied, posted after it ==
+  post-watch-signals.mjs  -> exit 0; sweep         #4, after #2; alpha unchanged
+  APPLIED       {"kind":"applied","watchRevision":"5e9623735f377b8d","marked":0,"quiet":1,"firstBaselines":0,"recorded":1,"graphs":[],"sweepId":4}
+  PASS  P3 the later CLI sweep applied
+  #3: STALE SWEEP: a later sweep from this reporter was applied first, so this report was kept as history and changed no mark. stale_sweep: a later sweep was applied 
+  PASS  P3 409 stale_sweep maps to exit 3
+
+== P4. reserved, then a reconfirm of a REAL change, then posted ==
+  reconfirm-anchor.mjs --watch 26:01M3V0M3KFRT3Q0ACR7TWPY1BS:alpha -> exit 0; (no sweep line); alpha (no row)
+  CONFIRMED     26:01M3V0M3KFRT3Q0ACR7TWPY1BS:alpha  settled []
+  PASS  P4 the reconfirm in between exits 0
+  #5: REFUSED stale_baseline: something moved after this sweep reserved; run again, which reserves afresh and re-measures. stale_baseline: a baseline was reconfirmed 
+  PASS  P4 409 stale_baseline maps to exit 2, flagged re-read
+
+== P7. an unswept post after adoption ==
+  REFUSED sweeps_adopted: sweeps_adopted: apg@sweeps-proof/win32/00000000 reserves sweeps for this project, so its posts here carry one. Reserve a sweep and post 
+  PASS  P7 409 sweeps_adopted maps to exit 2, NOT flagged re-read
+
+== ABA. three CLI sweeps at ONE head ==
+  post-watch-signals.mjs  -> exit 0; sweep         #6, after #4; alpha unchanged
+  APPLIED       {"kind":"applied","watchRevision":"5e9623735f377b8d","marked":0,"quiet":1,"firstBaselines":0,"recorded":1,"graphs":[],"sweepId":6}
+  marks: none
+  post-watch-signals.mjs --allow-dirty -> exit 0; sweep         #7, after #6; alpha gone
+  APPLIED       {"kind":"applied","watchRevision":"5e9623735f377b8d","marked":1,"quiet":0,"firstBaselines":0,"recorded":1,"graphs":["01M3V0M3KFRT3Q0ACR7TWPY1BS"],"sweepId":7}
+  marks: code_gone
+  post-watch-signals.mjs  -> exit 0; sweep         #8, after #7; alpha unchanged
+  APPLIED       {"kind":"applied","watchRevision":"5e9623735f377b8d","marked":0,"quiet":1,"firstBaselines":0,"recorded":1,"graphs":[],"sweepId":8}
+  marks: code_gone
+  PASS  ABA all three exit 0 and APPLIED
+  PASS  ABA alpha reads unchanged, gone, unchanged  (unchanged,gone,unchanged)
+  PASS  ABA each names the previous applied sweep as its predecessor  (6<-6, 7<-7)
+  PASS  ABA one head throughout
+
+== cleanup ==
+junction removed first, their node_modules still present: true; scratch deleted: true
+
+ALL PRE-REGISTERED CHECKS HELD
