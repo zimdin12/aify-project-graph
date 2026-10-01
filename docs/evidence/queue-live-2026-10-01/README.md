@@ -43,3 +43,23 @@ the server script printed. At 36b6217 no JSON route reads a stored answer back.
 - Lease expiry was not exercised: every answer was posted within seconds of its claim.
 - One repository, one language, and one host key.
 - `subgraph` is refused, by agreement, until apg has a read-only mode.
+
+## And on the live service (`live-service-output.txt`, `live-get.mjs`)
+
+After the scratch run, dashboard-manager deployed the read side (aify-dashboard `084f9f3`, schema 44:
+`GET /api/v1/provider/requests/:requestId`) and queued one real `resolve` on the live service for this repository's
+project: a `module` anchor on `mcp/stdio/storage/taxonomy.js`. Their pre-registered expectations, each checked with
+a GET of my own:
+
+1. before the run: `unreachable`. A made-up request id returned 404 `unknown_request`, so the read can say no;
+2. one `serve-provider-requests.mjs` run, host key `stevenz-l-apg`, at head `ab25a2d6`: claimed 1, stored 1, exit 0;
+3. after the run: `answered`, with `found`, and provenance `{providerCommit: ab25a2d6..., exhaustive: false}`.
+
+Their third expectation, a 3-minute contact window, was checked on their side: a call queued 2 minutes after the
+claim read `pending`, and `unreachable` once the window closed. That is their evidence, at `27cbe33`.
+
+⚠ For a `module` anchor, `found` means the file is present at the commit and parses completely. `taxonomy.js` has
+zero modelled symbols, so a `symbol` anchor on it would be refused (`symbol_kind_not_modelled`), not found.
+
+The API key was read from the dashboard's .env and never printed. Both committed files were checked for it with
+the key itself, not with a pattern: absent from both. The control: present in the .env.

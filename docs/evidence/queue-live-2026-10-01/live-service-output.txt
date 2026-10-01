@@ -1,0 +1,9 @@
+2026-10-01T13:44:14.143Z GET 01M3VV9GVJJV22Q34Q0AW3914P -> 200 {"requestId":"01M3VV9GVJJV22Q34Q0AW3914P","projectId":"01M3R0JYA2KDWSR8V8HZVCZJ2X","answer":{"kind":"unreachable","since":1790862214002}}
+2026-10-01T13:44:15.321Z GET 01NOSUCHREQUEST0000000000 -> 404 {"error":"there is no provider request with that id","code":"unknown_request"}
+endpoint      http://127.0.0.1:9700 host=stevenz-l-apg project=01M3R0JYA2KDWSR8V8HZVCZJ2X (key held, not shown)
+host          stevenz-l-apg
+head          ab25a2d674d2a4f2f7160bab468bb4db4d8523df
+claimed       1 request(s)
+  STORED      01M3VV9GVJJV22Q34Q0AW3914P  resolve  ok {"results":[{"anchor":{"project":"aify-project-graph","path":"mcp/stdio/storage/taxonomy.js","name":"taxonomy","kind":"module"},"status":"found"}]}
+SERVE_EXIT=0
+2026-10-01T13:44:31.294Z GET 01M3VV9GVJJV22Q34Q0AW3914P -> 200 {"requestId":"01M3VV9GVJJV22Q34Q0AW3914P","projectId":"01M3R0JYA2KDWSR8V8HZVCZJ2X","answer":{"kind":"answered","value":{"results":[{"anchor":{"project":"aify-project-graph","path":"mcp/stdio/storage/taxonomy.js","name":"taxonomy","kind":"module"},"status":"found"}]},"provenance":{"providerCommit":"ab25a2d674d2a4f2f7160bab468bb4db4d8523df","exhaustive":false,"provenance":"apg tree-sitter extraction of the commit (git show), not a full build"},"at":1790862269728}}
