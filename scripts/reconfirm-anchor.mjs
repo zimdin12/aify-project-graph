@@ -82,7 +82,7 @@ async function main() {
       console.log(`\nCONFIRMED     ${plan.watchId}  settled [${(confirmed?.settled ?? []).join(', ')}]`);
     } catch (error) {
       if (error instanceof SignalsRefused) {
-        console.error(`\nREFUSED ${error.status} ${error.code}  ${plan.watchId}\n  ${error.body?.message ?? ''}`);
+        console.error(`\nREFUSED ${error.status} ${error.code}  ${plan.watchId}\n  ${error.detail ?? ''}`);
         if (error.shouldReread) console.error('  ⇒ the set moved; re-read and reconfirm against the current revision.');
         process.exit(2);
       }

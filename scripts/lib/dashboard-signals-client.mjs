@@ -12,16 +12,45 @@
 export class SignalsRefused extends Error {
   constructor(status, body) {
     const code = body?.code ?? body?.error ?? `http_${status}`;
-    super(`${code}: ${body?.message ?? 'no message'}`);
+    // ⛔ THE SERVICE'S TEXT IS IN `error`, beside `code` (aify-dashboard http/server.ts: `{ ...details, error:
+    // message, code }`). This read `body.message`, which the service never sends, so every refusal printed "no
+    // message". `message` is still read first, for this client's own non-JSON fallback below.
+    const detail = body?.message ?? (body?.code !== undefined && typeof body?.error === 'string' ? body.error : null);
+    super(`${code}: ${detail ?? 'no message'}`);
     this.name = 'SignalsRefused';
     this.status = status;
     this.code = code;
+    this.detail = detail;
     this.body = body;
-    // ⛔ A STALE REVISION IS THE ONE REFUSAL WITH A CORRECT AUTOMATIC RESPONSE — re-read and recompute. Named
-    // as a flag rather than left for the caller to string-match, because a string match on a message is a
-    // check that breaks when the wording improves.
-    this.shouldReread = status === 409 || code === 'stale_watch_revision';
+    // ⛔ RE-READ ONLY WHERE RE-READING CAN HELP: the set or a baseline moved after this run read it. Decided by CODE,
+    // not by status. Every 409 used to set this, but since sweeps a 409 also means "your body contradicts what you
+    // sent before" (inconsistent_retry, unknown_sweep), where re-reading and posting again would loop. A flag
+    // rather than a string match, because a match on a message breaks when the wording improves.
+    this.shouldReread = REREAD_CODES.includes(code);
+    // ⛔ A later sweep of this reporter was applied first. Recorded as history, changed no mark. The agreed answer
+    // is to stop (exit 3), never to re-sweep automatically: two of this reporter's processes doing that would
+    // keep overtaking each other.
+    this.staleSweep = code === 'stale_sweep';
   }
+}
+
+/** The refusals a fresh read can fix (aify-dashboard routes/provider.ts SIGNALS_STATUS, at ec55995). */
+const REREAD_CODES = Object.freeze(['stale_watch_revision', 'stale_baseline']);
+
+/**
+ * A reservation this provider can measure against, or a throw. The service's shape at ec55995
+ * (provider/sweeps.ts `Reserved`): a positive integer id, a predecessor that is null or a positive integer, the
+ * revision, and the items to measure.
+ */
+function checkedReservation(body) {
+  const positive = (n) => Number.isSafeInteger(n) && n >= 1;
+  const ok = body !== null && typeof body === 'object'
+    && positive(body.sweepId)
+    && (body.predecessor === null || positive(body.predecessor))
+    && typeof body.watchRevision === 'string' && body.watchRevision !== ''
+    && Array.isArray(body.items);
+  if (!ok) throw new Error(`the sweep reservation is not usable: ${JSON.stringify(body).slice(0, 300)}`);
+  return body;
 }
 
 export class DashboardSignalsClient {
@@ -66,6 +95,21 @@ export class DashboardSignalsClient {
 
   get #signalsPath() {
     return `/api/v1/host/${this.hostKey}/projects/${this.projectId}/signals`;
+  }
+
+  get #sweepsPath() {
+    return `/api/v1/host/${this.hostKey}/projects/${this.projectId}/sweeps`;
+  }
+
+  /**
+   * Reserve a sweep BEFORE measuring. The answer carries the set to measure (`items`, `watchRevision`), so a
+   * swept run does not read the watch set separately.
+   *
+   * ⚠ The first reservation for a project ADOPTS sweeps for this reporter there: from then on an unswept post from
+   * this reporter is refused (409 sweeps_adopted). So a dry run must never call this.
+   */
+  async reserveSweep({ head }) {
+    return checkedReservation(await this.#send('POST', this.#sweepsPath, { reporterId: this.reporterId, head }));
   }
 
   /**
@@ -114,9 +158,11 @@ export class DashboardSignalsClient {
     return this.#send('POST', this.#reconfirmPath, { watchId, watchRevision, stamp });
   }
 
-  async postSignals({ head, watchRevision, results, unwatched }) {
+  async postSignals({ head, watchRevision, results, unwatched, sweep }) {
     return this.#send('POST', this.#signalsPath, {
       reporterId: this.reporterId, head, watchRevision, results, unwatched,
+      // ⛔ OMITTED, not null, when there is no sweep: the service reads `sweep: null` as a malformed sweep.
+      ...(sweep === undefined ? {} : { sweep: { id: sweep.id, predecessor: sweep.predecessor } }),
     });
   }
 

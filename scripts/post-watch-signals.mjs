@@ -1,27 +1,35 @@
 #!/usr/bin/env node
 // Sweep this repository against the dashboard's watch set and post one complete batch of signals.
 //
-//   node scripts/post-watch-signals.mjs --dry-run      # resolve and print, send nothing
-//   node scripts/post-watch-signals.mjs                # resolve, print, then post
+//   node scripts/post-watch-signals.mjs --dry-run      # read the set, resolve and print; reserve and send nothing
+//   node scripts/post-watch-signals.mjs                # reserve a sweep, resolve against it, print, then post
 //   ... --allow-dirty                                  # post even with uncommitted changes (refused by default)
 //
-// Exit codes: 1 incomplete batch or bad argument, 2 refused by the service, 4 uncommitted changes.
+// A real run is a SWEEP (the dashboard's step 3): it reserves before measuring, measures the set the reservation
+// returns, and posts with the sweep's id, so the service can order this reporter's reports. The first
+// reservation for a project adopts sweeps for this reporter there, and after that an unswept post is refused.
+//
+// Exit codes: 1 incomplete batch, bad argument or unrecognised answer; 2 refused by the service (for a stale
+// baseline or revision, running again reserves afresh); 3 stale sweep: a later sweep of this reporter was applied
+// first, this one was kept as history and changed nothing; 4 uncommitted changes.
 //
 // Configuration comes from the environment, never from a constant in here:
 //   APG_DASHBOARD_URL      default http://localhost:9700
 //   APG_DASHBOARD_KEY      required; or APG_DASHBOARD_ENV pointing at a .env holding API_KEY=
 //   APG_DASHBOARD_HOST     default host-a
 //   APG_DASHBOARD_PROJECT  required
-//   APG_DASHBOARD_REPORTER default aify-project-graph; the name this sweep reports under
+//   APG_DASHBOARD_REPORTER default derived per install (provider-runtime.mjs deriveReporterId); the name this
+//                          sweep reports under, and the name its sweep cursor is kept under
 //
 // ⛔ THE SWEEP DOES NOT RECONFIRM, AND THAT IS DELIBERATE. `reconfirm` is one of only two acts allowed to
 // SETTLE a mark, and their own design calls it "a deliberate act by something that looked". A sweeper that
 // reconfirmed every anchor it had just reported would clear the marks it raised in the same breath, which is
 // the "page full of real signals becomes clean in one click" failure the per-anchor rule exists to prevent.
-// ⇒ The consequence is stated rather than hidden: with no baseline, an honest provider reports `restamp`
-// every sweep, so `unchanged` is unreachable here. That is raised as a question, not worked around.
+// ⇒ So an anchor with no baseline reports `restamp` on every sweep. A baseline comes only from a person naming the
+// anchor to `scripts/reconfirm-anchor.mjs`; after that, `unchanged` and `changed` are reachable.
 import { resolveAnchor, splitBatch } from './lib/anchor-resolver.mjs';
 import { DashboardSignalsClient, SignalsRefused } from './lib/dashboard-signals-client.mjs';
+import { outcomeOfPost } from './lib/sweep-outcome.mjs';
 import { makeInstruments, readProviderConfig, headOf, dirtyCountOf, dirtyRefusal } from './lib/provider-runtime.mjs';
 
 // The repository is the working directory, so pointing this at a scratch repo is `cd` and nothing else.
@@ -53,8 +61,27 @@ async function main() {
     process.exit(4);
   }
 
-  // 1. Read the set. The revision read here is the one posted back, unchanged.
-  const set = await client.readWatchSet();
+  // 1. Reserve a sweep, and measure the set it returns. The revision and predecessor it returns are posted back
+  //    unchanged, or the post is refused as inconsistent. A dry run reads the set instead: a reservation adopts
+  //    sweeps for this reporter, and a run that sends nothing must not change what the service expects next.
+  let set;
+  let sweep;
+  try {
+    if (dryRun) {
+      set = await client.readWatchSet();
+    } else {
+      const reserved = await client.reserveSweep({ head: commit });
+      set = { watchRevision: reserved.watchRevision, items: reserved.items };
+      sweep = { id: reserved.sweepId, predecessor: reserved.predecessor };
+      console.log(`sweep         #${reserved.sweepId}, after ${reserved.predecessor === null ? 'none applied yet' : `#${reserved.predecessor}`}`);
+    }
+  } catch (error) {
+    if (error instanceof SignalsRefused) {
+      console.error(`\nREFUSED ${error.status} ${error.code}\n  ${error.detail ?? ''}`);
+      process.exit(2);
+    }
+    throw error;
+  }
   console.log(`watch set     revision ${set.watchRevision}, ${set.items.length} items`);
 
   // 2. Resolve every anchor, independently.
@@ -91,23 +118,23 @@ async function main() {
     return;
   }
 
-  // 5. Post.
+  // 5. Post, with the sweep, and decide what the answer means (sweep-outcome.mjs).
+  let outcome;
   try {
-    const applied = await client.postSignals({
+    const reply = await client.postSignals({
       head: commit,
       watchRevision: set.watchRevision,
       results: batch.results,
       unwatched: batch.unwatched,
+      sweep,
     });
-    console.log(`\nACCEPTED      ${JSON.stringify(applied)}`);
+    outcome = outcomeOfPost({ reply });
   } catch (error) {
-    if (error instanceof SignalsRefused) {
-      console.error(`\nREFUSED ${error.status} ${error.code}\n  ${error.body?.message ?? ''}`);
-      if (error.shouldReread) console.error('  ⇒ the set moved; re-read and recompute rather than retrying this batch.');
-      process.exit(2);
-    }
-    throw error;
+    if (!(error instanceof SignalsRefused)) throw error;
+    outcome = outcomeOfPost({ refusal: error });
   }
+  (outcome.exit === 0 ? console.log : console.error)(`\n${outcome.line}`);
+  if (outcome.exit !== 0) process.exit(outcome.exit);
 }
 
 await main();
