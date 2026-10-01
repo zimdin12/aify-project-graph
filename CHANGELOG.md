@@ -7,6 +7,69 @@ Dates are ISO 8601 (YYYY-MM-DD).
 
 ## [Unreleased]
 
+## [0.10.0] — 2026-10-01
+
+The dashboard's code-graph seam gets its first real provider. For weeks the seam was tested and green, but nothing ever
+posted to it: the live dashboard database held 0 rows in `watch_stamps`. That's code proven for an event that never
+happened. APG now reads the dashboard's watch set and says, for each anchored symbol, file or document, whether
+the code behind it changed. It also supplies the baselines that only a provider can. A minor bump: no verb was
+removed (the same 43 at v0.9.0 and here). Two v0.9.0 claims stay withdrawn (below).
+
+### Added
+
+- **A signals provider for the dashboard seam** (`scripts/post-watch-signals.mjs`). It reads the watch set,
+  resolves each anchor to `changed`, `gone`, `unchanged` or `restamp`, or to `unwatched` with a reason, and posts
+  the batch. `--dry-run` resolves and prints without sending.
+- **Reconfirm named anchors** (`scripts/reconfirm-anchor.mjs --watch <id>`). It takes a fresh baseline for exactly
+  the anchors named, all or nothing. There is no "reconfirm everything": it would silently accept every pending
+  change at once.
+- **Three stamp formats**: `apg-file-structural-1` for a whole file, `apg-symbol-shape-1` for a symbol and
+  `apg-doc-linkset-1` for a document. A symbol's stamp moves when its signature changes or the set of names it
+  calls or references changes. ⚠ It does **not** move for a changed literal, an operator, a reorder or a comment.
+  That was measured over twelve edits (`docs/evidence/dashboard-seam-2026-09-30/`), and it is why every row says
+  `trust.exhaustive: false`.
+- **Refusals instead of guesses.** A file with no extracted symbols gives `unwatched: symbol_kind_not_modelled`,
+  not `gone`. A partial parse gives `unparseable`, the depth cap gives `extraction_truncated`, and an extractor
+  that doesn't report coverage gives `coverage_unknown`. A stored baseline missing its hash or version gives
+  `unreadable_baseline` rather than a false `changed`.
+- **Every `restamp` says its cause** (`first-baseline`, `anchor-changed`, `format-version`, `unknown-format`),
+  and every `unwatched` row carries a typed `reasonCode` beside its prose.
+- **An extraction says whether it is complete.** `extractFile` now returns `coverage.parseHadError` and
+  `coverage.depthCapFired`. tree-sitter returns a partial tree on bad syntax without complaint. A file cut at 55%
+  gave 6 symbols instead of 9 and a different fingerprint, and nothing reported it.
+- **Feature-map confirmed-at pings** and APG's own feature map: 12 features anchored to 46 symbols, tracked in git.
+
+**Proven on a live scratch dashboard service, from the provider's side:**
+- the v0.9 proof: a baseline, a change, and a reconfirm of one anchor alone (`docs/evidence/v09-proof-2026-09-30/`);
+- a re-pointed anchor is reported as `restamp`, not `changed` (`docs/evidence/repoint-proof-2026-10-01/`);
+- an acknowledged `changed` mark stays acknowledged at commits that change nothing the stamp models, and
+  re-opens on a different change (`docs/evidence/ack-holds-proof-2026-10-01/`).
+
+### Fixed
+
+- **`changed` evidence named only the baseline**, so two different changes against one baseline read
+  identically. It now names the current stamp as well.
+- **Module-level calls were dropped in every language except C/C++**, so `graph_callers` reported 0 callers for
+  `main` in a file ending in `main()`. They are now `CALLS` edges from the File node.
+- **Re-extraction lost transitive dependents' edges.** The expansion went one level and read the very rows the
+  deletion destroys, so a single miss was permanent and concealed itself. The expansion is now closed over
+  deletion.
+- **A case-only rename left a phantom file**, because `existsSync` can't see case on Windows.
+- **A multi-line anchor couldn't find unchanged code in a CRLF file.** Matching now uses the file's own line
+  endings.
+- **`graph_packet live=true` crashed** for every symbol that maps to a feature.
+- **`graph_pull` returned `total: 100` for a symbol with 150 callers**: the field held the cap.
+- **`graph_consequences` could report "has no tests"** because an unordered `LIMIT 5000` dropped the header it
+  was looking for.
+- **The TRUST banner called a mixed caller set a floor** from an early return. A heuristic set can be too large
+  as well as too small.
+- **`graph_callers` let an arbitrary `LIMIT` decide whether callers existed.** The fetch ran with no
+  `ORDER BY`, was sliced to the cap, and only then had the `file` scope and evidence ranking applied —
+  so a verified caller inside the requested directory could be discarded before either ran, and the
+  verb answered `NO CALLERS from "<dir>"`, the output its own source calls the most dangerous one it
+  produces. Scope and evidence priority now run in SQL, before the cap. The sibling verb `graph_callees`
+  already carried this exact repair, with a comment describing the exact failure.
+
 ### Withdrawn
 
 - ⛔ **Commit-to-commit structural comparison is withdrawn.** v0.9.0 shipped a structural delta whose
@@ -27,8 +90,6 @@ Dates are ISO 8601 (YYYY-MM-DD).
   the feature needs observations derived from immutable committed inputs, which is a new input and
   publication path rather than a smaller guard. See `docs/known-limitations.md`.
 
-### Withdrawn
-
 - ⛔ **v0.9.0's cross-layer edge signal never fired on a real graph, and reported that as "none".**
   `captureStructuralDigest` takes an optional `layerOf` and defaults it to `() => null`. There was
   exactly one production call site and it passed no `layerOf`, so every symbol in every real digest
@@ -44,14 +105,11 @@ Dates are ISO 8601 (YYYY-MM-DD).
   preserves symbol identity, because wiring layers into a digest that collapses two same-named
   symbols to the first one would manufacture crossings rather than find them.
 
-### Fixed
+### Removed
 
-- **`graph_callers` let an arbitrary `LIMIT` decide whether callers existed.** The fetch ran with no
-  `ORDER BY`, was sliced to the cap, and only then had the `file` scope and evidence ranking applied —
-  so a verified caller inside the requested directory could be discarded before either ran, and the
-  verb answered `NO CALLERS from "<dir>"`, the output its own source calls the most dangerous one it
-  produces. Scope and evidence priority now run in SQL, before the cap. The sibling verb `graph_callees`
-  already carried this exact repair, with a comment describing the exact failure.
+- Internal machinery nothing consumed: the dormant auto-sync loop, `captureStructuralDigest` (no call site), the
+  digest algorithm, and the deprecation probe, whose breadcrumb file nothing read. The withdrawal contract they
+  sat on is kept and still tested.
 
 ## [0.9.0] — 2026-09-07
 
