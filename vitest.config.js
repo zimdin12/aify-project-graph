@@ -25,8 +25,13 @@ export default defineConfig({
     // Deletes RUN_TMP after the run, and prunes roots abandoned by a crashed one.
     globalSetup: ['./tests/helpers/temp-root.global.js'],
     include: ['tests/**/*.test.js'],
-    testTimeout: 30000,
-    hookTimeout: 30000,
+    // ⛔ A LIMIT ON HANGS, NOT ON SPEED. On 2026-10-01 five of nine full runs went red with no regression, on a
+    // machine other sessions share. Two were tests passing 30s under load that take 6-11s alone
+    // (incremental-equals-rebuild, overlay-coverage-verdict). A test whose subject is time sets its own limit;
+    // this default only has to catch a test that never finishes, and 120s still does. The value also stays far
+    // from vitest's 5000/10000 defaults, which is what test-runner-config.test.js uses to prove this file loaded.
+    testTimeout: 120000,
+    hookTimeout: 120000,
     // REAL-SERVER TESTS MUST NOT RACE EACH OTHER.
     //
     // tests/integration/code-intel/* each spawn a real language server (clangd,

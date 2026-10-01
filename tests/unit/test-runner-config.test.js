@@ -21,7 +21,7 @@
 // ★★ Why the testTimeout arm is not filler: `config: false` does NOT change the pool on
 // this vitest (its default is already `forks`), so a pool assertion alone cannot see that
 // defect — the mutation was run and it stayed green. What `config: false` does change is
-// every OTHER pinned value. testTimeout 30000 vs vitest's default 5000 is therefore the
+// every OTHER pinned value. testTimeout 120000 vs vitest's default 5000 is therefore the
 // arm that proves the file was loaded at all. Verified by mutation, not by reasoning:
 // re-adding `config: false` yields testTimeout=5000, hookTimeout=10000.
 import { describe, it, expect } from 'vitest';
@@ -50,8 +50,8 @@ describe('the running suite is configured by vitest.config.js', () => {
     // The sentinel: these values exist ONLY in vitest.config.js. Vitest's defaults are
     // 5000/10000. If a runner passes `config: false` the whole file is discarded —
     // including fileParallelism, which has no worker-visible field of its own.
-    expect(resolved.testTimeout, 'testTimeout is not the configured 30000 — was vitest.config.js loaded?').toBe(30000);
-    expect(resolved.hookTimeout, 'hookTimeout is not the configured 30000 — was vitest.config.js loaded?').toBe(30000);
+    expect(resolved.testTimeout, 'testTimeout is not the configured 120000 — was vitest.config.js loaded?').toBe(120000);
+    expect(resolved.hookTimeout, 'hookTimeout is not the configured 120000 — was vitest.config.js loaded?').toBe(120000);
   });
 
   it('★★★ the config still carries both pins', () => {
