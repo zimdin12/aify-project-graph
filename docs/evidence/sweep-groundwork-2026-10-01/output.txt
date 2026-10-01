@@ -1,0 +1,7 @@
+sweep, clean                     exit 1    refusedDirty=false reachedNetwork=true reporter=apg@StevenZ-L/win32/c0cff1c2
+reconfirm, clean                 exit 1    refusedDirty=false reachedNetwork=true reporter=apg@StevenZ-L/win32/c0cff1c2
+sweep, DIRTY                     exit 4    refusedDirty=true reachedNetwork=false reporter=apg@StevenZ-L/win32/c0cff1c2
+reconfirm, DIRTY                 exit 4    refusedDirty=true reachedNetwork=false reporter=apg@StevenZ-L/win32/c0cff1c2
+sweep, DIRTY --allow-dirty       exit 1    refusedDirty=false reachedNetwork=true reporter=apg@StevenZ-L/win32/c0cff1c2
+reconfirm, DIRTY --allow-dirty   exit 1    refusedDirty=false reachedNetwork=true reporter=apg@StevenZ-L/win32/c0cff1c2
+sweep, unknown flag              exit 1    refusedDirty=false reachedNetwork=false reporter=(none)
