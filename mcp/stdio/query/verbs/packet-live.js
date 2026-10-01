@@ -66,7 +66,9 @@ export async function withTimeout(promise, ms) {
   }
 }
 
-export async function enrichLive({ repoRoot, target, kind, value, opts }) {
+// `budgetMs` is for a caller that must not depend on machine load, such as a test of the SHAPE of what
+// arrives. The product never passes it, so product behaviour still follows LIVE_BUDGET_MS.
+export async function enrichLive({ repoRoot, target, kind, value, opts, budgetMs = LIVE_BUDGET_MS }) {
   // Lazy import so static-only callers never pay the import cost.
   const { graphConsequences } = await import('./consequences.js');
   const t0 = Date.now();
@@ -87,13 +89,13 @@ export async function enrichLive({ repoRoot, target, kind, value, opts }) {
   try {
     raw = await withTimeout(
       graphConsequences({ repoRoot, target: consequenceTarget }),
-      LIVE_BUDGET_MS,
+      budgetMs,
     );
   } catch (err) {
     return { status: 'unavailable', detail: err?.message ?? 'live verb threw', elapsed_ms: Date.now() - t0 };
   }
   if (raw && raw.__timeout) {
-    return { status: 'timeout', detail: `live enrichment exceeded ${LIVE_BUDGET_MS}ms`, elapsed_ms: Date.now() - t0 };
+    return { status: 'timeout', detail: `live enrichment exceeded ${budgetMs}ms`, elapsed_ms: Date.now() - t0 };
   }
 
   let parsed = null;

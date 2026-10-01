@@ -95,24 +95,46 @@ describe('enrichLive', () => {
     // any symbol mapped to a feature threw a TypeError instead of returning a packet (reproduced
     // on this repo's own feature map, 2026-09-19). The only earlier test used a repo with no graph,
     // so the parse path was never reached.
-    repo = await mkdtemp(join(tmpdir(), 'apg-live-enrich-'));
-    await mkdir(join(repo, 'src'), { recursive: true });
-    await mkdir(join(repo, '.aify-graph'), { recursive: true });
-    await writeFile(join(repo, 'src', 'a.js'), 'export function shared() { return 1; }\n');
-    await writeFile(join(repo, 'src', 'b.js'), "import { shared } from './a.js';\nexport function user() { return shared(); }\n");
-    await writeFile(join(repo, '.aify-graph', 'functionality.json'), JSON.stringify({ version: '0.2', features: [
-      { id: 'core', anchors: { symbols: ['shared'], files: ['src/a.js'] } },
-      { id: 'consumer', anchors: { symbols: ['user'], files: ['src/b.js', 'src/a.js'] } },
-    ] }));
-    const git = (...args) => execFileSync('git', ['-C', repo, ...args], { stdio: 'ignore', windowsHide: true });
-    git('init', '-q');
-    git('add', 'src');
-    git('-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'init');
-    const out = await enrichLive({ repoRoot: repo, target: 'shared', kind: 'symbol', value: 'shared', opts: {} });
+    repo = await mappedRepo();
+    // ⛔ A GENEROUS BUDGET, PASSED FOR THIS CALL. This test is about the SHAPE of what arrives, not
+    // how fast. Under the harness budget (8000ms) it timed out once in a full run that took 2060s
+    // (release commit 772f86d2, which changed only CHANGELOG.md and package.json): a load-dependent
+    // verdict on a content property. The budget itself is pinned by the 1ms test below.
+    const out = await enrichLive({ repoRoot: repo, target: 'shared', kind: 'symbol', value: 'shared', opts: {}, budgetMs: 55_000 });
     expect(out.status, `enrichment must not fail: ${out.detail ?? ''}`).toBe('enriched');
     expect(Array.isArray(out.co_consumer_files), 'the packet renders a LIST').toBe(true);
     await cleanup();
   }, 60_000);
+
+  it('★★★ a per-call budget is HONOURED, and the timeout names the budget it exceeded', async () => {
+    // Replaces a test that grepped this module's source for the message template. That proved the
+    // text existed, not that it was produced, and it could not see whether a per-call budget reached
+    // the race. 1ms cannot hold an index of a fresh repository, so the timeout branch must fire, and
+    // its message must name 1ms rather than the module-wide budget.
+    repo = await mappedRepo();
+    const out = await enrichLive({ repoRoot: repo, target: 'shared', kind: 'symbol', value: 'shared', opts: {}, budgetMs: 1 });
+    expect(out.status, '1ms cannot be met: anything but timeout means the per-call budget was ignored').toBe('timeout');
+    expect(out.detail).toBe('live enrichment exceeded 1ms');
+    await cleanup();
+  }, 60_000);
+
+  /** A committed repo whose feature map anchors `shared`, so a lookup reaches the parse path. */
+  async function mappedRepo() {
+    const dir = await mkdtemp(join(tmpdir(), 'apg-live-enrich-'));
+    await mkdir(join(dir, 'src'), { recursive: true });
+    await mkdir(join(dir, '.aify-graph'), { recursive: true });
+    await writeFile(join(dir, 'src', 'a.js'), 'export function shared() { return 1; }\n');
+    await writeFile(join(dir, 'src', 'b.js'), "import { shared } from './a.js';\nexport function user() { return shared(); }\n");
+    await writeFile(join(dir, '.aify-graph', 'functionality.json'), JSON.stringify({ version: '0.2', features: [
+      { id: 'core', anchors: { symbols: ['shared'], files: ['src/a.js'] } },
+      { id: 'consumer', anchors: { symbols: ['user'], files: ['src/b.js', 'src/a.js'] } },
+    ] }));
+    const git = (...args) => execFileSync('git', ['-C', dir, ...args], { stdio: 'ignore', windowsHide: true });
+    git('init', '-q');
+    git('add', 'src');
+    git('-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'init');
+    return dir;
+  }
 
   it('★★★ the budget is a NAMED constant, not a literal buried in a branch', async () => {
     // ⚠ It is referenced by both this island and the facade's budgeted symbol lookup. A second
@@ -130,13 +152,5 @@ describe('enrichLive', () => {
     // ignored one.
     expect(DEFAULT_LIVE_BUDGET_MS, 'the product default must not drift').toBe(2000);
     expect(LIVE_BUDGET_MS, 'the effective budget stays a positive number').toBeGreaterThan(0);
-  });
-
-  it('★★★ the timeout message names the budget it exceeded', async () => {
-    // A timeout that does not say what it exceeded leaves the reader unable to tell a slow graph
-    // from a wrong budget. Pinned because the reviewer asked for the timeout OUTPUT, not just the branch.
-    const src = await import('node:fs').then((fs) => fs.readFileSync(
-      new URL('../../../mcp/stdio/query/verbs/packet-live.js', import.meta.url), 'utf8'));
-    expect(src).toMatch(/live enrichment exceeded \$\{LIVE_BUDGET_MS\}ms/);
   });
 });
