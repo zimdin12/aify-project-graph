@@ -3,6 +3,9 @@
 //
 //   node scripts/post-watch-signals.mjs --dry-run      # resolve and print, send nothing
 //   node scripts/post-watch-signals.mjs                # resolve, print, then post
+//   ... --allow-dirty                                  # post even with uncommitted changes (refused by default)
+//
+// Exit codes: 1 incomplete batch or bad argument, 2 refused by the service, 4 uncommitted changes.
 //
 // Configuration comes from the environment, never from a constant in here:
 //   APG_DASHBOARD_URL      default http://localhost:9700
@@ -19,17 +22,36 @@
 // every sweep, so `unchanged` is unreachable here. That is raised as a question, not worked around.
 import { resolveAnchor, splitBatch } from './lib/anchor-resolver.mjs';
 import { DashboardSignalsClient, SignalsRefused } from './lib/dashboard-signals-client.mjs';
-import { makeInstruments, readProviderConfig, headOf, dirtyCountOf } from './lib/provider-runtime.mjs';
+import { makeInstruments, readProviderConfig, headOf, dirtyCountOf, dirtyRefusal } from './lib/provider-runtime.mjs';
 
 // The repository is the working directory, so pointing this at a scratch repo is `cd` and nothing else.
 const repoRoot = process.cwd();
 const instruments = makeInstruments(repoRoot);
 
 async function main() {
-  const dryRun = process.argv.includes('--dry-run');
+  const args = process.argv.slice(2);
+  const unknown = args.filter((a) => a !== '--dry-run' && a !== '--allow-dirty');
+  if (unknown.length > 0) {
+    console.error(`unknown argument(s): ${unknown.join(' ')}`);
+    process.exit(1);
+  }
+  const dryRun = args.includes('--dry-run');
+  const allowDirty = args.includes('--allow-dirty');
   const client = new DashboardSignalsClient(readProviderConfig());
   console.log(`endpoint      ${client.describe()}`);
   console.log(`reporter      ${client.reporterId}`);
+
+  // 0. The commit, BEFORE anything is measured. Read after measuring, a commit landing mid-sweep labelled the
+  //    batch with code it never read. Sweep identity reserves against this head, so it has to be known first.
+  const commit = headOf(repoRoot);
+  const dirty = dirtyCountOf(repoRoot);
+  // ⛔ The sweep reads the TREE and the batch names the COMMIT; the service cannot see the difference. Refused
+  //    unless --allow-dirty. A dry run sends nothing, so it only warns.
+  const refusal = dirtyRefusal({ dirty, allowDirty, act: 'sweep' });
+  if (refusal !== null && !dryRun) {
+    console.error(`\nNOTHING SENT: ${refusal}`);
+    process.exit(4);
+  }
 
   // 1. Read the set. The revision read here is the one posted back, unchanged.
   const set = await client.readWatchSet();
@@ -59,10 +81,9 @@ async function main() {
     console.log(`  ${'UNWATCHED'.padEnd(10)} ${a.kind}:${a.name}  ${a.path}`);
     console.log(`             ${row.reason.slice(0, 96)}`);
   }
-  const commit = headOf(repoRoot);
-  const dirty = dirtyCountOf(repoRoot);
   console.log('');
   console.log(`head          ${commit}${dirty > 0 ? `  ⚠ ${dirty} uncommitted path(s) — the sweep read the TREE, the batch names the COMMIT` : ''}`);
+  if (refusal !== null) console.log(`              ⚠ a real run would refuse: ${refusal}`);
   console.log(`batch         ${batch.results.length} results, ${batch.unwatched.length} unwatched, ${set.items.length} watched`);
 
   if (dryRun) {

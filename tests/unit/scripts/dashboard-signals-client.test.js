@@ -38,6 +38,7 @@ const client = (over = {}) => new DashboardSignalsClient({
   apiKey: SECRET,
   hostKey: 'host-a',
   projectId: 'PROJ',
+  reporterId: 'apg@test-host/win32/00000000',
   ...over,
 });
 
@@ -57,12 +58,21 @@ describe('the batch body carries what the route requires', () => {
     const sent = JSON.parse(fetchImpl.calls[0].init.body);
     // ⛔ THE ARM THAT WOULD HAVE CAUGHT THE SHIPPED BUG.
     expect(sent.reporterId, 'their route reads required(raw, "reporterId"); without it this is a 400')
-      .toBe('aify-project-graph');
+      .toBe('apg@test-host/win32/00000000');
     // And the rest of the contract, so a refactor cannot drop one while keeping the reporter.
     expect(sent.head).toBe('abc123');
     expect(sent.watchRevision, 'the revision is a compare-and-set and must travel back UNCHANGED').toBe('rev1');
     expect(sent.results).toHaveLength(1);
     expect(sent.unwatched).toHaveLength(1);
+  });
+
+  it('★★★ a MISSING reporter name is refused, not filled with a constant', () => {
+    // The client used to default to `aify-project-graph`. The name is derived in provider-runtime.mjs now, and
+    // the service keeps one sweep cursor per reporter, so a second default here would silently put every caller
+    // that forgot the name onto one shared cursor.
+    for (const reporterId of [undefined, '', '   ']) {
+      expect(() => client({ reporterId }), JSON.stringify(reporterId)).toThrow(/reporterId/u);
+    }
   });
 
   it('★★★ the reporter name is CONFIGURABLE, because two reporters is a real case', async () => {

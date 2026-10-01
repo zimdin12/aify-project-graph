@@ -27,9 +27,14 @@ export class SignalsRefused extends Error {
 export class DashboardSignalsClient {
   #apiKey;
 
-  constructor({ baseUrl, apiKey, hostKey, projectId, reporterId = 'aify-project-graph', fetchImpl = fetch }) {
+  constructor({ baseUrl, apiKey, hostKey, projectId, reporterId, fetchImpl = fetch }) {
     if (!baseUrl || !hostKey || !projectId) {
       throw new Error('DashboardSignalsClient needs a baseUrl, a hostKey and a projectId');
+    }
+    // ⛔ NO DEFAULT NAME. The service keeps one sweep cursor per reporter, and the name is derived per install in
+    // provider-runtime.mjs. A constant here would put every caller that forgot it onto one shared cursor.
+    if (typeof reporterId !== 'string' || reporterId.trim() === '') {
+      throw new Error('DashboardSignalsClient needs a reporterId (readProviderConfig derives one per install)');
     }
     // ⛔ FAIL CLOSED ON A MISSING KEY, HERE, rather than letting the request go out and come back 401. A guard
     // that passes when its input is missing is decoration.

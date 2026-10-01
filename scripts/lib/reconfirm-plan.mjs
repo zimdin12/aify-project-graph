@@ -57,8 +57,10 @@ export function planReconfirm(resolved, { head }) {
 export function parseReconfirmArgs(argv) {
   const watchIds = [];
   let dryRun = false;
+  let allowDirty = false;
   for (let i = 0; i < argv.length; i += 1) {
     if (argv[i] === '--dry-run') dryRun = true;
+    else if (argv[i] === '--allow-dirty') allowDirty = true;
     else if (argv[i] === '--watch') {
       const value = argv[i + 1];
       if (typeof value !== 'string' || value === '' || value.startsWith('--')) {
@@ -73,5 +75,5 @@ export function parseReconfirmArgs(argv) {
   if (watchIds.length === 0) {
     throw new Error('name every anchor to reconfirm with --watch <watchId>; there is deliberately no "all"');
   }
-  return { watchIds, dryRun };
+  return { watchIds, dryRun, allowDirty };
 }

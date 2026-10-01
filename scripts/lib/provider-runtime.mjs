@@ -4,7 +4,10 @@
 // and every sweep after a reconfirm would read as `changed` or `restamp` for a reason nobody could see.
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { join } from 'node:path';
+import { createHash } from 'node:crypto';
+import { hostname } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { extractFile } from '../../mcp/stdio/ingest/extractors/generic.js';
 import { getLanguageConfig } from '../../mcp/stdio/ingest/languages/index.js';
@@ -40,7 +43,7 @@ export function makeInstruments(repoRoot) {
  * ⛔ THE KEY IS READ AND NEVER PRINTED. From `APG_DASHBOARD_KEY`, or matched out of the file named by
  * `APG_DASHBOARD_ENV` — the value does not reach stdout, a log line or an error message.
  */
-export function readProviderConfig(env = process.env) {
+export function readProviderConfig(env = process.env, machine = machineFacts()) {
   let keyFromFile;
   if (env.APG_DASHBOARD_ENV) {
     const match = readFileSync(env.APG_DASHBOARD_ENV, 'utf8').match(/^\s*API_KEY\s*=\s*(.+?)\s*$/mu);
@@ -51,10 +54,68 @@ export function readProviderConfig(env = process.env) {
     apiKey: env.APG_DASHBOARD_KEY ?? keyFromFile,
     hostKey: env.APG_DASHBOARD_HOST ?? 'host-a',
     projectId: env.APG_DASHBOARD_PROJECT,
-    // ⛔ CONFIGURATION, NOT A CONSTANT. The reporter name varies by deployment, and it is also the field that
-    // makes the two-reporter experiment in `docs/evidence/dashboard-seam-2026-09-30/` possible at all.
-    reporterId: env.APG_DASHBOARD_REPORTER ?? 'aify-project-graph',
+    // ⛔ DERIVED, NOT A CONSTANT. The service keeps one sweep cursor per (project, reporter), so two installs
+    // sharing a name would share a cursor. The override stays: it is what the two-reporter experiment in
+    // `docs/evidence/dashboard-seam-2026-09-30/` and the live proofs use.
+    reporterId: env.APG_DASHBOARD_REPORTER ?? deriveReporterId(machine),
   };
+}
+
+/** The service's limit on a reporter id (aify-dashboard DESIGN-QUIET-ANCHORS, Step 3, at 92bb8c7). */
+export const REPORTER_ID_MAX = 128;
+
+/**
+ * A reporter name that tells installs apart: `apg@<hostname>/<platform>/<8 hex of the install path>`.
+ *
+ * PURE. The path is hashed so no path reaches a card. On Windows it is normalised first (slashes, case, a
+ * trailing separator), because one directory arrives spelled several ways and a restarted provider must
+ * continue the same cursor. Elsewhere case is significant, so it is left alone.
+ *
+ * ⛔ A name the service would refuse throws here instead of being truncated: a truncated name could collide
+ * with another install's, which is the defect this function exists to prevent.
+ */
+export function deriveReporterId({ hostname: host, platform, isWsl, installPath }) {
+  const kind = isWsl ? 'wsl' : platform;
+  const path = platform === 'win32'
+    ? String(installPath).replaceAll('\\', '/').replace(/\/+$/u, '').toLowerCase()
+    : String(installPath).replace(/\/+$/u, '');
+  const id = `apg@${host}/${kind}/${createHash('sha256').update(path).digest('hex').slice(0, 8)}`;
+  const printable = /^[\x21-\x7e]+$/u.test(String(host ?? ''));
+  if (!printable || id.length > REPORTER_ID_MAX) {
+    throw new Error(`cannot derive a reporter id the dashboard accepts from hostname ${JSON.stringify(host)} `
+      + `(at most ${REPORTER_ID_MAX} printable characters); set APG_DASHBOARD_REPORTER instead`);
+  }
+  return id;
+}
+
+/** The facts `deriveReporterId` needs, read from this machine. WSL reports `linux`, so it is told apart here. */
+export function machineFacts() {
+  let isWsl = false;
+  if (process.platform === 'linux') {
+    try { isWsl = /microsoft/iu.test(readFileSync('/proc/version', 'utf8')); } catch { isWsl = false; }
+  }
+  return {
+    hostname: hostname(),
+    platform: process.platform,
+    isWsl,
+    // The APG clone this module runs from: two levels up from scripts/lib/.
+    installPath: resolve(dirname(fileURLToPath(import.meta.url)), '..', '..'),
+  };
+}
+
+/**
+ * Whether a run must stop because the tree is not the commit it would name. Returns the refusal, or null.
+ *
+ * ⛔ A MISSING COUNT IS A REFUSAL, NOT A CLEAN TREE. A guard that passes when its input is missing is decoration.
+ */
+export function dirtyRefusal({ dirty, allowDirty, act }) {
+  if (allowDirty) return null;
+  if (!Number.isInteger(dirty) || dirty < 0) {
+    return `could not count uncommitted paths, so this ${act} cannot say which code it read; refusing`;
+  }
+  if (dirty === 0) return null;
+  return `${dirty} uncommitted path(s): this ${act} would read the TREE but name the COMMIT, and the `
+    + 'dashboard cannot see the difference. Commit or stash, or pass --allow-dirty to proceed knowingly';
 }
 
 /** The commit a run describes. ⛔ The COMMIT, because the tree can move under a long run. */

@@ -142,8 +142,15 @@ describe('parseReconfirmArgs refuses to be a sweep', () => {
   });
 
   it('★★★ each named anchor is collected, in order — the positive control for the refusals above', () => {
-    expect(parseReconfirmArgs(['--watch', 'w-alpha'])).toEqual({ watchIds: ['w-alpha'], dryRun: false });
+    expect(parseReconfirmArgs(['--watch', 'w-alpha'])).toEqual({ watchIds: ['w-alpha'], dryRun: false, allowDirty: false });
     expect(parseReconfirmArgs(['--watch', 'w-alpha', '--watch', 'w-beta', '--dry-run']))
-      .toEqual({ watchIds: ['w-alpha', 'w-beta'], dryRun: true });
+      .toEqual({ watchIds: ['w-alpha', 'w-beta'], dryRun: true, allowDirty: false });
+  });
+
+  it('★★★ --allow-dirty is collected, and is OFF unless named', () => {
+    // A baseline taken from uncommitted code persists under a commit that does not hold it, so the default
+    // must be to refuse (`dirtyRefusal` in provider-runtime.mjs), and only an explicit flag may override it.
+    expect(parseReconfirmArgs(['--watch', 'w-alpha', '--allow-dirty']).allowDirty).toBe(true);
+    expect(parseReconfirmArgs(['--watch', 'w-alpha']).allowDirty).toBe(false);
   });
 });
