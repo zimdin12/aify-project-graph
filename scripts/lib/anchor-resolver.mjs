@@ -91,6 +91,8 @@ export const UNWATCHED_REASONS = Object.freeze({
   no_path: 'the anchor carries no usable repo-relative path, so there is nothing to resolve it against',
   unreadable_baseline: 'the stored baseline for this anchor is missing its hash or its version, so it cannot be '
     + 'compared with anything — a damaged baseline is reported, not re-baselined over and not read as a change',
+  ambiguous_anchor: 'the anchor names more than one symbol in this file, so stamping any one of them would be a '
+    + 'guess about which was meant — name it by its qualified name to pick one',
 });
 
 // The extraction cap the orchestrator enforces. Named once so the reason string and the check cannot disagree.
@@ -210,13 +212,17 @@ export function resolveAnchor({ repoRoot, item, deps }) {
   const wholeFile = WHOLE_FILE_KINDS.includes(kind);
   if (!wholeFile && kind !== 'symbol') return unwatched(watchId, 'unsupported_anchor_kind');
 
-  // ⛔ GONE IS DECIDED FIRST, AND BY THE FILESYSTEM RATHER THAN THE GRAPH. A graph that has not been
-  // reindexed still holds nodes for a deleted file; the tree is what is true now.
-  if (!presentWithExactCase(repoRoot, relPath)) {
+  // ⛔ GONE IS DECIDED FIRST, AND BY THE SOURCE RATHER THAN THE GRAPH. A graph that has not been reindexed still
+  // holds nodes for a deleted file. By default the source is the working tree, listed segment by segment; a caller
+  // reading a COMMIT injects `isPresent` and `where`, because the tree is then the wrong place to ask.
+  const present = deps.isPresent ? deps.isPresent(relPath) : presentWithExactCase(repoRoot, relPath);
+  if (!present) {
     return decide(watchId, stamp, STAMP_VERSIONS[kind === 'symbol' ? 'symbol' : 'code'], null, {
       gone: true,
-      evidence: `${relPath} is not present in the working tree — checked segment by segment against each `
-        + 'parent directory listing, not with a case-insensitive existence test',
+      evidence: deps.isPresent
+        ? `${relPath} is not present in ${deps.where ?? 'the source this provider was given'}, spelled exactly`
+        : `${relPath} is not present in the working tree — checked segment by segment against each `
+          + 'parent directory listing, not with a case-insensitive existence test',
     });
   }
 
@@ -295,7 +301,17 @@ export function resolveAnchor({ repoRoot, item, deps }) {
   // EITHER.
   if (symbols.length === 0) return unwatched(watchId, 'symbol_kind_not_modelled');
 
-  const match = symbols.find((n) => n.label === name || n.extra?.qname === name);
+  const matches = symbols.filter((n) => n.label === name || n.extra?.qname === name);
+  // ⛔ MORE THAN ONE MATCH IS REFUSED, NOT RESOLVED TO THE FIRST. Two `run` methods in two classes are two symbols;
+  // stamping whichever the extractor emitted first tracks one of them under a name that means both. The candidates
+  // travel BESIDE the row, so a sweep posts only the fields the service reads, and a resolve call can attach them.
+  if (matches.length > 1) {
+    return {
+      ...unwatched(watchId, 'ambiguous_anchor'),
+      candidates: matches.map((n) => ({ name: n.label, qname: n.extra?.qname ?? null, line: n.start_line ?? null })),
+    };
+  }
+  const match = matches[0];
   if (!match) {
     // The instrument demonstrably speaks here — it found other symbols in this very file — so an absence is
     // now evidence rather than silence.

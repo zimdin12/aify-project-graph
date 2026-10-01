@@ -26,14 +26,33 @@ import { isDocument } from '../../mcp/stdio/ingest/sweep.js';
  * The repository is a parameter rather than `process.cwd()` read here, so a caller decides what it points at
  * and a test can point it at a scratch tree.
  */
-export function makeInstruments(repoRoot) {
-  return {
+export function makeInstruments(repoRoot, { at } = {}) {
+  const shared = {
     languageOf: (relPath) => getLanguageConfig(relPath),
     isDocument: (relPath) => isDocument(relPath),
-    readSource: (relPath) => readFileSync(join(repoRoot, relPath), 'utf8'),
     extract: ({ relPath, source, config }) => extractFile({ filePath: relPath, source, config }),
     fileFingerprint: (extracted) => fileStructuralFingerprint(extracted),
     docReferences: (source) => scanDocReferences(source),
+  };
+  if (at === undefined) {
+    // The working tree. Presence is left to the resolver's own segment-by-segment listing.
+    return { ...shared, readSource: (relPath) => readFileSync(join(repoRoot, relPath), 'utf8') };
+  }
+  // ⛔ A COMMIT. Contents come from `git show <at>:<path>` and presence from the object's TYPE at that path, so
+  // uncommitted edits neither change an answer nor make it fail (DESIGN-GRAPHS amendment 2). Git looks a path up
+  // byte for byte, so a wrong-case spelling is absent here even on a case-insensitive filesystem; and only a
+  // `blob` is a file, so a directory is absent too.
+  const spec = (relPath) => `${at}:${String(relPath).replaceAll('\\', '/')}`;
+  const git = (args) => execFileSync('git', ['-C', repoRoot, ...args], {
+    encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 64 * 1024 * 1024,
+  });
+  return {
+    ...shared,
+    readSource: (relPath) => git(['cat-file', 'blob', spec(relPath)]),
+    isPresent: (relPath) => {
+      try { return git(['cat-file', '-t', spec(relPath)]).trim() === 'blob'; } catch { return false; }
+    },
+    where: `commit ${String(at).slice(0, 12)}`,
   };
 }
 

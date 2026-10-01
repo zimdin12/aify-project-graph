@@ -53,6 +53,19 @@ function checkedReservation(body) {
   return body;
 }
 
+/**
+ * The requests a claim handed this host, or a throw. The service's shape at 36b6217 (provider/requests.ts
+ * `ClaimedRequest`). An empty list is a real answer: nothing is queued.
+ */
+function checkedClaim(body) {
+  const text = (s) => typeof s === 'string' && s !== '';
+  const claimed = body?.claimed;
+  const ok = Array.isArray(claimed)
+    && claimed.every((r) => r !== null && typeof r === 'object' && text(r.requestId) && text(r.projectId) && typeof r.call === 'string');
+  if (!ok) throw new Error(`the claim answer is not usable: ${JSON.stringify(body).slice(0, 300)}`);
+  return claimed;
+}
+
 export class DashboardSignalsClient {
   #apiKey;
 
@@ -110,6 +123,26 @@ export class DashboardSignalsClient {
    */
   async reserveSweep({ head }) {
     return checkedReservation(await this.#send('POST', this.#sweepsPath, { reporterId: this.reporterId, head }));
+  }
+
+  /**
+   * Claim queued requests for THIS project. ⛔ projectId is always sent: without it the service hands this host
+   * work for every project, and this process serves exactly one repository. A claim holds for the service's lease
+   * (120s at 36b6217); a result posted after it is refused as lease_expired.
+   */
+  async claimRequests({ limit }) {
+    const body = await this.#send('POST', `/api/v1/host/${this.hostKey}/provider/claim`, { limit, projectId: this.projectId });
+    return checkedClaim(body);
+  }
+
+  /**
+   * Post the answer to one claimed request. `hostKey` travels in the BODY: the service accepts a result only from
+   * the host holding the claim. `ok` is always a real boolean, and the absent parts are explicit nulls.
+   */
+  async postResult(requestId, { ok, value = null, problem = null, provenance = null }) {
+    return this.#send('POST', `/api/v1/provider/requests/${encodeURIComponent(requestId)}/result`, {
+      hostKey: this.hostKey, ok: ok === true, value, problem, provenance,
+    });
   }
 
   /**

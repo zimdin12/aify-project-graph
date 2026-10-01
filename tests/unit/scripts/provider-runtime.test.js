@@ -11,9 +11,13 @@
 // 2. A sweep reads the working TREE and its batch names the COMMIT. With uncommitted edits those differ, and the
 //    service cannot see the tree, so a dirty run is refused unless the caller says --allow-dirty. That goes for
 //    reconfirm too, where it matters more: a baseline taken from uncommitted code persists.
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { execFileSync } from 'node:child_process';
+import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
-  deriveReporterId, readProviderConfig, dirtyRefusal, REPORTER_ID_MAX,
+  deriveReporterId, readProviderConfig, dirtyRefusal, makeInstruments, REPORTER_ID_MAX,
 } from '../../../scripts/lib/provider-runtime.mjs';
 
 const WIN = Object.freeze({ hostname: 'StevenZ-L', platform: 'win32', isWsl: false, installPath: 'C:\\Users\\a\\.claude\\plugins\\aify-project-graph' });
@@ -63,6 +67,52 @@ describe('the reporter id is derived, and tells installs apart', () => {
   it('★★★ readProviderConfig uses the derived name, and an explicit APG_DASHBOARD_REPORTER still wins', () => {
     expect(readProviderConfig({}, WIN).reporterId).toBe(deriveReporterId(WIN));
     expect(readProviderConfig({ APG_DASHBOARD_REPORTER: 'apg-v09-proof' }, WIN).reporterId).toBe('apg-v09-proof');
+  });
+});
+
+describe('instruments can read a COMMIT instead of the working tree', () => {
+  // Queued calls read the commit (`git show <head>:<path>`, amendment 2 of DESIGN-GRAPHS), so a developer's
+  // uncommitted edits neither change the answer nor make the call fail.
+  let repo;
+  let head;
+  const git = (...args) => execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8' }).trim();
+  beforeAll(async () => {
+    repo = await mkdtemp(join(tmpdir(), 'apg-at-commit-'));
+    await mkdir(join(repo, 'src', 'dir'), { recursive: true });
+    await writeFile(join(repo, 'src', 'a.js'), 'export function a() { return 1; }\n');
+    await writeFile(join(repo, 'src', 'dir', 'b.js'), 'export function b() { return 2; }\n');
+    git('init', '-q'); git('add', '-A'); git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'c');
+    head = git('rev-parse', 'HEAD');
+    // The working tree now disagrees with the commit in every way that matters.
+    await writeFile(join(repo, 'src', 'a.js'), 'export function a() { return 999; }\n');
+    await rm(join(repo, 'src', 'dir', 'b.js'));
+    await writeFile(join(repo, 'src', 'untracked.js'), 'export function u() {}\n');
+  });
+  afterAll(async () => { try { await rm(repo, { recursive: true, force: true }); } catch { /* win lock */ } });
+
+  it('★★★ readSource returns the COMMITTED content, not the edited tree', () => {
+    const at = makeInstruments(repo, { at: head });
+    expect(at.readSource('src/a.js')).toContain('return 1;');
+    // CONTROL: the default instruments read the tree, so the two really differ here.
+    expect(makeInstruments(repo).readSource('src/a.js')).toContain('return 999;');
+  });
+
+  it('★★★ isPresent answers for the commit: a file deleted from the tree is still present', () => {
+    const at = makeInstruments(repo, { at: head });
+    expect(at.isPresent('src/dir/b.js')).toBe(true);
+    expect(at.where).toContain(head.slice(0, 12));
+  });
+
+  it('★★★ CONTROL: absent at the commit is absent: untracked, wrong case, a directory, nonsense', () => {
+    const at = makeInstruments(repo, { at: head });
+    expect(at.isPresent('src/untracked.js'), 'only in the tree').toBe(false);
+    expect(at.isPresent('src/A.js'), 'wrong case').toBe(false);
+    expect(at.isPresent('src/dir'), 'a directory is not a file').toBe(false);
+    expect(at.isPresent('src/nope.js')).toBe(false);
+  });
+
+  it('★★★ the default instruments do not inject presence, so a sweep still lists the tree', () => {
+    expect(makeInstruments(repo).isPresent).toBeUndefined();
   });
 });
 
