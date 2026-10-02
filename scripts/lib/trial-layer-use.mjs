@@ -26,8 +26,9 @@ export function authoredNodeIds(map) {
 /** A dashboard tool, as an MCP host names it: `mcp__<server>__dashboard_<verb>`, or the bare verb. */
 export const isDashboardTool = (name) => /(^|__)dashboard_[a-z_]+$/u.test(String(name));
 
-// The input fields that name ONE node: query's `from`, a route's ends, a mark's `target`.
-const NODE_FIELDS = new Set(['from', 'target', 'a', 'b']);
+// The input fields that name nodes: query's `from`, a route's ends, a mark's `target`, and graph_get's `nodes` list
+// (dashboard 7eb2725), whose strings are each one node id.
+const NODE_FIELDS = new Set(['from', 'target', 'a', 'b', 'nodes']);
 
 /** Authored ids an input names: a node field equal to one, or an idPrefix that selects at least one. PURE. */
 export function idsNamedInInput(input, ids) {

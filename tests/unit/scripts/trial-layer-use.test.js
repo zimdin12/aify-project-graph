@@ -74,6 +74,15 @@ describe('what does not count, and what cannot be told', () => {
     expect(run).toMatchObject({ ok: true, dashboardCalls: 1, layerCalls: 0 });
   });
 
+  it('★★★ graph_get naming nodes by id (dashboard 7eb2725\'s `nodes: [ids]`) names them, whatever comes back', () => {
+    // 7eb2725 added `nodes` to dashboard_graph_get: those nodes whole, and unknown ids under `missing`. The ids a call
+    // asks for are named by it, as `from` and `target` are; an id that is not authored is not counted.
+    const run = count(callAndResult('n1', 'mcp__aify-dashboard__dashboard_graph_get', { slug: 'features', nodes: ['symbol-lookup', 'not-a-node'] },
+      [{ type: 'text', text: JSON.stringify({ graph: { id: 'g' }, nodes: [], missing: ['not-a-node'] }) }]));
+    expect(run).toMatchObject({ ok: true, layerCalls: 1, seenCalls: 1 });
+    expect(run.nodesTouched).toEqual(['symbol-lookup']);
+  });
+
   it('★★★ a call that failed used nothing, even when it named an authored node', () => {
     const run = count(callAndResult('e1', 'mcp__aify-dashboard__dashboard_graph_query', { graphId: 'g', from: 'symbol-lookup' }, 'no such graph', true));
     expect(run).toMatchObject({ ok: true, dashboardCalls: 1, layerCalls: 0 });
