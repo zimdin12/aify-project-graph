@@ -1,0 +1,10 @@
+range 59cbae3a..550643ef (550643ef): 131 non-merge commits, 36 anchored files
+control d8c946ad: in range, FOUND
+  d8c946ad              [context-packets] 2026-10-01 fix(packet): a test of what live enrichment returns no longer depends on how busy the machine is
+  a0d5b131              [health-and-trust] 2026-09-29 fix(taxonomy): CODE_NODE_TYPES claimed ONE OWNER while module-private with three copies — one of wh
+  9fa2bd05              [indexing-and-freshness] 2026-09-26 fix(audit): the conservation population was NARROWER THAN THE GRAPH — derive it from the plugin reg
+  27c5c422              [indexing-and-freshness] 2026-09-26 fix: a case-only rename left a phantom, because existsSync cannot see case
+  72996bce NAMES-GRADER [indexing-and-freshness] 2026-09-26 fix: make the re-extraction expansion deletion-closed, so transitive dependents keep their edges
+  1ef73285              [indexing-and-freshness] 2026-09-26 freshness: prove "equality, not ordering" with a test that runs the code
+candidates 6; not naming the grader 5; per feature {"context-packets":1,"health-and-trust":1,"indexing-and-freshness":3}
+gate: at least 8 eligible tasks, no feature carrying more than 3, after the grader exclusion is READ, not inferred from the flag above
