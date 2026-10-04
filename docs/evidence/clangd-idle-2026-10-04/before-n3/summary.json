@@ -1,0 +1,40 @@
+{
+ "sessions": 3,
+ "env": [
+  "APG_CLANGD_WSL=1"
+ ],
+ "instrumentCheck": {
+  "wslPsLines": 39,
+  "tasklistSeesNode": true
+ },
+ "allDone": true,
+ "doneAtMs": {
+  "s1": 5044,
+  "s2": 5831,
+  "s3": 5831
+ },
+ "lastDoneAtMs": 5831,
+ "ourClangdsSeen": 3,
+ "ourClangdSides": [
+  "wsl",
+  "wsl",
+  "wsl"
+ ],
+ "baselineClangds": 0,
+ "activePeakCount": 3,
+ "activePeakRssGB": 3.013,
+ "activePeakWslCpuPct": 1145,
+ "hostTotalGB": 95.1,
+ "hostFreeMinGB": 15.99,
+ "hostFreeAtStartGB": 18.79,
+ "vmmemStartGB": 17.72,
+ "vmmemPeakGB": 20.27,
+ "vmmemEndGB": 20.12,
+ "observedIdleS": 120,
+ "idleZeroAfterLastCallMs": null,
+ "countAtEndOfIdle": 3,
+ "orphansAfterKill": 0,
+ "callStatuses": {
+  "ok": 30
+ }
+}

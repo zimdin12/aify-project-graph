@@ -1,0 +1,10 @@
+{"t":4236,"label":"s1","kind":"references","name":"format_error","file":"include/fmt/format.h","line":932,"ms":3168,"status":"ok","count":71,"error":null}
+{"t":4236,"label":"s1","kind":"references","name":"vformat","file":"include/fmt/format.h","line":4144,"ms":4,"status":"ok","count":8,"error":null}
+{"t":4236,"label":"s1","kind":"references","name":"report_error","file":"include/fmt/base.h","line":673,"ms":236,"status":"ok","count":56,"error":null}
+{"t":4236,"label":"s1","kind":"references","name":"vprint","file":"include/fmt/base.h","line":2898,"ms":2,"status":"ok","count":9,"error":null}
+{"t":4236,"label":"s1","kind":"references","name":"buffered_file","file":"src/os.cc","line":167,"ms":389,"status":"ok","count":31,"error":null}
+{"t":4322,"label":"s1","kind":"definitions","name":"format_error","file":"include/fmt/format.h","line":932,"ms":444,"status":"ok","count":1,"error":null}
+{"t":4323,"label":"s1","kind":"definitions","name":"vformat","file":"include/fmt/format.h","line":4144,"ms":1,"status":"ok","count":1,"error":null}
+{"t":4324,"label":"s1","kind":"definitions","name":"report_error","file":"include/fmt/base.h","line":673,"ms":1,"status":"ok","count":1,"error":null}
+{"t":4507,"label":"s1","kind":"hover","name":"format_error","file":"include/fmt/format.h","line":932,"ms":183,"status":"ok","count":null,"error":null}
+{"t":4688,"label":"s1","kind":"hover","name":"vformat","file":"include/fmt/format.h","line":4144,"ms":181,"status":"ok","count":null,"error":null}
