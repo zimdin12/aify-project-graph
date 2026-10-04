@@ -3,7 +3,7 @@
 // per call, prints DONE, then stays alive like an idle MCP server until its parent kills it.
 //
 //   node session-worker.mjs <apgRepo> <subjectRepo> <label>
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -24,7 +24,11 @@ const position = (file, name) => {
   }
   return { file, line: null, col: null, name };
 };
-const positions = TARGETS.map(([f, n]) => position(f, n));
+// A subject may carry its own targets.json (written by prepare-copy.mjs from its own code); fmt uses the list above.
+const targetsFile = join(subject, 'targets.json');
+const positions = existsSync(targetsFile)
+  ? JSON.parse(readFileSync(targetsFile, 'utf8'))
+  : TARGETS.map(([f, n]) => position(f, n));
 const calls = [
   ...positions.map((p) => ['references', p]),
   ...positions.slice(0, 3).map((p) => ['definitions', p]),

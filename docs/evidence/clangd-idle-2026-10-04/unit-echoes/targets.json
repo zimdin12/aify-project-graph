@@ -1,0 +1,32 @@
+[
+ {
+  "file": "engine/audio/AudioSystem.cpp",
+  "name": "AudioSystem",
+  "line": 48,
+  "col": 1
+ },
+ {
+  "file": "engine/core/AmbientAudioManager.cpp",
+  "name": "AmbientAudioManager",
+  "line": 13,
+  "col": 6
+ },
+ {
+  "file": "engine/core/ConsoleCommandProcessor.cpp",
+  "name": "ConsoleCommandProcessor",
+  "line": 82,
+  "col": 6
+ },
+ {
+  "file": "engine/core/ConsoleCommandProcessor_Gameplay.cpp",
+  "name": "ConsoleCommandProcessor",
+  "line": 81,
+  "col": 6
+ },
+ {
+  "file": "engine/core/ConsoleCommandProcessor_PcasTests.cpp",
+  "name": "ConsoleCommandProcessor",
+  "line": 99,
+  "col": 6
+ }
+]

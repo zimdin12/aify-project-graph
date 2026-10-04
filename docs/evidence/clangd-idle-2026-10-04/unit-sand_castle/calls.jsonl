@@ -1,0 +1,10 @@
+{"t":25313,"label":"s1","kind":"references","name":"MaterialRegistry","file":"bench/Benchmark.cpp","line":289,"ms":22477,"status":"ok","count":97,"error":null}
+{"t":43893,"label":"s1","kind":"references","name":"Connection","file":"engine/console/Connection.cpp","line":41,"ms":20105,"status":"ok","count":29,"error":null}
+{"t":66355,"label":"s1","kind":"references","name":"Console","file":"engine/console/Console.cpp","line":39,"ms":20100,"status":"ok","count":30,"error":null}
+{"t":88934,"label":"s1","kind":"references","name":"McpBridge","file":"engine/console/McpBridge.cpp","line":79,"ms":20322,"status":"ok","count":40,"error":null}
+{"t":106599,"label":"s1","kind":"references","name":"TcpServer","file":"engine/console/TcpServer.cpp","line":125,"ms":20105,"status":"ok","count":32,"error":null}
+{"t":115450,"label":"s1","kind":"definitions","name":"MaterialRegistry","file":"bench/Benchmark.cpp","line":289,"ms":10215,"status":"ok","count":1,"error":null}
+{"t":115450,"label":"s1","kind":"definitions","name":"Connection","file":"engine/console/Connection.cpp","line":41,"ms":114,"status":"ok","count":1,"error":null}
+{"t":115450,"label":"s1","kind":"definitions","name":"Console","file":"engine/console/Console.cpp","line":39,"ms":197,"status":"ok","count":1,"error":null}
+{"t":115450,"label":"s1","kind":"hover","name":"MaterialRegistry","file":"bench/Benchmark.cpp","line":289,"ms":1,"status":"ok","count":null,"error":null}
+{"t":115450,"label":"s1","kind":"hover","name":"Connection","file":"engine/console/Connection.cpp","line":41,"ms":1,"status":"ok","count":null,"error":null}

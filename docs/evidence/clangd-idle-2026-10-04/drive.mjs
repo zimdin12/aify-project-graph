@@ -110,10 +110,17 @@ for (const p of orphans) {
 
 const active = samples.filter((s) => lastDoneAt === null || s.t <= lastDoneAt);
 const peak = (xs, k) => xs.reduce((m, s) => Math.max(m, s[k]), 0);
+// CONTROL (agreed with dashboard-manager after a 0-clangd reading fooled the first sampler): during the calls the
+// sampler must have seen at least one of our clangds with a working set over 100 MB. Without that, no peak from this
+// run is believed.
+const CONTROL_FLOOR_GB = 0.1;
+const controlSawClangdDuringCalls = active.some((s) => s.count >= 1 && s.rssGB > CONTROL_FLOOR_GB);
 const summary = {
   sessions, env: envPairs, instrumentCheck, allDone, doneAtMs: Object.fromEntries(doneAt), lastDoneAtMs: lastDoneAt,
   ourClangdsSeen: ours.size, ourClangdSides: [...ours].map((p) => p.slice(0, 3)), baselineClangds: baseline.size,
+  controlSawClangdDuringCalls, controlFloorGB: CONTROL_FLOOR_GB,
   activePeakCount: peak(active, 'count'), activePeakRssGB: peak(active, 'rssGB'), activePeakWslCpuPct: peak(active, 'wslCpuPct'),
+  wholeRunPeakRssGB: peak(samples, 'rssGB'),
   hostTotalGB: +(totalmem() / GB).toFixed(1), hostFreeMinGB: Math.min(...samples.map((s) => s.freeGB)), hostFreeAtStartGB: samples[0]?.freeGB ?? null,
   vmmemStartGB: samples[0]?.vmmemGB ?? null, vmmemPeakGB: peak(samples, 'vmmemGB'), vmmemEndGB: samples.at(-1)?.vmmemGB ?? null,
   observedIdleS: observeIdleS, idleZeroAfterLastCallMs: zeroAfterDoneAt === null || lastDoneAt === null ? null : zeroAfterDoneAt - lastDoneAt,

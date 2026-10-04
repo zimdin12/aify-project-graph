@@ -1,0 +1,37 @@
+{
+ "sessions": 1,
+ "env": [],
+ "instrumentCheck": {
+  "wslPsLines": 33,
+  "tasklistSeesNode": true
+ },
+ "allDone": true,
+ "doneAtMs": {
+  "s1": 151685
+ },
+ "lastDoneAtMs": 151685,
+ "ourClangdsSeen": 1,
+ "ourClangdSides": [
+  "win"
+ ],
+ "baselineClangds": 0,
+ "controlSawClangdDuringCalls": true,
+ "controlFloorGB": 0.1,
+ "activePeakCount": 1,
+ "activePeakRssGB": 4.563,
+ "activePeakWslCpuPct": 0,
+ "wholeRunPeakRssGB": 4.563,
+ "hostTotalGB": 95.1,
+ "hostFreeMinGB": 16.51,
+ "hostFreeAtStartGB": 21.64,
+ "vmmemStartGB": 14.9,
+ "vmmemPeakGB": 14.9,
+ "vmmemEndGB": 14.83,
+ "observedIdleS": 300,
+ "idleZeroAfterLastCallMs": null,
+ "countAtEndOfIdle": 1,
+ "orphansAfterKill": 0,
+ "callStatuses": {
+  "ok": 10
+ }
+}

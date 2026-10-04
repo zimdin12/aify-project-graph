@@ -42,6 +42,35 @@ All 70 calls answered `ok`. No clangd was left behind after a run.
 - **Active:** still 3 clangds at about 3x one clangd. **Met.** 3.07 GB against a unit of 1.03 GB. The fallback does
   not share servers, and this run was not expected to show that it does.
 
+## The deciding unit: one clangd on the two largest C++ repos agents work in
+
+dashboard-manager parked the shared per-project service on the fmt result. One more measurement could reverse that,
+and the threshold was fixed before it ran: if 3 × one clangd + the 17 GB WSL baseline exceeds about 60 GB, the service
+is earned. That is, if the unit exceeds 14.3 GB.
+
+**Unit:** the peak working set of one clangd over the same 10 calls plus 300 s, so background indexing after the calls
+is included.
+
+**Carrier:**
+- each repo's own Windows clangd compile DB, because that is what its agents run (clang-cl);
+- run on a `git archive` copy outside the team's tree, made by `prepare-copy.mjs`. Source paths are rewritten to the
+  copy (0 left unswapped); paths into the original build directory are kept, read-only, for generated headers;
+- 5 lookup targets per repo, derived from its own code (`targets.json`).
+
+**Control, added at dashboard-manager's request:** a peak is believed only if the sampler saw our clangd above 100 MB
+during the calls. It passed in both runs.
+
+| Run | Repo | Compile units (own) | Peak | Settled | Calls ok |
+|---|---|---|---|---|---|
+| `unit-sand_castle` | sand_castle at 17964173 | 813 (394) | **4.38 GB** | 4.16 GB | 10/10 |
+| `unit-echoes` | echoes_of_the_fallen at fee8837 | 1042 (122) | **4.56 GB** | 3.10 GB | 10/10 |
+
+3 × 4.56 + 17 = 30.7 GB, below 60 GB, so the shared service stays parked. Notes:
+- these clangds ran on Windows, not under WSL, so the WSL baseline does not add to them. The threshold was kept as
+  written rather than moved after the result;
+- each references call took about 20 s, which matches the `waitForReadyMs: 20000` the worker passes while clangd was
+  still indexing.
+
 ## What this does not show
 
 - **No sharing:** three sessions active at once on one C++ project still cost about 3 GB here. Whether that justifies a

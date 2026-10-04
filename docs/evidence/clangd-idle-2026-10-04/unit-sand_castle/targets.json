@@ -1,0 +1,32 @@
+[
+ {
+  "file": "bench/Benchmark.cpp",
+  "name": "MaterialRegistry",
+  "line": 289,
+  "col": 32
+ },
+ {
+  "file": "engine/console/Connection.cpp",
+  "name": "Connection",
+  "line": 41,
+  "col": 1
+ },
+ {
+  "file": "engine/console/Console.cpp",
+  "name": "Console",
+  "line": 39,
+  "col": 1
+ },
+ {
+  "file": "engine/console/McpBridge.cpp",
+  "name": "McpBridge",
+  "line": 79,
+  "col": 1
+ },
+ {
+  "file": "engine/console/TcpServer.cpp",
+  "name": "TcpServer",
+  "line": 125,
+  "col": 1
+ }
+]
