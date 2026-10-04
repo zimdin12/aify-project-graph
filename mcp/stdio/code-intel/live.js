@@ -1,7 +1,7 @@
 // Live LSP session manager — keeps a long-running LspClient per (language,
 // projectRoot) so bounded inner-loop verbs (code_intel_references, etc.)
 // don't pay clangd startup tax on every call. Singleton-per-key inside the
-// MCP server process; idle sessions can be torn down later if needed.
+// MCP server process. A session unused for the idle window (APG_LSP_IDLE_MS, default 10 min) is shut down.
 //
 // Reference-pattern parity: matches agent-code-intel's "bounded clients on
 // demand" — APG owns the lifecycle; hosts target one stable wrapper command.
@@ -20,6 +20,31 @@ const STARTING = new Map();
 
 function keyFor(language, projectRoot) { return `${language}:::${projectRoot}`; }
 
+// ⛔ A LANGUAGE SERVER NOBODY IS USING IS SHUT DOWN. Sessions used to live until the MCP server exited. Measured
+// 2026-10-04: three sessions on one C++ repo held 3 clangds (3.01 GB) after 120 idle seconds, and a clangd that
+// exits gives its memory back. How long "unused" is depends on the machine, so it comes from configuration.
+export const DEFAULT_IDLE_MS = 10 * 60_000;
+
+/** The idle window: APG_LSP_IDLE_MS when it is a positive number, the default otherwise. PURE. */
+export function idleMsFrom(env = process.env) {
+  const n = Number(env?.APG_LSP_IDLE_MS);
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_IDLE_MS;
+}
+
+// (Re)starts a session's idle timer. When it fires, a session with a request still in flight gets a fresh window
+// instead, because shutting a server down under a caller would turn its answer into an error. The timer does not
+// keep the process alive.
+function armIdle(key, session) {
+  clearTimeout(session.idleTimer);
+  session.idleTimer = setTimeout(() => {
+    if (SESSIONS.get(key) !== session) return;
+    if (session.client.pending?.size > 0) { armIdle(key, session); return; }
+    SESSIONS.delete(key);
+    session.client.shutdown().catch(() => { /* already gone */ });
+  }, idleMsFrom());
+  session.idleTimer.unref?.();
+}
+
 /**
  * Acquire (or start) a live LSP session for a language + project.
  * Options:
@@ -31,7 +56,7 @@ export async function getLiveSession({ language, projectRoot, spawn } = {}) {
   const key = keyFor(lang, projectRoot);
   const existing = SESSIONS.get(key);
   // A crashed/exited client must never be handed back — evict and re-spawn.
-  if (existing && !existing.client.dead) return existing;
+  if (existing && !existing.client.dead) { armIdle(key, existing); return existing; }
   if (existing) SESSIONS.delete(key);
 
   const inflight = STARTING.get(key);
@@ -84,6 +109,7 @@ export async function getLiveSession({ language, projectRoot, spawn } = {}) {
       throw wrapped;
     }
     SESSIONS.set(key, session);
+    armIdle(key, session);
     // Self-evict on crash/exit so a dead session is never returned and the next
     // call re-spawns cleanly (client.dead is also checked above as a backstop).
     client.once('exit', () => { if (SESSIONS.get(key) === session) SESSIONS.delete(key); });
@@ -100,9 +126,13 @@ export async function getLiveSession({ language, projectRoot, spawn } = {}) {
 
 export async function shutdownAllSessions() {
   for (const session of SESSIONS.values()) {
+    clearTimeout(session.idleTimer);
     try { await session.client.shutdown(); } catch { /* ignore */ }
   }
   SESSIONS.clear();
 }
 
-export function _resetSessions() { SESSIONS.clear(); }
+export function _resetSessions() {
+  for (const session of SESSIONS.values()) clearTimeout(session.idleTimer);
+  SESSIONS.clear();
+}
