@@ -21,7 +21,7 @@
 // "Seen" matches the Claude reader exactly: inline, or a saved result the agent later opened with its file reader
 // (`read_file` here, `Read` there). A terminal `cat` of the file counts in NEITHER, deliberately, so that the two
 // runtimes are counted alike.
-import { idsInResult, idsNamedInInput, isDashboardTool } from './trial-layer-use.mjs';
+import { idsInResult, idsNamedInInput, isDashboardTool, parseReply } from './trial-layer-use.mjs';
 
 const TOOL_CALL = 'tool_call';
 const WRAPPED = /^<untrusted_tool_result[^>]*>\n[\s\S]*?\n\n([\s\S]*)\n<\/untrusted_tool_result>\s*$/u;
@@ -74,16 +74,16 @@ export function readToolResult(content, readPersisted) {
   if (saved) {
     const file = readPersisted(saved[1]);
     if (file === null) return { ok: false, reason: 'persisted_result_missing', detail: saved[1] };
-    const reply = parseJson(spilledText(file));
-    return reply.ok ? { ok: true, isError: false, parsed: reply.value, persistedPath: saved[1] } : { ok: false, reason: 'unparseable_result', detail: saved[1] };
+    const reply = parseReply(spilledText(file));
+    return reply.ok ? { ok: true, isError: false, parsed: reply.parsed, plainText: reply.plainText, persistedPath: saved[1] } : { ok: false, reason: 'unparseable_result', detail: saved[1] };
   }
   const handler = parseJson(payload);
   if (!handler.ok || !handler.value || typeof handler.value !== 'object') return { ok: false, reason: 'unparseable_result' };
-  if ('error' in handler.value && !('result' in handler.value)) return { ok: true, isError: true, parsed: null, persistedPath: null };
+  if ('error' in handler.value && !('result' in handler.value)) return { ok: true, isError: true, parsed: null, plainText: false, persistedPath: null };
   const { result } = handler.value;
-  if (result && typeof result === 'object') return { ok: true, isError: false, parsed: result, persistedPath: null };
-  const reply = parseJson(result);
-  return reply.ok ? { ok: true, isError: false, parsed: reply.value, persistedPath: null } : { ok: false, reason: 'unparseable_result' };
+  if (result && typeof result === 'object') return { ok: true, isError: false, parsed: result, plainText: false, persistedPath: null };
+  const reply = parseReply(result);
+  return reply.ok ? { ok: true, isError: false, parsed: reply.parsed, plainText: reply.plainText, persistedPath: null } : { ok: false, reason: 'unparseable_result' };
 }
 
 const samePath = (a, b) => a.replaceAll('\\', '/').toLowerCase() === b.replaceAll('\\', '/').toLowerCase();
@@ -119,7 +119,7 @@ export function countHermesLayerUse({ rows, ids, readPersisted }) {
     const returned = result.parsed === null ? new Set() : idsInResult(result.parsed, ids);
     // An errored call used nothing, whatever it asked for.
     const touched = result.isError ? [] : [...new Set([...named, ...returned])].sort();
-    calls.push({ toolUseId: use.ids[0], tool: use.name, via: use.via, isError: result.isError, persisted: result.persistedPath !== null, shown, named: [...named].sort(), returned: returned.size, touched });
+    calls.push({ toolUseId: use.ids[0], tool: use.name, via: use.via, isError: result.isError, plainText: result.plainText, persisted: result.persistedPath !== null, shown, named: [...named].sort(), returned: returned.size, touched });
   }
   const layer = calls.filter((c) => c.touched.length > 0);
   const seen = layer.filter((c) => c.shown);

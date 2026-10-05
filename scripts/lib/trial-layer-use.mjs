@@ -58,6 +58,19 @@ export function idsInResult(parsed, ids) {
   return found;
 }
 
+/**
+ * A dashboard reply's structure, or `parsed: null` for a reply in prose. The bridge answers some tools in plain text
+ * (dashboard_whoami: "registered as …, assigned to …", found in the rehearsal 2026-10-05), and refusing those made
+ * every run that asked whoami unmeasurable. Prose carries no structured node, and ids are never searched for in text,
+ * so a prose reply returns nothing and is flagged. Text that STARTS like JSON and does not parse is a broken reply,
+ * and is still refused. PURE.
+ */
+export function parseReply(text) {
+  try { return { ok: true, parsed: JSON.parse(text), plainText: false }; } catch {
+    return /^\s*[[{"]/u.test(String(text ?? '')) ? { ok: false } : { ok: true, parsed: null, plainText: true };
+  }
+}
+
 const resultText = (content) => (typeof content === 'string'
   ? content
   : (Array.isArray(content) ? content.filter((c) => c?.type === 'text').map((c) => c.text).join('') : null));
@@ -109,16 +122,17 @@ export function countLayerUse({ records, ids, readPersisted }) {
       shown = reads.some((p) => samePath(p, saved[1]));
     }
     let parsed = null;
+    let plainText = false;
     if (!isError) {
-      try { parsed = JSON.parse(text); } catch {
-        return { ok: false, reason: 'unparseable_result', detail: `${use.name} ${id}` };
-      }
+      const reply = parseReply(text);
+      if (!reply.ok) return { ok: false, reason: 'unparseable_result', detail: `${use.name} ${id}` };
+      ({ parsed, plainText } = reply);
     }
     const named = idsNamedInInput(use.input, ids);
     const returned = parsed === null ? new Set() : idsInResult(parsed, ids);
     // An errored call used nothing, whatever it asked for.
     const touched = isError ? [] : [...new Set([...named, ...returned])].sort();
-    calls.push({ toolUseId: id, tool: use.name, isError, persisted: Boolean(saved), shown, named: [...named].sort(), returned: returned.size, touched });
+    calls.push({ toolUseId: id, tool: use.name, isError, plainText, persisted: Boolean(saved), shown, named: [...named].sort(), returned: returned.size, touched });
   }
   const layer = calls.filter((c) => c.touched.length > 0);
   const seen = layer.filter((c) => c.shown);

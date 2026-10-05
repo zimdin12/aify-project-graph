@@ -92,12 +92,24 @@ describe('what does not count, and what cannot be told', () => {
     expect(ok).toMatchObject({ layerCalls: 1, seenCalls: 1 });
   });
 
-  it('★★★ a saved result that is gone, a call with no result, or a reply that is not JSON: refused, not zero', () => {
+  it('★★★ a saved result that is gone, a call with no result, or a reply that is broken JSON: refused, not zero', () => {
     expect(count(transcript(), IDS, () => null)).toMatchObject({ ok: false, reason: 'persisted_result_missing' });
     const lone = [{ type: 'assistant', message: { content: [{ type: 'tool_use', id: 'x', name: 'mcp__d__dashboard_graph_get', input: {} }] } }];
     expect(count(lone)).toMatchObject({ ok: false, reason: 'call_without_result' });
-    expect(count(callAndResult('y', 'mcp__d__dashboard_graph_get', {}, 'not json'))).toMatchObject({ ok: false, reason: 'unparseable_result' });
+    expect(count(callAndResult('y', 'mcp__d__dashboard_graph_get', {}, '{"graph": {"id": "g", "nodes": [{"id": "symbol-'))).toMatchObject({ ok: false, reason: 'unparseable_result' });
     expect(count(transcript(), new Set())).toMatchObject({ ok: false, reason: 'no_authored_ids' });
+  });
+
+  it('★★★ a reply in PROSE (dashboard_whoami) is measured: it returns no node, and is flagged, not refused', () => {
+    // The bridge's real whoami text, from rehearsal run rh-hermes-a-t1p (2026-10-05). Refusing it made every run that
+    // asked whoami unmeasurable. Feature ids inside prose would still not count: ids are read from structure only.
+    const whoami = 'registered as rh-hermes-a-t1p, assigned to 01M454E43N0HCV24CTXK7W31B3 (folder).\nevery reporting instance is in 01M454E43N0HCV24CTXK7W31B3';
+    const run = count(callAndResult('w', 'mcp__aify-dashboard__dashboard_whoami', {}, [{ type: 'text', text: whoami }]));
+    expect(run).toMatchObject({ ok: true, dashboardCalls: 1, layerCalls: 0 });
+    expect(run.calls[0]).toMatchObject({ plainText: true, touched: [] });
+    // CONTROL: prose that mentions a feature id by name still touches nothing.
+    const prose = count(callAndResult('p', 'mcp__aify-dashboard__dashboard_whoami', {}, [{ type: 'text', text: 'see symbol-lookup and callers-and-callees' }]));
+    expect(prose).toMatchObject({ ok: true, layerCalls: 0 });
   });
 
   it('★★★ only dashboard tools are dashboard calls', () => {

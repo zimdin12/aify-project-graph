@@ -101,6 +101,17 @@ describe('what a call used', () => {
     expect(run.calls.at(-1)).toMatchObject({ via: 'direct', touched: ['callers-and-callees'] });
   });
 
+  it('★★★ a reply in PROSE (dashboard_whoami) is measured as no node and flagged; broken JSON is still refused', () => {
+    // The bridge's real whoami reply, as Hermes stored it in rehearsal run rh-hermes-a-t1p (2026-10-05).
+    const WHOAMI = 'mcp__aify_dashboard__dashboard_whoami';
+    const text = 'registered as rh-hermes-a-t1p, assigned to 01M454E43N0HCV24CTXK7W31B3 (folder).\nevery reporting instance is in 01M454E43N0HCV24CTXK7W31B3';
+    const run = count(withPair(call('call_who', WHOAMI, {}), result('call_who', WHOAMI, wrap(WHOAMI, JSON.stringify({ result: text })))));
+    expect(run).toMatchObject({ ok: true, dashboardCalls: 3, layerCalls: 1 });
+    expect(run.calls.at(-1)).toMatchObject({ plainText: true, touched: [] });
+    const broken = withPair(call('call_bad', QUERY, {}), result('call_bad', QUERY, wrap(QUERY, JSON.stringify({ result: '{"revision": 1, "nodes": [{"id": "callers-' }))));
+    expect(count(broken)).toMatchObject({ ok: false, reason: 'unparseable_result' });
+  });
+
   it('★★★ a persisted batch of two calls cannot be matched to its results, and is refused', () => {
     const batch = {
       id: 'a-batch', role: 'assistant', tool_call_id: null, tool_name: null, content: '',
