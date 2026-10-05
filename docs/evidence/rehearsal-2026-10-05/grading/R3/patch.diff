@@ -1,0 +1,103 @@
+diff --git a/mcp/stdio/query/verbs/callers.js b/mcp/stdio/query/verbs/callers.js
+index 0ad45d3..14910a9 100644
+--- a/mcp/stdio/query/verbs/callers.js
++++ b/mcp/stdio/query/verbs/callers.js
+@@ -53,12 +53,18 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
+     // edges were never fetched, so raising top_k cannot reveal them and the trust
+     // banner must not claim an exhaustive caller set. Fetch one extra row purely
+     // to detect that we hit it.
++    // ⛔ THE `file` SCOPE FILTER LIVES IN THE SQL, NOT AFTER IT. Applied to the already-capped rows,
++    // a target with 120 callers in one directory filled the 100-row cap (no ORDER BY, so arbitrary)
++    // and the one caller in the asked-for directory was never fetched: `NO CALLERS from "<dir>"`
++    // for a directory that has one. Prefix match via substr, not LIKE, so `%`/`_` in a path stay literal.
++    const scopeSql = file ? ' AND substr(n.file_path, 1, length($filePrefix)) = $filePrefix' : '';
++    if (file) params.filePrefix = file;
+     let edges;
+     if (depth <= 1) {
+       edges = db.all(
+         `SELECT e.*, n.label AS from_label, n.type AS from_type, n.file_path AS from_file, n.start_line AS from_line
+          FROM edges e JOIN nodes n ON n.id = e.from_id
+-         WHERE e.to_id IN (${placeholders}) AND e.relation IN (${EXECUTION_RELATIONS.map((relation) => `'${relation}'`).join(',')})
++         WHERE e.to_id IN (${placeholders}) AND e.relation IN (${EXECUTION_RELATIONS.map((relation) => `'${relation}'`).join(',')})${scopeSql}
+          LIMIT ${EDGE_FETCH_CAP + 1}`,
+         params
+       );
+@@ -81,6 +87,7 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
+           AND e.to_id = c.to_id
+           AND e.relation IN (${EXECUTION_RELATIONS.map((relation) => `'${relation}'`).join(',')})
+          JOIN nodes n ON n.id = e.from_id
++         WHERE 1=1${scopeSql}
+          LIMIT ${EDGE_FETCH_CAP + 1}`,
+         { ...params, depth }
+       );
+@@ -121,7 +128,9 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
+       return prefixReadWarnings(msg + line + scope, freshness.warnings);
+     };
+ 
+-    if (edges.length === 0) return absence(`NO CALLERS for "${symbol}"${indexedScopePhrase(db)}. Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`);
++    // The scope filter now runs in SQL, so a scoped miss lands here: name the directory, never
++    // claim the SYMBOL has no callers when only that directory has none.
++    if (edges.length === 0) return absence(file ? `NO CALLERS from "${file}"${indexedScopePhrase(db)}` : `NO CALLERS for "${symbol}"${indexedScopePhrase(db)}. Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`);
+ 
+     // NOTE (P0-4): `source_file`/`source_line` here carry the CALLER's
+     // DECLARATION location, not the call site. That is deliberate — edges are
+diff --git a/tests/unit/query/callers-file-scope-before-cap.test.js b/tests/unit/query/callers-file-scope-before-cap.test.js
+new file mode 100644
+index 0000000..a3bc587
+--- /dev/null
++++ b/tests/unit/query/callers-file-scope-before-cap.test.js
+@@ -0,0 +1,54 @@
++// graph_callers `file` scope must be applied BEFORE the 100-row SQL fetch cap. Filtering after it
++// answered `NO CALLERS from "<dir>"` for a directory that holds a caller whenever >100 callers
++// elsewhere filled the cap first.
++import { describe, expect, it, beforeEach, afterEach } from 'vitest';
++import { mkdtemp, rm, mkdir } from 'node:fs/promises';
++import { tmpdir } from 'node:os';
++import { join } from 'node:path';
++import { openDb } from '../../../mcp/stdio/storage/db.js';
++import { graphCallers } from '../../../mcp/stdio/query/verbs/callers.js';
++
++function insertNode(db, node) {
++  db.run(
++    `INSERT INTO nodes (id, type, label, file_path, start_line, end_line, language, confidence, extra)
++     VALUES ($id, $type, $label, $file_path, $start_line, $end_line, $language, $confidence, $extra)`,
++    { start_line: 1, end_line: 1, language: 'cpp', confidence: 1, extra: '{}', ...node });
++}
++
++function insertEdge(db, edge) {
++  db.run(
++    `INSERT INTO edges (from_id, to_id, relation, source_file, source_line, confidence, provenance, extractor)
++     VALUES ($from_id, $to_id, $relation, $source_file, $source_line, $confidence, $provenance, $extractor)`,
++    { source_line: 1, confidence: 1, provenance: 'EXTRACTED', extractor: 'cpp', ...edge });
++}
++
++describe('graph_callers file scope vs the fetch cap', () => {
++  let repoRoot;
++  beforeEach(async () => {
++    repoRoot = await mkdtemp(join(tmpdir(), 'apg-callers-scope-'));
++    await mkdir(join(repoRoot, '.aify-graph'), { recursive: true });
++  });
++  afterEach(async () => { try { await rm(repoRoot, { recursive: true, force: true }); } catch {} });
++
++  it('finds the lone caller in a directory when 120 callers elsewhere exceed the cap', async () => {
++    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
++    insertNode(db, { id: 'target', type: 'Function', label: 'zap_target', file_path: 'core/zap.cpp' });
++    for (let i = 0; i < 120; i++) {
++      insertNode(db, { id: `h${i}`, type: 'Function', label: `heur_caller_${i}`, file_path: `bulk/h${i}.cpp` });
++      insertEdge(db, { from_id: `h${i}`, to_id: 'target', relation: 'CALLS', source_file: `bulk/h${i}.cpp`, confidence: 0.5, provenance: 'HEURISTIC' });
++    }
++    // Inserted LAST so an unordered capped fetch drops it.
++    insertNode(db, { id: 'lsp', type: 'Function', label: 'verified_caller', file_path: 'app/main.cpp' });
++    insertEdge(db, { from_id: 'lsp', to_id: 'target', relation: 'CALLS', source_file: 'app/main.cpp', provenance: 'LSP_VERIFIED' });
++    db.close();
++
++    const scoped = await graphCallers({ repoRoot, symbol: 'zap_target', file: 'app/' });
++    expect(scoped).not.toMatch(/NO CALLERS/);
++    expect(scoped).toContain('verified_caller');
++    expect(scoped).not.toContain('heur_caller_');
++
++    // Control: a directory with no callers still reports absence.
++    const empty = await graphCallers({ repoRoot, symbol: 'zap_target', file: 'nowhere/' });
++    expect(empty).toMatch(/NO CALLERS from "nowhere\/"/);
++  });
++});

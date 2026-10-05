@@ -1,0 +1,3 @@
+ mcp/stdio/query/verbs/callers.js            | 22 ++++++++++++++++------
+ tests/unit/query/truncation-honesty.test.js | 23 +++++++++++++++++++++++
+ 2 files changed, 39 insertions(+), 6 deletions(-)

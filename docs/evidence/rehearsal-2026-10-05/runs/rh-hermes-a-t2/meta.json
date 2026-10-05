@@ -1,0 +1,15 @@
+{
+ "runtime": "hermes",
+ "arm": "A",
+ "task": "T2",
+ "id": "rh-hermes-a-t2",
+ "root": "C:/Docker/aify-trial-arms/A/aify-project-graph",
+ "baseTree": "790d57e18b2ed637c091a6e7614dfbd5df04a9ed",
+ "treeAfterReset": "790d57e18b2ed637c091a6e7614dfbd5df04a9ed",
+ "exit": 0,
+ "signal": null,
+ "error": null,
+ "wallMs": 1319011,
+ "sessionId": "20261005_103321_5b1054",
+ "spills": []
+}

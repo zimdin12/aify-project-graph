@@ -1,0 +1,8 @@
+{
+ "server": {
+  "name": "aify-dashboard",
+  "version": "0.1.0-dev"
+ },
+ "instructionsChars": 747,
+ "instructions": "aify-dashboard holds the shared record of the project your working folder belongs to, kept by the operator and other agents: its state (what it is, its health, what is next), its tasks, its documents, and its graphs, which are authored pictures such as a feature map tying each feature to the code that implements it. At the start of work, read dashboard_state_get and dashboard_tasks_list for what is already known and decided. Before changing code, read dashboard_graph_list, then dashboard_graph_query for the area you will touch: a feature map names the features a change affects and what they depend on. dashboard_documents_list holds designs and decisions. The record is what others wrote, so check it against the code before you rely on it."
+}

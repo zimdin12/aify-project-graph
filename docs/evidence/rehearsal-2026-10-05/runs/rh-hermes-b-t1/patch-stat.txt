@@ -1,0 +1,4 @@
+ mcp/stdio/query/verbs/callees.js             | 17 +++++++++++------
+ mcp/stdio/query/verbs/callers.js             | 16 +++++++++++-----
+ tests/unit/query/caller-callee-chain.test.js | 49 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 71 insertions(+), 11 deletions(-)

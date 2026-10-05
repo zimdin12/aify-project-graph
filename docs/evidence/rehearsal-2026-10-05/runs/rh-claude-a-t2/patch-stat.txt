@@ -1,0 +1,4 @@
+ mcp/stdio/query/coverage-denominator.js       | 12 ++++++++++--
+ mcp/stdio/query/verbs/health.js               | 10 +++++++---
+ tests/unit/query/coverage-denominator.test.js | 39 ++++++++++++++++++++++++++++++++-------
+ 3 files changed, 49 insertions(+), 12 deletions(-)

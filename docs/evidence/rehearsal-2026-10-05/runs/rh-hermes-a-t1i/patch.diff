@@ -1,0 +1,275 @@
+diff --git a/mcp/stdio/query/verbs/callees.js b/mcp/stdio/query/verbs/callees.js
+index 2b362de..81d0517 100644
+--- a/mcp/stdio/query/verbs/callees.js
++++ b/mcp/stdio/query/verbs/callees.js
+@@ -53,6 +53,11 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
+     const scopeParams = {};
+     sourceIds.forEach((id, i) => { scopeParams[`s${i}`] = id; });
+ 
++    // Filter definition paths before each fetch cap, with the same literal,
++    // case-sensitive prefix semantics as graph_callers.
++    const fileScope = file ? 'AND substr(n.file_path, 1, length($file)) = $file' : '';
++    const fileParams = file ? { file } : {};
++
+     let edges;
+     if (depth <= 1) {
+       const placeholders = sourceIds.map((_, i) => `$s${i}`).join(',');
+@@ -62,6 +67,7 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
+         `SELECT e.*, n.label AS to_label, n.type AS to_type, n.file_path AS to_file, n.start_line AS to_line
+          FROM edges e JOIN nodes n ON n.id = e.to_id
+          WHERE e.from_id IN (${placeholders}) AND e.relation IN (${EXECUTION_RELATIONS.map((relation) => `'${relation}'`).join(',')})
++         ${fileScope}
+          -- Mirror rankCallees so the SQL cut and the final ranking agree: a
+          -- verified edge late in the body must not be dropped by LIMIT in favour
+          -- of a heuristic one early in it. Without any ORDER BY at all this
+@@ -69,7 +75,7 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
+          ORDER BY CASE WHEN e.provenance = 'LSP_VERIFIED' THEN 0 ELSE 1 END,
+                   e.source_line, n.label
+          LIMIT ${CALLEE_FETCH_CAP + 1}`,
+-        params
++        { ...params, ...fileParams }
+       );
+     } else {
+       const sid = root.id;
+@@ -91,10 +97,12 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
+           AND e.to_id = c.to_id
+           AND e.relation IN (${EXECUTION_RELATIONS.map((relation) => `'${relation}'`).join(',')})
+          JOIN nodes n ON n.id = e.to_id
++         -- Scope the result, not traversal through intermediate callees.
++         WHERE 1 = 1 ${fileScope}
+          ORDER BY CASE WHEN e.provenance = 'LSP_VERIFIED' THEN 0 ELSE 1 END,
+                   c.depth, e.source_line, n.label
+          LIMIT ${CALLEE_FETCH_CAP + 1}`,
+-        { sid, depth }
++        { sid, depth, ...fileParams }
+       );
+     }
+ 
+@@ -111,8 +119,9 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
+       `SELECT e.*, n.label AS to_label, n.type AS to_type, n.file_path AS to_file, n.start_line AS to_line
+        FROM edges e JOIN nodes n ON n.id = e.to_id
+        WHERE e.from_id = $sid AND e.relation = 'OVERRIDDEN_BY'
++       ${fileScope}
+        LIMIT ${CALLEE_FETCH_CAP + 1}`,
+-      { sid: root.id },
++      { sid: root.id, ...fileParams },
+     );
+ 
+     // Either fetch saturating makes the rendered remainder a floor rather than a total. Both are
+@@ -150,7 +159,7 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
+       return prefixReadWarnings(msg + line + scope, freshness.warnings);
+     };
+ 
+-    if (edges.length === 0 && overrideEdges.length === 0) return absence(`NO CALLEES for "${symbol}"${indexedScopePhrase(db)}. Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`);
++    if (edges.length === 0 && overrideEdges.length === 0) return absence(file ? `NO CALLEES in "${file}"${indexedScopePhrase(db)}` : `NO CALLEES for "${symbol}"${indexedScopePhrase(db)}. Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`);
+ 
+     let mapped = edges.map(e => ({
+       from_id: e.from_id, to_id: e.to_id, relation: e.relation,
+@@ -179,10 +188,9 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
+       depth: 1, from_type: 'Method', fan_in: 1,
+       from_label: root.label,
+       to_label: e.to_label,
+-    })).filter(e => !file || (e.source_file && e.source_file.startsWith(file)));
++    }));
+     overrideCount = overrideMapped.length;
+ 
+-    if (file) mapped = mapped.filter(e => e.source_file && e.source_file.startsWith(file));
+     if (mapped.length === 0 && overrideCount === 0) return absence(file ? `NO CALLEES in "${file}"${indexedScopePhrase(db)}` : `NO CALLEES for "${symbol}"${indexedScopePhrase(db)}. Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`);
+     const ranked = rankCallees(mapped);
+     const { kept, dropped } = enforceBudget(ranked, top_k);
+diff --git a/mcp/stdio/query/verbs/callers.js b/mcp/stdio/query/verbs/callers.js
+index 0ad45d3..9ec70c7 100644
+--- a/mcp/stdio/query/verbs/callers.js
++++ b/mcp/stdio/query/verbs/callers.js
+@@ -49,6 +49,11 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
+     const params = {};
+     targetIds.forEach((id, i) => { params[`t${i}`] = id; });
+ 
++    // Scope the caller's declaration path BEFORE the fetch cap. Use a literal,
++    // case-sensitive prefix (not LIKE, which treats %/_ as wildcards).
++    const fileScope = file ? 'AND substr(n.file_path, 1, length($file)) = $file' : '';
++    const fetchParams = file ? { ...params, file } : params;
++
+     // The SQL cap is a HARDER ceiling than the top_k display budget: past it the
+     // edges were never fetched, so raising top_k cannot reveal them and the trust
+     // banner must not claim an exhaustive caller set. Fetch one extra row purely
+@@ -59,8 +64,13 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
+         `SELECT e.*, n.label AS from_label, n.type AS from_type, n.file_path AS from_file, n.start_line AS from_line
+          FROM edges e JOIN nodes n ON n.id = e.from_id
+          WHERE e.to_id IN (${placeholders}) AND e.relation IN (${EXECUTION_RELATIONS.map((relation) => `'${relation}'`).join(',')})
++         ${fileScope}
++         -- Apply rankCallers priorities before LIMIT, not just to its survivors.
++         ORDER BY CASE WHEN e.provenance = 'LSP_VERIFIED' THEN 0 ELSE 1 END,
++                  e.confidence DESC, CASE WHEN n.type = 'Test' THEN 0 ELSE 1 END,
++                  n.id, e.to_id, e.relation
+          LIMIT ${EDGE_FETCH_CAP + 1}`,
+-        params
++        fetchParams
+       );
+     } else {
+       edges = db.all(
+@@ -81,8 +91,13 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
+           AND e.to_id = c.to_id
+           AND e.relation IN (${EXECUTION_RELATIONS.map((relation) => `'${relation}'`).join(',')})
+          JOIN nodes n ON n.id = e.from_id
++         -- Filter only the result: recursion must cross out-of-scope callers.
++         WHERE 1 = 1 ${fileScope}
++         ORDER BY CASE WHEN e.provenance = 'LSP_VERIFIED' THEN 0 ELSE 1 END,
++                  c.depth, e.confidence DESC, CASE WHEN n.type = 'Test' THEN 0 ELSE 1 END,
++                  n.id, e.to_id, e.relation
+          LIMIT ${EDGE_FETCH_CAP + 1}`,
+-        { ...params, depth }
++        { ...fetchParams, depth }
+       );
+     }
+ 
+@@ -121,13 +136,13 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
+       return prefixReadWarnings(msg + line + scope, freshness.warnings);
+     };
+ 
+-    if (edges.length === 0) return absence(`NO CALLERS for "${symbol}"${indexedScopePhrase(db)}. Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`);
++    if (edges.length === 0) return absence(file ? `NO CALLERS from "${file}"${indexedScopePhrase(db)}` : `NO CALLERS for "${symbol}"${indexedScopePhrase(db)}. Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`);
+ 
+     // NOTE (P0-4): `source_file`/`source_line` here carry the CALLER's
+     // DECLARATION location, not the call site. That is deliberate — edges are
+     // function-granular (see docs/known-limitations.md), so one edge can stand
+     // for several call sites inside the caller and there is no single call-site
+-    // line to show. It is also what makes the `file` directory filter below mean
++    // line to show. It is also what makes the SQL `file` directory filter mean
+     // "callers living under this path". The location is honest data; what was
+     // NOT honest was rendering it in a format that reads as a call site, so the
+     // output now says which it is (see LOCATIONS note below).
+@@ -142,8 +157,7 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
+       to_label: symbol,
+     }));
+     if (rolledUp) mapped = collapseCallerEdges(mapped, symbol);
+-    // File scope filter: only show callers from a specific directory
+-    if (file) mapped = mapped.filter(e => e.source_file && e.source_file.startsWith(file));
++
+     if (mapped.length === 0) return absence(file ? `NO CALLERS from "${file}"${indexedScopePhrase(db)}` : `NO CALLERS for "${symbol}"${indexedScopePhrase(db)}. Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`);
+     const ranked = rankCallers(mapped);
+     const { kept, dropped } = enforceBudget(ranked, top_k);
+diff --git a/tests/unit/query/caller-callee-fetch-scope.test.js b/tests/unit/query/caller-callee-fetch-scope.test.js
+new file mode 100644
+index 0000000..48ed280
+--- /dev/null
++++ b/tests/unit/query/caller-callee-fetch-scope.test.js
+@@ -0,0 +1,118 @@
++import { describe, expect, it, beforeEach, afterEach } from 'vitest';
++import { mkdtemp, rm, writeFile } from 'node:fs/promises';
++import { tmpdir } from 'node:os';
++import { join } from 'node:path';
++import { execFileSync } from 'node:child_process';
++import { openDb } from '../../../mcp/stdio/storage/db.js';
++import { upsertNode } from '../../../mcp/stdio/storage/nodes.js';
++import { upsertEdge } from '../../../mcp/stdio/storage/edges.js';
++import { graphCallers } from '../../../mcp/stdio/query/verbs/callers.js';
++import { graphCallees } from '../../../mcp/stdio/query/verbs/callees.js';
++import { SCHEMA_VERSION } from '../../../mcp/stdio/storage/schema.js';
++import { EXTRACTOR_VERSION, PARSER_BUNDLE_VERSION } from '../../../mcp/stdio/freshness/manifest.js';
++
++for (const [name, query, incoming] of [
++  ['callers', graphCallers, true],
++  ['callees', graphCallees, false],
++]) {
++  describe(`${name}: scope and priority precede the fetch cap`, () => {
++    let repoRoot;
++    let db;
++    const node = (id, file) => upsertNode(db, {
++      id, label: id, type: 'Function', file_path: file, start_line: 1, end_line: 2,
++      language: 'cpp', confidence: 1, structural_fp: '', dependency_fp: '', extra: {},
++    });
++    const edge = (near, far, provenance = 'EXTRACTED', relation = 'CALLS') => upsertEdge(db, {
++      from_id: incoming ? far : near, to_id: incoming ? near : far, relation,
++      // Deliberately distinct from the endpoint definition used for file scope.
++      source_file: 'call-sites.cpp', source_line: 1, confidence: 0.9,
++      provenance, extractor: 'test',
++    });
++    const fanout = (file) => {
++      for (let i = 0; i < 120; i++) {
++        const id = `heuristic_${String(i).padStart(3, '0')}`;
++        node(id, `${file}/${id}.cpp`);
++        edge('target', id);
++      }
++    };
++
++    beforeEach(async () => {
++      repoRoot = await mkdtemp(join(tmpdir(), 'apg-fetch-scope-'));
++      execFileSync('git', ['init', '-q'], { cwd: repoRoot });
++      execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '--allow-empty', '-qm', 'init'], { cwd: repoRoot });
++      const commit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim();
++      db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
++      node('target', 'src/target.cpp');
++      await writeFile(join(repoRoot, '.aify-graph', 'manifest.json'), JSON.stringify({
++        status: 'ok', commit, indexedAt: new Date().toISOString(),
++        schemaVersion: SCHEMA_VERSION, extractorVersion: EXTRACTOR_VERSION,
++        parserBundleVersion: PARSER_BUNDLE_VERSION, dirtyFiles: [], dirtyEdges: [],
++        dirtyEdgeCount: 0, trustDirtyEdgeCount: 0,
++      }));
++    });
++    afterEach(async () => {
++      db.close();
++      await rm(repoRoot, { recursive: true, force: true });
++    });
++
++    for (const depth of [1, 2]) {
++      for (const provenance of ['LSP_VERIFIED', 'EXTRACTED']) {
++        it(`finds a ${provenance} scoped edge after 120 out-of-scope edges at depth ${depth}`, async () => {
++          fanout('bulk');
++          node('scoped_match', 'selected/match.cpp');
++          edge('target', 'scoped_match', provenance);
++          const out = await query({ repoRoot, symbol: 'target', depth, file: 'selected/', top_k: 1 });
++          expect(out).toContain('scoped_match');
++          expect(out).toContain('selected/match.cpp:1');
++          expect(out).not.toMatch(/NO CALLERS|NO CALLEES|heuristic_\d|TRUNCATED/);
++          if (provenance === 'LSP_VERIFIED') expect(out).toContain('[lsp✓]');
++        });
++      }
++
++      it(`keeps verified edges ahead of the unscoped cap at depth ${depth}`, async () => {
++        fanout('bulk');
++        node('verified_match', 'selected/match.cpp');
++        edge('target', 'verified_match', 'LSP_VERIFIED');
++        const out = await query({ repoRoot, symbol: 'target', depth, top_k: 1 });
++        expect(out).toContain('verified_match');
++        expect(out).toContain('[lsp✓]');
++        expect(out).toContain('TRUNCATED at least 99 more');
++      });
++    }
++
++    it('traverses through an out-of-scope intermediate node', async () => {
++      fanout('bulk');
++      node('bridge', 'bulk/bridge.cpp');
++      node('indirect_match', 'selected/indirect.cpp');
++      edge('target', 'bridge');
++      edge('bridge', 'indirect_match');
++      const out = await query({ repoRoot, symbol: 'target', depth: 2, file: 'selected/' });
++      expect(out).toContain('indirect_match');
++      expect(out).not.toContain('bulk/bridge.cpp:1');
++    });
++
++    it('uses a literal, case-sensitive prefix, including SQL wildcard characters', async () => {
++      node('literal_match', 'Selected_%/match.cpp');
++      node('wildcard_decoy', 'Selected_ab/match.cpp');
++      node('case_decoy', 'selected_%/match.cpp');
++      for (const id of ['literal_match', 'wildcard_decoy', 'case_decoy']) edge('target', id);
++      const out = await query({ repoRoot, symbol: 'target', file: 'Selected_%\\' });
++      expect(out).toContain('literal_match');
++      expect(out).not.toMatch(/wildcard_decoy|case_decoy/);
++    });
++
++    if (!incoming) {
++      it('scopes virtual overrides before their separate cap', async () => {
++        for (let i = 0; i < 120; i++) {
++          node(`override_${i}`, `bulk/override_${i}.cpp`);
++          edge('target', `override_${i}`, 'INFERRED', 'OVERRIDDEN_BY');
++        }
++        node('scoped_override', 'selected/override.cpp');
++        edge('target', 'scoped_override', 'INFERRED', 'OVERRIDDEN_BY');
++        const out = await query({ repoRoot, symbol: 'target', file: 'selected/' });
++        expect(out).toContain('scoped_override');
++        expect(out).not.toMatch(/NO CALLEES|bulk\/override/);
++      });
++    }
++  });
++}

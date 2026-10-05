@@ -1,0 +1,12 @@
+Fixed the population mismatch.
+
+Cause: health.js counted all LSP_VERIFIED edges as the numerator, but divided by only verifiable, in-scope CALLS. Non-call relations, out-of-scope files, and unsupported languages inflated the percentage.
+
+The fix counts verified CALLS within the same language/scope buckets as the denominator—no percentage clamping. lspVerifiedEdges remains the all-edge total; the new lspVerifiedVerifiableInScopeCalls exposes the actual numerator. Both percentage fields use the corrected calculation.
+
+Tests cover:
+  949 verified edges with 19 eligible, verified calls → 100%, not 4995%.
+  Partial coverage with excluded verified calls → 26%, not a clamped 100%.
+  Zero eligible calls → 0%.
+
+Verification: regression, helper, and related health tests passed. git diff --check passed. The broader query suite timed out, so its result is unverified.

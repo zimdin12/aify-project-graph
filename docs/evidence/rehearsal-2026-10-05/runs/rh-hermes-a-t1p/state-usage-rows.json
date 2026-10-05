@@ -1,0 +1,42 @@
+[
+ {
+  "session_id": "20261005_111952_8b085c",
+  "model": "gpt-6.1-sol",
+  "billing_provider": "openai-codex",
+  "billing_base_url": "https://chatgpt.com/backend-api/codex",
+  "billing_mode": "subscription_included",
+  "task": "",
+  "api_call_count": 16,
+  "input_tokens": 70171,
+  "output_tokens": 5636,
+  "cache_read_tokens": 674560,
+  "cache_write_tokens": 0,
+  "reasoning_tokens": 427,
+  "estimated_cost_usd": 0,
+  "actual_cost_usd": 0,
+  "cost_status": "included",
+  "cost_source": "none",
+  "first_seen": 1791188406.499711,
+  "last_seen": 1791189264.6448762
+ },
+ {
+  "session_id": "20261005_111952_8b085c",
+  "model": "gpt-6.1-sol",
+  "billing_provider": "openai-codex",
+  "billing_base_url": "https://chatgpt.com/backend-api/codex/",
+  "billing_mode": "",
+  "task": "title_generation",
+  "api_call_count": 1,
+  "input_tokens": 325,
+  "output_tokens": 16,
+  "cache_read_tokens": 0,
+  "cache_write_tokens": 0,
+  "reasoning_tokens": 0,
+  "estimated_cost_usd": 0,
+  "actual_cost_usd": 0,
+  "cost_status": null,
+  "cost_source": null,
+  "first_seen": 1791188408.1281676,
+  "last_seen": 1791188408.1281676
+ }
+]

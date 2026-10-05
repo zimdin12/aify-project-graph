@@ -1,0 +1,18 @@
+{
+ "runtime": "claude",
+ "arm": "B",
+ "task": "T1",
+ "id": "rh-claude-b-t1",
+ "root": "C:/Docker/aify-trial-arms/B/aify-project-graph",
+ "baseTree": "5ca73d59839d916adc9c4e817f45d1379d2dd5a2",
+ "treeAfterReset": "5ca73d59839d916adc9c4e817f45d1379d2dd5a2",
+ "exit": 0,
+ "signal": null,
+ "error": null,
+ "wallMs": 708707,
+ "sessionId": "8055b5cc-a3c0-4c3c-ab5c-a8ac7973b385",
+ "initServers": [
+  "aify-dashboard:connected"
+ ],
+ "initModel": "claude-sonnet-5-5"
+}

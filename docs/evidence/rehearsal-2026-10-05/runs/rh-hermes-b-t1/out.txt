@@ -1,0 +1,8 @@
+Fixed. The SQL query fetched 101 edges and kept 100 before applying the directory filter. Out-of-scope heuristic callers filled the cap, so the matching LSP_VERIFIED caller never reached the filter.
+
+Changes:
+  mcp/stdio/query/verbs/callers.js:51 — apply the path filter in SQL before LIMIT for both direct and recursive queries. Recursive traversal still crosses out-of-scope intermediates.
+  mcp/stdio/query/verbs/callees.js:55 — fixed the mirrored bug, including override edges.
+  tests/unit/query/caller-callee-chain.test.js:93 — regression coverage with 120 out-of-scope edges, verified and heuristic scoped matches, literal path-prefix matching, and recursive traversal.
+
+Verified: the regressions failed before the fix. Afterward, all 43 tests across four relevant test files passed; git diff --check passed. Full suite not run.

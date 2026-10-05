@@ -1,0 +1,47 @@
+{
+  "estimated_cost_usd": 0.0,
+  "cost_status": "included",
+  "cost_source": "none",
+  "input_tokens": 55687,
+  "output_tokens": 5792,
+  "cache_read_tokens": 560000,
+  "cache_write_tokens": 0,
+  "reasoning_tokens": 297,
+  "total_tokens": 621479,
+  "api_calls": 15,
+  "model": "gpt-6.1-sol",
+  "provider": "openai-codex",
+  "session_id": "20261005_100148_0ebd05",
+  "completed": true,
+  "partial": false,
+  "interrupted": false,
+  "turn_exit_reason": "text_response(finish_reason=stop)",
+  "failed": false,
+  "service_tier": null,
+  "auxiliary": {
+    "api_calls": 1,
+    "input_tokens": 268,
+    "output_tokens": 75,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "reasoning_tokens": 0,
+    "estimated_cost_usd": 0,
+    "total_tokens": 343,
+    "by_task": {
+      "title_generation": {
+        "api_calls": 1,
+        "input_tokens": 268,
+        "output_tokens": 75,
+        "cache_read_tokens": 0,
+        "cache_write_tokens": 0,
+        "reasoning_tokens": 0,
+        "estimated_cost_usd": 0
+      }
+    }
+  },
+  "total_including_auxiliary": {
+    "estimated_cost_usd": 0.0,
+    "total_tokens": 621822,
+    "api_calls": 16
+  }
+}

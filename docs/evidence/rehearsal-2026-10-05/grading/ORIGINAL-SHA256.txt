@@ -1,0 +1,18 @@
+# SHA-256 of each bundle file as the grader read it (C:/Docker/aify-rehearsal-grading, 2026-10-05).
+# Committed copies have raw control bytes written as visible \u00XX text; reversing that restores these bytes.
+c6dcc55ee107347a6d87482497fa86eb22ad36d116a634cde1e79c9a52169a41  R1/transcript.md  (0 control bytes escaped)
+9762dee2fc2a390060ba2032ea5bb44f21ed828a319e9c10fb677e5abe24f9cb  R1/patch.diff  (0 control bytes escaped)
+a9b6ed5ea696fde2c77951891b0ad8a2f3fa1ecaabde701b366d27dcc122038d  R2/transcript.md  (106 control bytes escaped)
+77894b1e2606aee3930a87f3be7c3fa3687890ffa7bc3295b2cca942b4d6ff2a  R2/patch.diff  (0 control bytes escaped)
+ae95eae49c8642241be9321c13348eca1fa5df00b65efd81f72d27e06d45cb23  R3/transcript.md  (130 control bytes escaped)
+7908b0ab45027485ff0f3d66ae2172db3e44576395755952914db346541b73ed  R3/patch.diff  (0 control bytes escaped)
+87c0a9518eca3aef61a8ea16f2282793f6a1eb3c6cbac01ebf81efb2ec3d6c82  R4/transcript.md  (108 control bytes escaped)
+9a9d955cfc9f2ef7755f6a12236c7cbd5d712715a9cb0c2f9d4b1b4d621b956e  R4/patch.diff  (0 control bytes escaped)
+bf03442e8df4ed2b6efe2e2568bd4d23bac66e99d7a3673ac667a6cac5b45b2c  R5/transcript.md  (0 control bytes escaped)
+651fb6ae84d55b5f422cac6aaec1b9523722358b1416f006af1e76d16279cebd  R5/patch.diff  (0 control bytes escaped)
+f08c97cb072c3976fa753a6608b539ee242215027961828ac3840a601fb11037  R6/transcript.md  (0 control bytes escaped)
+88d83768506562cd2321721e9c2108305c35c42e57cd16a937e6ffecd58e94d6  R6/patch.diff  (0 control bytes escaped)
+038aa154fc20b4273828785614a6f8cb28328cb348acb32eb4fe457da73f56c0  R7/transcript.md  (0 control bytes escaped)
+c9966567a80e9147b5291e6c6d50f61cf79906c1fcb3360164ecdcdfa8fd4b5b  R7/patch.diff  (0 control bytes escaped)
+d951356a77da5fb4a51049d31838344bb477caa525a77b9e99245207030d3011  R8/transcript.md  (107 control bytes escaped)
+dc235a5b3a23758a22fee70cc30d77f6fd44e086d70ad849309e467541114c55  R8/patch.diff  (0 control bytes escaped)

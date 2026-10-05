@@ -1,0 +1,10 @@
+{
+ "R1": "rh-hermes-a-t2",
+ "R2": "rh-claude-b-t2",
+ "R3": "rh-claude-b-t1",
+ "R4": "rh-claude-a-t1",
+ "R5": "rh-hermes-b-t2",
+ "R6": "rh-hermes-b-t1",
+ "R7": "rh-hermes-a-t1",
+ "R8": "rh-claude-a-t2"
+}

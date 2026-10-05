@@ -1,0 +1,4 @@
+ mcp/stdio/query/verbs/callees.js                    |  19 ++++++++----
+ mcp/stdio/query/verbs/callers.js                    |  18 +++++++----
+ tests/unit/query/directory-scope-before-cap.test.js | 117 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 142 insertions(+), 12 deletions(-)

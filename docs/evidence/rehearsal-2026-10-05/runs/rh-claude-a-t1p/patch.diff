@@ -1,0 +1,96 @@
+diff --git a/mcp/stdio/query/verbs/callers.js b/mcp/stdio/query/verbs/callers.js
+index 0ad45d3..00e3a02 100644
+--- a/mcp/stdio/query/verbs/callers.js
++++ b/mcp/stdio/query/verbs/callers.js
+@@ -53,14 +53,21 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
+     // edges were never fetched, so raising top_k cannot reveal them and the trust
+     // banner must not claim an exhaustive caller set. Fetch one extra row purely
+     // to detect that we hit it.
++    // ⛔ THE `file` SCOPE FILTER MUST RUN INSIDE THE CAPPED QUERY. Applied after the LIMIT, a target
++    // with 120 callers elsewhere filled the cap and the one caller under `file` was never fetched —
++    // "NO CALLERS from <dir>" for a directory that holds a caller. substr() not LIKE: a path may
++    // contain % or _. Same prefix semantics the JS filter had (startsWith on the caller's file).
++    const fileClause = file ? 'AND substr(n.file_path, 1, length($file)) = $file' : '';
++    const edgeParams = file ? { ...params, file } : params;
+     let edges;
+     if (depth <= 1) {
+       edges = db.all(
+         `SELECT e.*, n.label AS from_label, n.type AS from_type, n.file_path AS from_file, n.start_line AS from_line
+          FROM edges e JOIN nodes n ON n.id = e.from_id
+          WHERE e.to_id IN (${placeholders}) AND e.relation IN (${EXECUTION_RELATIONS.map((relation) => `'${relation}'`).join(',')})
++         ${fileClause}
+          LIMIT ${EDGE_FETCH_CAP + 1}`,
+-        params
++        edgeParams
+       );
+     } else {
+       edges = db.all(
+@@ -81,8 +88,9 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
+           AND e.to_id = c.to_id
+           AND e.relation IN (${EXECUTION_RELATIONS.map((relation) => `'${relation}'`).join(',')})
+          JOIN nodes n ON n.id = e.from_id
++         WHERE 1 = 1 ${fileClause}
+          LIMIT ${EDGE_FETCH_CAP + 1}`,
+-        { ...params, depth }
++        { ...edgeParams, depth }
+       );
+     }
+ 
+@@ -121,7 +129,10 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
+       return prefixReadWarnings(msg + line + scope, freshness.warnings);
+     };
+ 
+-    if (edges.length === 0) return absence(`NO CALLERS for "${symbol}"${indexedScopePhrase(db)}. Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`);
++    const noCallersMessage = () => file
++      ? `NO CALLERS from "${file}"${indexedScopePhrase(db)}`
++      : `NO CALLERS for "${symbol}"${indexedScopePhrase(db)}. Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`;
++    if (edges.length === 0) return absence(noCallersMessage());
+ 
+     // NOTE (P0-4): `source_file`/`source_line` here carry the CALLER's
+     // DECLARATION location, not the call site. That is deliberate — edges are
+@@ -142,9 +153,8 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
+       to_label: symbol,
+     }));
+     if (rolledUp) mapped = collapseCallerEdges(mapped, symbol);
+-    // File scope filter: only show callers from a specific directory
+-    if (file) mapped = mapped.filter(e => e.source_file && e.source_file.startsWith(file));
+-    if (mapped.length === 0) return absence(file ? `NO CALLERS from "${file}"${indexedScopePhrase(db)}` : `NO CALLERS for "${symbol}"${indexedScopePhrase(db)}. Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`);
++    // File scope filter is applied in SQL above (before the fetch cap), not here.
++    if (mapped.length === 0) return absence(noCallersMessage());
+     const ranked = rankCallers(mapped);
+     const { kept, dropped } = enforceBudget(ranked, top_k);
+     const body = renderCompact({ nodes: [], edges: kept, truncated: dropped, suggestion: `top_k=${top_k + 10}`, truncatedIsFloor: edgesTruncated });
+diff --git a/tests/unit/query/truncation-honesty.test.js b/tests/unit/query/truncation-honesty.test.js
+index 67ad9cd..c1b08f1 100644
+--- a/tests/unit/query/truncation-honesty.test.js
++++ b/tests/unit/query/truncation-honesty.test.js
+@@ -80,6 +80,29 @@ describe('truncation honesty', () => {
+     expect(out).toMatch(/FLOOR/);
+   });
+ 
++  // The `file` scope filter ran AFTER the 101-row SQL cap: 120 heuristic callers elsewhere filled
++  // the cap and the lone LSP_VERIFIED caller under `file` was never fetched -> false NO CALLERS.
++  it('graph_callers file scope finds a caller the fetch cap would have crowded out', async () => {
++    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
++    insertNode(db, { id: 'callee', type: 'Function', label: 'crowded_target', file_path: 'core/target.cpp' });
++    for (let i = 0; i < 120; i++) {
++      insertNode(db, { id: `h${i}`, type: 'Function', label: `heur_${i}`, file_path: `heur/h${i}.cpp` });
++      insertEdge(db, { from_id: `h${i}`, to_id: 'callee', relation: 'CALLS', source_file: `heur/h${i}.cpp`, confidence: 0.5, provenance: 'INFERRED' });
++    }
++    insertNode(db, { id: 'real', type: 'Function', label: 'verified_caller', file_path: 'app/main.cpp' });
++    insertEdge(db, { from_id: 'real', to_id: 'callee', relation: 'CALLS', source_file: 'app/main.cpp', provenance: 'LSP_VERIFIED' });
++    db.close();
++
++    for (const depth of [1, 2]) {
++      const out = await graphCallers({ repoRoot, symbol: 'crowded_target', file: 'app/', depth });
++      expect(out).not.toMatch(/NO CALLERS/);
++      expect(out).toContain('verified_caller');
++      expect(out).not.toContain('heur_');
++    }
++    // negative control: a directory with no caller still answers absence
++    expect(await graphCallers({ repoRoot, symbol: 'crowded_target', file: 'nowhere/' })).toMatch(/NO CALLERS from "nowhere\/"/);
++  });
++
+   it('graph_callers states its locations are caller declarations, not call sites', async () => {
+     const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+     insertNode(db, { id: 'callee', type: 'Function', label: 'sample_fluid_drag', file_path: 'sim/Terrain.cpp', start_line: 796 });

@@ -1,0 +1,77 @@
+{
+ "id": "rh-claude-a-t1p",
+ "runtime": "claude",
+ "arm": "A",
+ "task": "T1P",
+ "wallMs": 1427178,
+ "exit": 0,
+ "sessionId": "e19c5ce8-30bd-4db1-90af-2c7dc83f5952",
+ "tokens": {
+  "exit": 0,
+  "ok": true,
+  "sessionId": "e19c5ce8-30bd-4db1-90af-2c7dc83f5952",
+  "ended": {
+   "subtype": "success",
+   "isError": false,
+   "numTurns": 26
+  },
+  "time": {
+   "ok": true,
+   "wallMs": 1427178,
+   "harnessMs": 1417710,
+   "startupMs": 9468
+  },
+  "tokens": {
+   "ok": true,
+   "perModel": {
+    "claude-sonnet-5-5": {
+     "inputTokens": 46,
+     "outputTokens": 7629,
+     "cacheReadInputTokens": 1329724,
+     "cacheCreationInputTokens": 51190
+    }
+   },
+   "total": {
+    "inputTokens": 46,
+    "outputTokens": 7629,
+    "cacheReadInputTokens": 1329724,
+    "cacheCreationInputTokens": 51190
+   },
+   "session": {
+    "inputTokens": 46,
+    "outputTokens": 7629,
+    "cacheReadInputTokens": 1329724,
+    "cacheCreationInputTokens": 51190
+   },
+   "subagents": {
+    "inputTokens": 0,
+    "outputTokens": 0,
+    "cacheReadInputTokens": 0,
+    "cacheCreationInputTokens": 0
+   },
+   "calls": 23
+  }
+ },
+ "layer": {
+  "exit": 0,
+  "ok": true,
+  "dashboardCalls": 0,
+  "layerCalls": 0,
+  "seenCalls": 0,
+  "nodesTouched": [],
+  "nodesSeen": [],
+  "calls": []
+ },
+ "toolCalls": 25,
+ "apgCalls": 0,
+ "carrier": {
+  "initServers": [
+   "aify-dashboard:connected"
+  ],
+  "initDashboardAlone": true
+ },
+ "void": false,
+ "credentialHits": 0,
+ "writesOutsideRoot": [],
+ "patchBytes": 5980
+}

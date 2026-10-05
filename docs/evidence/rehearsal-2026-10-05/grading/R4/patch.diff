@@ -1,0 +1,72 @@
+diff --git a/mcp/stdio/query/verbs/callers.js b/mcp/stdio/query/verbs/callers.js
+index 0ad45d3..c4a0816 100644
+--- a/mcp/stdio/query/verbs/callers.js
++++ b/mcp/stdio/query/verbs/callers.js
+@@ -53,12 +53,19 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
+     // edges were never fetched, so raising top_k cannot reveal them and the trust
+     // banner must not claim an exhaustive caller set. Fetch one extra row purely
+     // to detect that we hit it.
++    // ⛔ THE `file` SCOPE FILTER MUST RUN IN SQL, BEFORE THE LIMIT. It used to run on the already
++    // capped rows, so a target with >EDGE_FETCH_CAP callers elsewhere filled the cap first and a
++    // caller that DOES live under `file` was never fetched: "NO CALLERS from <dir>" for a
++    // directory containing one. Prefix match via substr (not LIKE) so `_`/`%` in a path stay literal.
++    const fileClause = file ? 'AND substr(n.file_path, 1, length($file)) = $file' : '';
++    if (file) params.file = file;
+     let edges;
+     if (depth <= 1) {
+       edges = db.all(
+         `SELECT e.*, n.label AS from_label, n.type AS from_type, n.file_path AS from_file, n.start_line AS from_line
+          FROM edges e JOIN nodes n ON n.id = e.from_id
+          WHERE e.to_id IN (${placeholders}) AND e.relation IN (${EXECUTION_RELATIONS.map((relation) => `'${relation}'`).join(',')})
++         ${fileClause}
+          LIMIT ${EDGE_FETCH_CAP + 1}`,
+         params
+       );
+@@ -81,6 +88,7 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
+           AND e.to_id = c.to_id
+           AND e.relation IN (${EXECUTION_RELATIONS.map((relation) => `'${relation}'`).join(',')})
+          JOIN nodes n ON n.id = e.from_id
++         WHERE 1 = 1 ${fileClause}
+          LIMIT ${EDGE_FETCH_CAP + 1}`,
+         { ...params, depth }
+       );
+@@ -142,7 +150,8 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
+       to_label: symbol,
+     }));
+     if (rolledUp) mapped = collapseCallerEdges(mapped, symbol);
+-    // File scope filter: only show callers from a specific directory
++    // File scope filter is applied in SQL above (before the fetch cap). After a class rollup the
++    // collapsed rows can still differ in file, so keep the cheap in-memory guard too.
+     if (file) mapped = mapped.filter(e => e.source_file && e.source_file.startsWith(file));
+     if (mapped.length === 0) return absence(file ? `NO CALLERS from "${file}"${indexedScopePhrase(db)}` : `NO CALLERS for "${symbol}"${indexedScopePhrase(db)}. Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`);
+     const ranked = rankCallers(mapped);
+diff --git a/tests/unit/query/truncation-honesty.test.js b/tests/unit/query/truncation-honesty.test.js
+index 67ad9cd..bc46c5f 100644
+--- a/tests/unit/query/truncation-honesty.test.js
++++ b/tests/unit/query/truncation-honesty.test.js
+@@ -80,6 +80,25 @@ describe('truncation honesty', () => {
+     expect(out).toMatch(/FLOOR/);
+   });
+ 
++  it('graph_callers file scope finds a caller that sits past the fetch cap in another directory', async () => {
++    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
++    insertNode(db, { id: 'callee', type: 'Function', label: 'shared_target', file_path: 'core/t.cpp' });
++    // 120 heuristic callers in one directory fill the 100-row SQL cap...
++    for (let i = 0; i < 120; i++) {
++      insertNode(db, { id: `h${i}`, type: 'Function', label: `bulk_caller_${i}`, file_path: `bulk/b${i}.cpp` });
++      insertEdge(db, { from_id: `h${i}`, to_id: 'callee', relation: 'CALLS', source_file: `bulk/b${i}.cpp`, provenance: 'INFERRED' });
++    }
++    // ...and the one verified caller lives elsewhere, inserted last.
++    insertNode(db, { id: 'v', type: 'Function', label: 'verified_caller', file_path: 'app/v.cpp' });
++    insertEdge(db, { from_id: 'v', to_id: 'callee', relation: 'CALLS', source_file: 'app/v.cpp', provenance: 'LSP_VERIFIED' });
++    db.close();
++
++    const out = await graphCallers({ repoRoot, symbol: 'shared_target', file: 'app/' });
++
++    expect(out).not.toMatch(/NO CALLERS/);
++    expect(out).toContain('verified_caller');
++  });
++
+   it('graph_callers states its locations are caller declarations, not call sites', async () => {
+     const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+     insertNode(db, { id: 'callee', type: 'Function', label: 'sample_fluid_drag', file_path: 'sim/Terrain.cpp', start_line: 796 });

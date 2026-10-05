@@ -1,0 +1,12 @@
+Fixed the population mismatch.
+
+Cause: health.js divided all LSP_VERIFIED edges—including non-CALLS relations, unsupported languages, and out-of-scope files—by only verifiable, in-scope CALLS.
+
+Changes:
+  - mcp/stdio/query/verbs/health.js:1497 now collects verified counts alongside CALLS counts, using the same caller-file scope.
+  - mcp/stdio/query/coverage-denominator.js:40 filters numerator and denominator identically.
+  - Preserved lspVerifiedEdges as the global count and added lspVerifiedVerifiableInScopeCalls to expose the actual numerator. Both percentage fields use the corrected ratio; no clamping.
+
+Tests cover mixed relations/languages, out-of-scope files, aggregation across files, zero/partial/full verification, and unknown scope. The regression fixture has 949 verified edges and 19 eligible calls; with 10 eligible verified calls it correctly reports 53%.
+
+Verification: 24 focused tests passed; existing collection-coverage and code-intel tests also passed. The broader query-suite run timed out, so I can’t claim a full-suite pass.

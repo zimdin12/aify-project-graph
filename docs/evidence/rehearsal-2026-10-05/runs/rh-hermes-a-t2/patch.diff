@@ -1,0 +1,313 @@
+diff --git a/mcp/stdio/brief/artifacts.js b/mcp/stdio/brief/artifacts.js
+index 4cf5128..d382ea4 100644
+--- a/mcp/stdio/brief/artifacts.js
++++ b/mcp/stdio/brief/artifacts.js
+@@ -27,7 +27,7 @@ import { taskFeatureRefs, taskLinkStrength } from '../overlay/quality.js';
+ // in this repo are called `computeCoverage`, with three different signatures —
+ //   · this one                          ({resolved, declared, taskCount, contractCount})
+ //   · code-intel/coverage.js            ({language, projectRoot, file, env})
+-//   · query/coverage-denominator.js     (langScopeRows, verified)
++//   · query/coverage-denominator.js     (langScopeRows with per-bucket verified counts)
+ // They are unrelated. The refactor proposal referred to "computeCoverage" without qualification.
+ export function computeCoverage({ resolved, declared, taskCount, contractCount }) {
+   const anchorRatio = declared === 0 ? 1 : resolved / declared;
+diff --git a/mcp/stdio/query/coverage-denominator.js b/mcp/stdio/query/coverage-denominator.js
+index 759ef4b..d875339 100644
+--- a/mcp/stdio/query/coverage-denominator.js
++++ b/mcp/stdio/query/coverage-denominator.js
+@@ -28,9 +28,8 @@
+ export const LSP_VERIFIABLE_LANGUAGES = new Set(['cpp', 'c', 'cxx', 'cc', 'h', 'hpp']);
+ 
+ /**
+- * @param {Array<{lang: string, c: number, inScope?: boolean}>} langScopeRows
+- *        one row per (language, scope) bucket with a count.
+- * @param {number} verified  edges actually verified by an LSP backend.
++ * @param {Array<{lang: string, c: number, verified?: number, inScope?: boolean|null}>} langScopeRows
++ *        one row per (language, scope) CALLS bucket, including its verified count.
+  * @returns {{
+  *   verifiable: number, verified: number, pct: number,
+  *   denominator: string,
+@@ -38,13 +37,15 @@ export const LSP_VERIFIABLE_LANGUAGES = new Set(['cpp', 'c', 'cxx', 'cc', 'h', '
+  *   unverifiable: Array<{reason: string, lang: string, count: number}>
+  * }}
+  */
+-export function computeCoverage(langScopeRows = [], verified = 0) {
++export function computeCoverage(langScopeRows = []) {
+   const outOfScopeRows = langScopeRows.filter((r) => r.inScope === false);
+   const inScopeRows = langScopeRows.filter((r) => r.inScope !== false);
+ 
+-  const verifiable = inScopeRows
+-    .filter((r) => LSP_VERIFIABLE_LANGUAGES.has(r.lang))
+-    .reduce((a, r) => a + r.c, 0);
++  // Both sides must describe the same CALLS population. A global verified-edge
++  // count also includes other relations, languages and out-of-scope files.
++  const verifiableRows = inScopeRows.filter((r) => LSP_VERIFIABLE_LANGUAGES.has(r.lang));
++  const verifiable = verifiableRows.reduce((a, r) => a + r.c, 0);
++  const verified = verifiableRows.reduce((a, r) => a + (r.verified ?? 0), 0);
+ 
+   const unverifiable = inScopeRows
+     .filter((r) => !LSP_VERIFIABLE_LANGUAGES.has(r.lang))
+diff --git a/mcp/stdio/query/verbs/health.js b/mcp/stdio/query/verbs/health.js
+index c4e5ce9..f74f886 100644
+--- a/mcp/stdio/query/verbs/health.js
++++ b/mcp/stdio/query/verbs/health.js
+@@ -70,7 +70,7 @@ export function decayFromCoveredFiles(covered, latest, head, repoRoot) {
+   }
+ }
+ 
+-import { computeCoverage } from '../coverage-denominator.js';
++import { computeCoverage, LSP_VERIFIABLE_LANGUAGES } from '../coverage-denominator.js';
+ import { openExistingDb, captureExistingSnapshot } from '../../storage/db.js';
+ import { readTrustClassificationInputs } from '../../storage/unresolved-refs.js';
+ import { classifyPublication, readGraphPublication, ATTESTATION } from '../../storage/publication-schema.js';
+@@ -1497,7 +1497,8 @@ export async function graphHealth({ repoRoot }) {
+         const byLang = db2.all(
+           `SELECT COALESCE(NULLIF(n.language, ''), '(unknown)') AS lang,
+                   COALESCE(NULLIF(n.file_path, ''), '') AS fp,
+-                  COUNT(*) AS c
++                  COUNT(*) AS c,
++                  SUM(CASE WHEN e.provenance = 'LSP_VERIFIED' THEN 1 ELSE 0 END) AS verified
+              FROM edges e JOIN nodes n ON n.id = e.from_id
+             WHERE e.relation = 'CALLS' GROUP BY lang, fp`,
+         ).reduce((acc, r) => {
+@@ -1506,19 +1507,21 @@ export async function graphHealth({ repoRoot }) {
+           // scope is unknown rather than assuming everything counts.
+           const inScope = trackedFiles == null ? null : trackedFiles.has(r.fp);
+           const key = `${r.lang}\x00${inScope}`;
+-          acc.set(key, { lang: r.lang, inScope, c: (acc.get(key)?.c ?? 0) + r.c });
++          acc.set(key, {
++            lang: r.lang, inScope,
++            c: (acc.get(key)?.c ?? 0) + r.c,
++            verified: (acc.get(key)?.verified ?? 0) + r.verified,
++          });
+           return acc;
+         }, new Map());
+         const langScopeRows = [...byLang.values()];
+         const outOfScope = langScopeRows.filter((r) => r.inScope === false);
+         const inScopeRows = langScopeRows.filter((r) => r.inScope !== false);
+-        // Languages an LSP backend in this server can actually verify. Anything
+-        // else is unverifiable by construction, not unverified by omission.
+-        const LSP_VERIFIABLE_LANGUAGES = new Set(['cpp', 'c', 'cxx', 'cc', 'h', 'hpp']);
+         // Verifiable AND in-scope. Out-of-scope edges never enter the denominator,
+         // and — the point of attack nine — never MIGRATE into it when a backend
+         // for their language lands.
+-        const verifiable = inScopeRows.filter((r) => LSP_VERIFIABLE_LANGUAGES.has(r.lang)).reduce((a, r) => a + r.c, 0);
++        const coverage = computeCoverage(langScopeRows);
++        const verifiable = coverage.verifiable;
+         const unverifiable = inScopeRows.filter((r) => !LSP_VERIFIABLE_LANGUAGES.has(r.lang));
+ 
+         // ★ SURFACE THE SPLIT. The honest headline is "833 not found, 833 degraded,
+@@ -1543,6 +1546,7 @@ export async function graphHealth({ repoRoot }) {
+         }
+         codeIntel.lspCallsTotal = calls;
+         codeIntel.lspCallsVerifiable = verifiable;
++        codeIntel.lspVerifiedVerifiableInScopeCalls = coverage.verified;
+         // ★ THE DENOMINATOR TRAVELS IN THE NAME, NOT IN AN ADJACENT FIELD.
+         //
+         // the field test, 2026-08-09, from having made the mistake himself: a caveat
+@@ -1567,7 +1571,7 @@ export async function graphHealth({ repoRoot }) {
+         // which is why the only guard on it was eight regexes over this file — every one
+         // asserting spelling, none able to fail on a wrong number, on a statistic whose
+         // entire failure mode IS a wrong number.
+-        const verifiedPct = computeCoverage(langScopeRows, verified).pct;
++        const verifiedPct = coverage.pct;
+         codeIntel.lspVerifiedPctOfVerifiableInScopeCalls = verifiedPct;
+         codeIntel.lspVerifiedPctOfCalls = verifiedPct;
+         codeIntel.lspVerifiedPctDenominator = trackedFiles == null
+diff --git a/tests/unit/query/coverage-denominator.test.js b/tests/unit/query/coverage-denominator.test.js
+index f91fb14..3bf6793 100644
+--- a/tests/unit/query/coverage-denominator.test.js
++++ b/tests/unit/query/coverage-denominator.test.js
+@@ -19,14 +19,36 @@ import { describe, it, expect } from 'vitest';
+ import { computeCoverage, LSP_VERIFIABLE_LANGUAGES } from '../../../mcp/stdio/query/coverage-denominator.js';
+ 
+ describe('lsp coverage denominator', () => {
++  it('filters verified counts by the same scope and language as call counts', () => {
++    const r = computeCoverage([
++      { lang: 'cpp', c: 19, verified: 10, inScope: true },
++      { lang: 'cpp', c: 300, verified: 300, inScope: false },
++      { lang: 'javascript', c: 400, verified: 400, inScope: true },
++    ]);
++    expect(r.verifiable).toBe(19);
++    expect(r.verified).toBe(10);
++    expect(r.pct).toBe(53);
++  });
++
++  it('aggregates supported languages without treating unverified buckets as verified', () => {
++    const r = computeCoverage([
++      { lang: 'cpp', c: 10, verified: 5, inScope: true },
++      { lang: 'c', c: 10, verified: 10, inScope: true },
++      { lang: 'hpp', c: 10, inScope: true },
++    ]);
++    expect(r.verifiable).toBe(30);
++    expect(r.verified).toBe(15);
++    expect(r.pct).toBe(50);
++  });
++
+   it('★★ divides by the VERIFIABLE subset, not by every CALLS edge', () => {
+     // The original defect, as arithmetic. 100 C++ edges all verified, plus 700 JS edges
+     // no backend here can verify. The honest answer is 100%; dividing by 800 gives 12%.
+     const rows = [
+-      { lang: 'cpp', c: 100, inScope: true },
++      { lang: 'cpp', c: 100, verified: 100, inScope: true },
+       { lang: 'javascript', c: 700, inScope: true },
+     ];
+-    const r = computeCoverage(rows, 100);
++    const r = computeCoverage(rows);
+ 
+     expect(r.verifiable, 'JS edges are not verifiable by this backend').toBe(100);
+     expect(r.pct, 'every verifiable edge was verified — that is 100%, not 12%').toBe(100);
+@@ -35,10 +57,10 @@ describe('lsp coverage denominator', () => {
+   it('★★ out-of-scope edges never enter the denominator', () => {
+     // Attack nine: an edge outside the tracked corpus is not verification debt.
+     const rows = [
+-      { lang: 'cpp', c: 50, inScope: true },
+-      { lang: 'cpp', c: 950, inScope: false },
++      { lang: 'cpp', c: 50, verified: 50, inScope: true },
++      { lang: 'cpp', c: 950, verified: 950, inScope: false },
+     ];
+-    const r = computeCoverage(rows, 50);
++    const r = computeCoverage(rows);
+ 
+     expect(r.verifiable).toBe(50);
+     expect(r.outOfScope).toBe(950);
+@@ -50,11 +72,11 @@ describe('lsp coverage denominator', () => {
+     // out-of-scope C++ edge is ALREADY in a verifiable language. If scope were ignored it
+     // would sit in the denominator and drag the percentage down for a corpus we never
+     // claimed to cover. Scope is checked FIRST, independently of language.
+-    const inScopeOnly = computeCoverage([{ lang: 'cpp', c: 10, inScope: true }], 10);
++    const inScopeOnly = computeCoverage([{ lang: 'cpp', c: 10, verified: 10, inScope: true }]);
+     const withOutOfScope = computeCoverage([
+-      { lang: 'cpp', c: 10, inScope: true },
+-      { lang: 'cpp', c: 10_000, inScope: false },
+-    ], 10);
++      { lang: 'cpp', c: 10, verified: 10, inScope: true },
++      { lang: 'cpp', c: 10_000, verified: 10_000, inScope: false },
++    ]);
+ 
+     expect(withOutOfScope.pct, 'adding out-of-scope work must not change coverage')
+       .toBe(inScopeOnly.pct);
+@@ -64,10 +86,10 @@ describe('lsp coverage denominator', () => {
+     // Excluding silently would be the same defect wearing a better number — the reader
+     // must be able to see what was taken out and why.
+     const r = computeCoverage([
+-      { lang: 'cpp', c: 10, inScope: true },
++      { lang: 'cpp', c: 10, verified: 10, inScope: true },
+       { lang: 'javascript', c: 40, inScope: true },
+       { lang: 'python', c: 5, inScope: true },
+-    ], 10);
++    ]);
+ 
+     expect(r.unverifiable.map((u) => u.lang).sort()).toEqual(['javascript', 'python']);
+     expect(r.unverifiable.every((u) => u.reason === 'non_cpp_language')).toBe(true);
+@@ -78,12 +100,12 @@ describe('lsp coverage denominator', () => {
+     // §4's basis rule: a ratio that travels without its denominator is how two correct
+     // numbers produce a wrong comparison. This is the field the field test used to check the
+     // 833/1599 arithmetic.
+-    expect(computeCoverage([], 0).denominator).toBe('verifiable_and_in_scope_calls');
++    expect(computeCoverage([]).denominator).toBe('verifiable_and_in_scope_calls');
+   });
+ 
+   it('a zero denominator reports 0, never NaN', () => {
+     // A NaN percentage renders as a plausible-looking blank rather than as an error.
+-    const r = computeCoverage([{ lang: 'javascript', c: 10, inScope: true }], 0);
++    const r = computeCoverage([{ lang: 'javascript', c: 10, verified: 10, inScope: true }]);
+     expect(r.verifiable).toBe(0);
+     expect(r.pct).toBe(0);
+     expect(Number.isNaN(r.pct)).toBe(false);
+diff --git a/tests/unit/query/health-call-coverage.test.js b/tests/unit/query/health-call-coverage.test.js
+new file mode 100644
+index 0000000..2d6cc18
+--- /dev/null
++++ b/tests/unit/query/health-call-coverage.test.js
+@@ -0,0 +1,90 @@
++import { afterEach, describe, expect, it } from 'vitest';
++import { execFileSync } from 'node:child_process';
++import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
++import { tmpdir } from 'node:os';
++import { join } from 'node:path';
++import { graphHealth } from '../../../mcp/stdio/query/verbs/health.js';
++import { openDb } from '../../../mcp/stdio/storage/db.js';
++import { ensureCodeIntelCollectionsTable } from '../../../mcp/stdio/storage/schema.js';
++
++let repo;
++afterEach(() => {
++  if (repo) rmSync(repo, { recursive: true, force: true });
++  repo = undefined;
++});
++
++function setup(verifiedCalls) {
++  repo = mkdtempSync(join(tmpdir(), 'apg-health-calls-'));
++  mkdirSync(join(repo, '.aify-graph'));
++  mkdirSync(join(repo, 'src'));
++  for (const file of ['a.cpp', 'b.cpp', 'a.js']) writeFileSync(join(repo, 'src', file), '');
++  execFileSync('git', ['init', '-q'], { cwd: repo, stdio: 'ignore' });
++  execFileSync('git', ['add', 'src'], { cwd: repo, stdio: 'ignore' });
++  execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'fixture'],
++    { cwd: repo, stdio: 'ignore' });
++  const commit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim();
++  writeFileSync(join(repo, '.aify-graph', 'manifest.json'), JSON.stringify({
++    commit, indexedAt: new Date().toISOString(), schemaVersion: 4,
++    extractorVersion: '0.1.0', status: 'ok', dirtyFiles: [], dirtyEdges: [], dirtyEdgeCount: 0,
++  }));
++  const db = openDb(join(repo, '.aify-graph', 'graph.sqlite'));
++  try {
++    ensureCodeIntelCollectionsTable(db);
++    db.run(`INSERT INTO code_intel_collections
++      (collection_id, provider, provider_version, project_root, language, status, collected_at, index_ready)
++      VALUES ('c1','cpp-clangd','0.1.0',$root,'cpp','ok',$at,1)`,
++    { root: repo, at: new Date().toISOString() });
++    const node = (id, file, lang) => db.run(`INSERT INTO nodes
++      (id,type,label,file_path,start_line,end_line,language,confidence,extra)
++      VALUES ($id,'Function',$id,$file,1,1,$lang,1,'{}')`, { id, file, lang });
++    node('cpp-a', 'src/a.cpp', 'cpp');
++    node('cpp-b', 'src/b.cpp', 'cpp');
++    node('vendor', 'vendor/a.cpp', 'cpp');
++    node('js', 'src/a.js', 'javascript');
++    let next = 0;
++    const edge = (from, relation, verified) => {
++      const to = `target-${next++}`;
++      node(to, 'src/a.cpp', 'cpp');
++      db.run(`INSERT INTO edges
++        (from_id,to_id,relation,source_file,source_line,confidence,provenance,extractor)
++        VALUES ($from,$to,$relation,'src/a.cpp',1,1,$provenance,'fixture')`,
++      { from, to, relation, provenance: verified ? 'LSP_VERIFIED' : 'EXTRACTED' });
++    };
++    // Two tracked C++ files exercise aggregation within the same language/scope bucket.
++    // source_file deliberately differs from some callers: scope follows the caller node,
++    // exactly as it does for the denominator, not a separate numerator predicate.
++    for (let i = 0; i < 19; i++) edge(i % 2 ? 'cpp-a' : 'cpp-b', 'CALLS', i < verifiedCalls);
++    for (let i = 0; i < 300; i++) edge('vendor', 'CALLS', true);
++    for (let i = 0; i < 400; i++) edge('js', 'CALLS', true);
++    for (let i = 0; i < 949 - verifiedCalls - 700; i++) edge('cpp-a', 'REFERENCES', true);
++  } finally {
++    db.close();
++  }
++}
++
++describe('graph_health uses the same CALLS population on both sides of coverage', () => {
++  it.each([0, 10, 19])('counts %i eligible verified calls, not all 949 verified edges', async (verified) => {
++    setup(verified);
++    const { codeIntel: ci } = await graphHealth({ repoRoot: repo });
++    expect(ci.available).toBe(true);
++    expect(ci.lspVerifiedEdges).toBe(949);
++    expect(ci.lspCallsTotal).toBe(719);
++    expect(ci.lspCallsVerifiable).toBe(19);
++    expect(ci.lspVerifiedVerifiableInScopeCalls).toBe(verified);
++    expect(ci.lspVerifiedPctOfVerifiableInScopeCalls).toBe(Math.round(verified / 19 * 100));
++    expect(ci.lspVerifiedPctOfCalls).toBe(ci.lspVerifiedPctOfVerifiableInScopeCalls);
++    expect(ci.lspVerifiedPctDenominator).toBe('verifiable_and_in_scope_calls');
++    expect(ci.lspOutOfScopeCalls.total).toBe(300);
++    expect(ci.lspUnverifiableCalls.total).toBe(400);
++  }, 30_000);
++
++  it('keeps unknown-scope fallback explicitly labelled and filters both sides identically', async () => {
++    setup(10);
++    rmSync(join(repo, '.git'), { recursive: true, force: true });
++    const { codeIntel: ci } = await graphHealth({ repoRoot: repo });
++    expect(ci.lspCallsVerifiable).toBe(319);
++    expect(ci.lspVerifiedVerifiableInScopeCalls).toBe(310);
++    expect(ci.lspVerifiedPctOfVerifiableInScopeCalls).toBe(Math.round(310 / 319 * 100));
++    expect(ci.lspVerifiedPctDenominator).toContain('SCOPE UNKNOWN');
++  }, 30_000);
++});

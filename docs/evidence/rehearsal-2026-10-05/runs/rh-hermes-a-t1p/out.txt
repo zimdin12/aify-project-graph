@@ -1,0 +1,11 @@
+Fixed in mcp/stdio/query/verbs/callers.js:52.
+
+Cause: SQL fetched at most 101 unscoped edges, then sliced to 100 before applying the directory filter in JavaScript. The 120 heuristic callers consumed the cap, so the caller in the requested directory never reached filtering or ranking.
+
+The fix applies the caller declaration-path filter in SQL before LIMIT, for both direct and recursive queries. Recursive traversal still passes through out-of-scope intermediates. Literal, case-sensitive prefix matching and Windows path normalization are preserved.
+
+Also fixed the same defect in graph_callees, including its separate virtual-override query.
+
+Added tests/unit/query/callers-scope-before-cap.test.js with 12 tests covering the reproduction, heuristic callers, both depths, cross-directory traversal, path semantics, scoped truncation, and mirrored callee cases.
+
+Verification: reproduced six failures before the fix; all new tests and related caller/callee regression suites now pass. git diff --check passes. Full repository suite not run.

@@ -1,0 +1,115 @@
+{
+ "id": "rh-hermes-a-t1p",
+ "runtime": "hermes",
+ "arm": "A",
+ "task": "T1P",
+ "wallMs": 881529,
+ "exit": 0,
+ "sessionId": "20261005_111952_8b085c",
+ "tokens": {
+  "ok": true,
+  "sessionId": "20261005_111952_8b085c",
+  "model": "gpt-6.1-sol",
+  "main": {
+   "input_tokens": 70171,
+   "output_tokens": 5636,
+   "cache_read_tokens": 674560,
+   "cache_write_tokens": 0,
+   "reasoning_tokens": 427
+  },
+  "auxiliary": {
+   "title_generation": {
+    "input_tokens": 325,
+    "output_tokens": 16,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "reasoning_tokens": 0
+   }
+  },
+  "total": {
+   "input_tokens": 70496,
+   "output_tokens": 5652,
+   "cache_read_tokens": 674560,
+   "cache_write_tokens": 0,
+   "reasoning_tokens": 427
+  },
+  "completed": true
+ },
+ "layer": {
+  "ok": true,
+  "dashboardCalls": 5,
+  "layerCalls": 0,
+  "seenCalls": 0,
+  "nodesTouched": [],
+  "nodesSeen": [],
+  "calls": [
+   {
+    "toolUseId": "call_NrP4VLtsx9SAFWz1iZ8KHTaA",
+    "tool": "mcp__aify_dashboard__dashboard_whoami",
+    "via": "tool_call",
+    "isError": false,
+    "plainText": true,
+    "persisted": false,
+    "shown": true,
+    "named": [],
+    "returned": 0,
+    "touched": []
+   },
+   {
+    "toolUseId": "call_d12387737fa7",
+    "tool": "mcp__aify_dashboard__dashboard_state_get",
+    "via": "tool_call",
+    "isError": true,
+    "plainText": false,
+    "persisted": false,
+    "shown": true,
+    "named": [],
+    "returned": 0,
+    "touched": []
+   },
+   {
+    "toolUseId": "call_fa15a1a8aa1c",
+    "tool": "mcp__aify_dashboard__dashboard_events_list",
+    "via": "tool_call",
+    "isError": false,
+    "plainText": false,
+    "persisted": false,
+    "shown": true,
+    "named": [],
+    "returned": 0,
+    "touched": []
+   },
+   {
+    "toolUseId": "call_mkBFCHfQPKeaV0CKrzz5JFKM",
+    "tool": "mcp__aify_dashboard__dashboard_documents_list",
+    "via": "tool_call",
+    "isError": false,
+    "plainText": false,
+    "persisted": false,
+    "shown": true,
+    "named": [],
+    "returned": 0,
+    "touched": []
+   },
+   {
+    "toolUseId": "call_e6e8db8c6c0d",
+    "tool": "mcp__aify_dashboard__dashboard_tasks_list",
+    "via": "tool_call",
+    "isError": false,
+    "plainText": false,
+    "persisted": false,
+    "shown": true,
+    "named": [],
+    "returned": 0,
+    "touched": []
+   }
+  ]
+ },
+ "toolCalls": 37,
+ "apgCalls": 0,
+ "apgInSearchResults": 0,
+ "void": false,
+ "credentialHits": 0,
+ "writesOutsideRoot": [],
+ "patchBytes": 16281
+}

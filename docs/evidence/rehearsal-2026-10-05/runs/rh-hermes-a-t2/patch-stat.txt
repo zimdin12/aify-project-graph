@@ -1,0 +1,6 @@
+ mcp/stdio/brief/artifacts.js                  |  2 +-
+ mcp/stdio/query/coverage-denominator.js       | 15 +++++++-------
+ mcp/stdio/query/verbs/health.js               | 20 +++++++++++-------
+ tests/unit/query/coverage-denominator.test.js | 48 ++++++++++++++++++++++++++++++------------
+ tests/unit/query/health-call-coverage.test.js | 90 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 146 insertions(+), 29 deletions(-)

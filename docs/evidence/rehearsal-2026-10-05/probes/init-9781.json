@@ -1,0 +1,8 @@
+{
+ "server": {
+  "name": "aify-dashboard",
+  "version": "0.1.0-dev"
+ },
+ "instructionsChars": 0,
+ "instructions": null
+}

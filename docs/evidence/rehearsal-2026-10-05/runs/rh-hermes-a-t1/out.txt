@@ -1,0 +1,11 @@
+Fixed the cause: graph_callers fetched and capped 100 edges before applying the directory filter. Out-of-scope heuristic callers could exhaust that cap, hiding the LSP_VERIFIED caller and producing a false NO CALLERS.
+
+Changes:
+  - Apply the directory filter in SQL before LIMIT, for direct and recursive queries.
+  - Keep recursive traversal through out-of-scope intermediates.
+  - Preserve literal, case-sensitive prefix matching and Windows path normalization.
+  - Fix the mirrored issue in graph_callees, including virtual overrides.
+
+Added 17 regression tests in tests/unit/query/directory-scope-before-cap.test.js. The original reproduction failed before the fix and passes afterward.
+
+Verification: both targeted test runs passed—47 tests and 54 tests respectively. git diff --check passed. The full suite was not run.

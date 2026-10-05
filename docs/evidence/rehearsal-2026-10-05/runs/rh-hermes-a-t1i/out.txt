@@ -1,0 +1,13 @@
+Fixed in mcp/stdio/query/verbs/callers.js:52.
+
+Cause: SQL fetched at most 101 unscoped edges, then sliced to 100 before applying the directory filter. Those rows could all come from the other directory, yielding a false NO CALLERS. SQL also lacked ordering, so later LSP_VERIFIED edges could disappear before ranking.
+
+Changes:
+  Directory filtering now happens in SQL before LIMIT.
+  Caller queries prioritize LSP_VERIFIED edges before the cap.
+  Recursive traversal still crosses out-of-scope intermediate nodes.
+  Fixed the equivalent scope-after-cap bug in graph_callees, including virtual overrides.
+
+Added tests/unit/query/caller-callee-fetch-scope.test.js with 17 tests covering the reproduction, heuristic matches, direct and recursive queries, verified-edge priority, and literal path-prefix semantics.
+
+Verified: 11 regression tests failed before the fix; all 17 now pass. All 49 tests across six relevant test files pass. git diff --check passes. Full suite not run.

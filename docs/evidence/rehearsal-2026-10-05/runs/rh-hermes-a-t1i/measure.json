@@ -1,0 +1,54 @@
+{
+ "id": "rh-hermes-a-t1i",
+ "runtime": "hermes",
+ "arm": "A",
+ "task": "T1I",
+ "wallMs": 1136285,
+ "exit": 0,
+ "sessionId": "20261005_125645_6acadd",
+ "tokens": {
+  "ok": true,
+  "sessionId": "20261005_125645_6acadd",
+  "model": "gpt-6.1-sol",
+  "main": {
+   "input_tokens": 82420,
+   "output_tokens": 4577,
+   "cache_read_tokens": 455424,
+   "cache_write_tokens": 0,
+   "reasoning_tokens": 479
+  },
+  "auxiliary": {
+   "title_generation": {
+    "input_tokens": 308,
+    "output_tokens": 81,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "reasoning_tokens": 0
+   }
+  },
+  "total": {
+   "input_tokens": 82728,
+   "output_tokens": 4658,
+   "cache_read_tokens": 455424,
+   "cache_write_tokens": 0,
+   "reasoning_tokens": 479
+  },
+  "completed": true
+ },
+ "layer": {
+  "ok": true,
+  "dashboardCalls": 0,
+  "layerCalls": 0,
+  "seenCalls": 0,
+  "nodesTouched": [],
+  "nodesSeen": [],
+  "calls": []
+ },
+ "toolCalls": 23,
+ "apgCalls": 0,
+ "apgInSearchResults": 0,
+ "void": false,
+ "credentialHits": 0,
+ "writesOutsideRoot": [],
+ "patchBytes": 15058
+}

@@ -1,0 +1,65 @@
+diff --git a/mcp/stdio/query/verbs/callers.js b/mcp/stdio/query/verbs/callers.js
+index 0ad45d3..46edc67 100644
+--- a/mcp/stdio/query/verbs/callers.js
++++ b/mcp/stdio/query/verbs/callers.js
+@@ -49,6 +49,16 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
+     const params = {};
+     targetIds.forEach((id, i) => { params[`t${i}`] = id; });
+ 
++    // ⛔ THE DIRECTORY FILTER MUST RUN IN SQL, BEFORE THE FETCH CAP. Applied only after the capped,
++    // unordered fetch, ~120 heuristic callers elsewhere filled the cap and evicted the single
++    // caller under `file`, which then answered "NO CALLERS from <dir>" for a dir that has one.
++    // Same predicate as the old JS `startsWith` (caller's declaration file).
++    let fileClause = '';
++    if (file) {
++      params.fileScope = file;
++      fileClause = 'AND substr(n.file_path, 1, length($fileScope)) = $fileScope';
++    }
++
+     // The SQL cap is a HARDER ceiling than the top_k display budget: past it the
+     // edges were never fetched, so raising top_k cannot reveal them and the trust
+     // banner must not claim an exhaustive caller set. Fetch one extra row purely
+@@ -58,7 +68,7 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
+       edges = db.all(
+         `SELECT e.*, n.label AS from_label, n.type AS from_type, n.file_path AS from_file, n.start_line AS from_line
+          FROM edges e JOIN nodes n ON n.id = e.from_id
+-         WHERE e.to_id IN (${placeholders}) AND e.relation IN (${EXECUTION_RELATIONS.map((relation) => `'${relation}'`).join(',')})
++         WHERE e.to_id IN (${placeholders}) AND e.relation IN (${EXECUTION_RELATIONS.map((relation) => `'${relation}'`).join(',')}) ${fileClause}
+          LIMIT ${EDGE_FETCH_CAP + 1}`,
+         params
+       );
+@@ -81,6 +91,7 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
+           AND e.to_id = c.to_id
+           AND e.relation IN (${EXECUTION_RELATIONS.map((relation) => `'${relation}'`).join(',')})
+          JOIN nodes n ON n.id = e.from_id
++         ${file ? 'WHERE substr(n.file_path, 1, length($fileScope)) = $fileScope' : ''}
+          LIMIT ${EDGE_FETCH_CAP + 1}`,
+         { ...params, depth }
+       );
+diff --git a/tests/unit/query/truncation-honesty.test.js b/tests/unit/query/truncation-honesty.test.js
+index 67ad9cd..aab67c6 100644
+--- a/tests/unit/query/truncation-honesty.test.js
++++ b/tests/unit/query/truncation-honesty.test.js
+@@ -95,4 +95,22 @@ describe('truncation honesty', () => {
+     expect(out).toMatch(/declaration, not a call site/i);
+     expect(out).toMatch(/code_intel_references/);
+   });
++
++  it('graph_callers applies the file filter before the fetch cap, so a lone caller in the dir is not evicted', async () => {
++    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
++    insertNode(db, { id: 'callee', type: 'Function', label: 'shared_target', file_path: 'core/t.cpp' });
++    // 120 > the 100-edge SQL cap, all outside the queried dir, inserted first.
++    for (let i = 0; i < 120; i++) {
++      insertNode(db, { id: `noise${i}`, type: 'Function', label: `noise_${i}`, file_path: `noisy/n${i}.cpp` });
++      insertEdge(db, { from_id: `noise${i}`, to_id: 'callee', relation: 'CALLS', source_file: `noisy/n${i}.cpp`, confidence: 0.5 });
++    }
++    insertNode(db, { id: 'lone', type: 'Function', label: 'lone_caller', file_path: 'quiet/q.cpp' });
++    insertEdge(db, { from_id: 'lone', to_id: 'callee', relation: 'CALLS', source_file: 'quiet/q.cpp', provenance: 'LSP_VERIFIED' });
++    db.close();
++
++    const out = await graphCallers({ repoRoot, symbol: 'shared_target', file: 'quiet/' });
++
++    expect(out).toContain('lone_caller');
++    expect(out).not.toMatch(/NO CALLERS/);
++  });
+ });

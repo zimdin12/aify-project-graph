@@ -1,0 +1,4 @@
+ mcp/stdio/query/verbs/callees.js                   |  20 +++++++++----
+ mcp/stdio/query/verbs/callers.js                   |  26 ++++++++++++----
+ tests/unit/query/caller-callee-fetch-scope.test.js | 118 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 152 insertions(+), 12 deletions(-)
