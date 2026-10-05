@@ -84,3 +84,32 @@ mostly mechanical, which is acceptable for a neutral control.
 ## Stated limits
 n=1 per cell per task: anecdote, not finding. T1's answer leaks by design. The cost figure is a PROXY (task size drives tokens).
 Claude and Hermes token fields are not comparable by name: whether Hermes' input_tokens includes cache reads is unknown.
+
+## Found in the rehearsal: arm-A exposure was 0 in both runtimes on T1 (written before any prompted run)
+All four T1 runs were valid. Neither arm-A run made a dashboard call (Claude 0 of 14 tool calls, Hermes 0 of 26),
+on the task whose answer the layer holds. Both runtimes defer MCP tools behind a search step. Claude showed the model
+the dashboard tools' bare names in one system-reminder, with no descriptions (PROVEN from the session file). Hermes
+showed only that `hermes_tool_search` exists. The dashboard bridge's `initialize` reply carries no `instructions`
+(aify-dashboard server/src/bridge/main.ts:173-176, per dashboard-manager). So nothing told an agent what the dashboard
+holds.
+
+## Arm A-prompted, T1 only: two extra rehearsal runs (approved by dashboard-manager 2026-10-05)
+Same base tree, carrier, measures and fresh-session rule as arm A. The only difference is one line appended to the T1
+prompt, identical in both runtimes, fixed here before either run:
+
+> This project has a dashboard with project context, available through the aify-dashboard tools.
+
+It deliberately does not say that the context holds features, the answer, or where to look. A nudge that hints at the
+answer measures the hint.
+
+**Prediction, recorded before the runs:** both prompted runs reach the layer (seenCalls >= 1) and cite
+`callers-and-callees` or its description. **If either does not, even with the nudge, the carrier itself is the finding,
+and a nudge-based trial design (option a) is off the table.**
+
+Measured as for the other runs: exposure (layer and seen calls), whether the run cites a feature or the layer, D1-D3
+against T1's merged outcomes, tokens, and wall time. It amends nothing in the trial. The choice between a nudge in both
+arms and natural exposure as its own outcome goes to Steven with these numbers.
+
+## Arm-build rule for the trial (amendment, before its first query)
+Check the base commit's CHANGELOG and release notes for the fix's own entry. In T1's base, that entry was committed
+27 s before the fix and stated the answer. A content check, not a filename check.
