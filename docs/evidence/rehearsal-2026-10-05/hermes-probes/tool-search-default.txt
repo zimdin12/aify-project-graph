@@ -1,0 +1,5 @@
+user: calls= | Call hermes_tool_search once with the query graph. Then print the names of the tools it returned, one per line, and nothing else. Call no other tool.
+assistant: calls=[{"id": "call_getE57GrmNeJZXCw5Y0AMg0o", "call_id": "call_getE57GrmNeJZXCw5Y0AMg0o", "response_item_id": "fc_00311cc8b0896e4b016ac32963b36c87d29afa191c6b88eccc" | 
+tool [tool_search]: calls= | {"queries": ["graph"], "total_available": 56, "results": [{"query": "graph", "matches": ["mcp__aify_project_graph__graph_index", "mcp__aify_project_graph__graph_dashboard", "mcp__aify_project_graph__l
+assistant: calls= | mcp__aify_project_graph__graph_index mcp__aify_project_graph__graph_dashboard mcp__aify_project_graph__list_resources mcp__aify_project_graph__read_resource mcp__aify_project_graph__graph_search
+{"session":"20261005_073642_dd14ad","messages":4,"toolMessages":1,"apgNamesInToolResults":19}
