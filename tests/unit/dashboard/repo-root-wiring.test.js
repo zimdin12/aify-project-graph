@@ -49,12 +49,23 @@ let dbCloseFailure = null;
 // ★ A seam scoped to the module when the behaviour is scoped to one call site is how a
 // test ends up measuring the wrong thing while reading correctly.
 let dbOpenIndex = 0;
+// ⛔ THE LEAK DETECTOR IS THE HANDLE, NOT THE FILE SYSTEM. Until 2026-10-05 the only detector was
+// teardown's rm() failing with EBUSY. That cannot see a leak on Linux (an open file can be
+// unlinked), and on Windows it also fires when NOTHING leaked: on a loaded machine, something
+// outside the process (Defender, the indexer) holds a just-written file in Temp. Seen in the
+// 10-04 and 10-05 suites, and 2/2 in a lone run of this file under load. Every handle the
+// verb opens is recorded here, and afterEach requires each one CLOSED before it removes
+// anything, so a leak fails on every OS whatever the file system does.
+// Not covered: captureExistingSnapshot's handle. It opens inside db.js (not this mocked
+// export) and closes in a `finally` (db.js captureExistingSnapshot).
+const openedHandles = [];
 vi.mock('../../../mcp/stdio/storage/db.js', async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,
     openExistingDb: (...a) => {
       const real = actual.openExistingDb(...a);
+      openedHandles.push(real);
       const mine = dbOpenIndex++;
       return new Proxy(real, {
         get(t, k) {
@@ -110,6 +121,17 @@ const { graphDashboard, stopAllDashboards, activeDashboardCount } = await import
 const { startDashboard } = await vi.importActual('../../../mcp/stdio/dashboard/server.js');
 
 let repoRoot;
+
+// Retries outlast a scanner holding a just-written file. They are safe ONLY because removeFixture first proves
+// no handle under the directory is still open: before that check existed, a retry could wait out a leak until
+// garbage collection closed it, and the leak passed (memory: retries-hide-gc-closed-leaks).
+const RM = { recursive: true, force: true, maxRetries: 10, retryDelay: 200 };
+async function removeFixture(dir) {
+  const norm = (p) => String(p).replaceAll('\\', '/').toLowerCase();
+  const open = openedHandles.filter((h) => h.raw.open && norm(h.raw.name).startsWith(norm(dir))).length;
+  if (open > 0) throw new Error(`LEAK: ${open} graph DB handle(s) under ${dir} still open before its removal`);
+  await rm(dir, RM);
+}
 let running;
 let db; // hoisted so a throw mid-case cannot strand the handle outside afterEach
 
@@ -169,13 +191,17 @@ afterEach(async () => {
   await stopAllDashboards();
   if (running) { await new Promise((r) => running.server.close(r)); running = undefined; }
   if (db) { try { db.close(); } catch { /* already closed */ } db = undefined; }
+  // The leak check, before any removal. Throwing out of afterEach is the report (see above).
+  const stillOpen = openedHandles.filter((h) => h.raw.open).length;
+  const opened = openedHandles.length;
+  openedHandles.length = 0;
+  if (stillOpen > 0) throw new Error(`LEAK: ${stillOpen} of ${opened} graph DB handles the dashboard opened are still open after teardown`);
   const target = repoRoot;
   repoRoot = undefined;
-  if (target) {
-    // No try/catch. If a handle is still held the removal throws, and that throw IS the
-    // report — on Windows it surfaces as EBUSY, which is precisely the leak symptom.
-    await rm(target, { recursive: true, force: true });
-  }
+  // Every handle is proven closed above, so an EBUSY here is a lock from OUTSIDE the process.
+  // Retrying it no longer hides a leak; it outlasts a scanner. A removal that still fails is
+  // still thrown.
+  if (target) await removeFixture(target);
 });
 
 describe('the dashboard is wired to the repo it is inspecting', () => {
@@ -209,7 +235,7 @@ describe('the dashboard is wired to the repo it is inspecting', () => {
 
     // With the handle released the fixture is removable — on Windows, where an open
     // SQLite file cannot be unlinked. This is the observable the leak actually produced.
-    await rm(repoRoot, { recursive: true, force: true });
+    await removeFixture(repoRoot);
     repoRoot = undefined;
   }, 20_000);
 
@@ -291,7 +317,7 @@ describe('the dashboard is wired to the repo it is inspecting', () => {
       expect(activeDashboardCount(), 'and must leave nothing registered').toBe(0);
     } finally {
       closeDelay = null;
-      await rm(second, { recursive: true, force: true });
+      await removeFixture(second);
     }
   }, 20_000);
 
@@ -365,7 +391,7 @@ describe('the dashboard is wired to the repo it is inspecting', () => {
       expect(activeDashboardCount(), 'teardown completes with nothing left').toBe(0);
     } finally {
       closeDelay = null;
-      await rm(second, { recursive: true, force: true });
+      await removeFixture(second);
     }
   }, 20_000);
 
