@@ -18,8 +18,11 @@ One-shot `-p rha -z "Reply with the single word ok."` answered `ok` in 28 s, ses
 26.7.0 (NODE_MODULE_VERSION 147). Its config launched APG with `command: node` from this checkout, whose better-sqlite3 is
 built for Node 22.20.0 (127), the Node Claude Code uses.
 
-Hermes treats the mismatch as permanent and parks the server without retrying. APG's native-module preflight, which
-AGENTS.md says self-heals this, never gets to run.
+Hermes treats the mismatch as permanent and parks the server without retrying. APG's native-module preflight
+(`mcp/stdio/preflight-native.js`) does not cover this case. It matches only platform-flip signatures (Win32, ELF,
+`ERR_DLOPEN_FAILED`), not `NODE_MODULE_VERSION`. Whether it ran is not established: `mcp-stderr.log` has 0 `[preflight]`
+lines, which fits both readings. (An earlier version of this README said the preflight "never gets to run"; that was not
+checked.)
 
 **Extent.** 240 NodeAbiMismatch lines for this server across `agent.log.1`, `agent.log` and `errors.log`. The first is
 at 2026-10-04 20:33:50, the start of the oldest log that survives. "Since" that time is unknown; "at least since" holds.
