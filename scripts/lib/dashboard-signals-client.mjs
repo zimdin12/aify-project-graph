@@ -8,6 +8,31 @@
 // from a file by the caller and held here. `describe()` exists so a run can print WHERE it is pointed without
 // printing what it is holding.
 
+/**
+ * The service's cap on any request body, a posted result included: aify-dashboard server/src/http/server.ts
+ * MAX_BODY_BYTES, 1 MiB, confirmed by dashboard-manager on 2026-10-17. Over it the service answers 413 body_too_large.
+ */
+export const SERVICE_BODY_CAP_BYTES = 1024 * 1024;
+
+/**
+ * The exact body a result is posted as. An answer too big for the service becomes `ok: false` with its size, never a
+ * cut-down answer: a page drawing part of a subgraph as the whole is worse than a page saying it could not draw it.
+ * Exported so the caller logs what is actually sent.
+ */
+export function resultBody(hostKey, { ok, value = null, problem = null, provenance = null }) {
+  const body = { hostKey, ok: ok === true, value, problem, provenance };
+  const bytes = Buffer.byteLength(JSON.stringify(body), 'utf8');
+  if (bytes <= SERVICE_BODY_CAP_BYTES) return body;
+  return {
+    hostKey,
+    ok: false,
+    value: null,
+    problem: `the answer is ${bytes} bytes, over the service's ${SERVICE_BODY_CAP_BYTES}-byte body cap; ask for less `
+      + '(a smaller depth or limit, or fewer edgeKinds)',
+    provenance,
+  };
+}
+
 /** What the service refused, in the shape the caller has to act on. Their codes, not invented here. */
 export class SignalsRefused extends Error {
   constructor(status, body) {
@@ -139,10 +164,9 @@ export class DashboardSignalsClient {
    * Post the answer to one claimed request. `hostKey` travels in the BODY: the service accepts a result only from
    * the host holding the claim. `ok` is always a real boolean, and the absent parts are explicit nulls.
    */
-  async postResult(requestId, { ok, value = null, problem = null, provenance = null }) {
-    return this.#send('POST', `/api/v1/provider/requests/${encodeURIComponent(requestId)}/result`, {
-      hostKey: this.hostKey, ok: ok === true, value, problem, provenance,
-    });
+  async postResult(requestId, answer) {
+    return this.#send('POST', `/api/v1/provider/requests/${encodeURIComponent(requestId)}/result`,
+      resultBody(this.hostKey, answer));
   }
 
   /**

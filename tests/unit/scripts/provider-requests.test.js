@@ -4,12 +4,13 @@
 // with dashboard-manager on 2026-10-01:
 //   stamp    args {anchors: [anchor]} -> {stamps: [{anchor, stamp: {hash, stampVersion, commit}} | {anchor, refused, reason}]}
 //   resolve  args {anchors: [anchor]} -> {results: [{anchor, status: found|gone|ambiguous|unwatched, candidates?, reasonCode?}]}
-//   subgraph not supported yet: ok false with that problem, until apg has a read-only mode
+//   subgraph args {anchor | path, depth?, limit?, edgeKinds?, includeExternal?} -> provider-subgraph.mjs (agreed 2026-10-17)
 // Every ok answer carries provenance {providerCommit, exhaustive, provenance}, and the service refuses an ok answer
 // without it (queue.ts provenanceFrom). exhaustive is false: a tree-sitter extraction is not a full build.
 import { describe, it, expect } from 'vitest';
 import { resolveAnchor, STAMP_VERSIONS } from '../../../scripts/lib/anchor-resolver.mjs';
 import { answerRequest } from '../../../scripts/lib/provider-requests.mjs';
+import { SUBGRAPH_HOW } from '../../../scripts/lib/provider-subgraph.mjs';
 
 const HEAD = 'c'.repeat(40);
 const COMPLETE = Object.freeze({ parseHadError: false, depthCapFired: false, depthCap: 80 });
@@ -74,17 +75,30 @@ describe('resolve', () => {
 });
 
 describe('what is refused outright, with the reason', () => {
-  it('★★★ subgraph is not supported yet, and says so', () => {
-    const out = ask('subgraph', { query: {} });
+  it('★★★ subgraph args are validated before the index is touched, and a refusal still says how', () => {
+    let reads = 0;
+    const out = answerRequest({ request: { call: 'subgraph', args: { query: {} } }, resolveItem, readSubgraph: () => { reads += 1; }, head: HEAD });
     expect(out.ok).toBe(false);
-    expect(out.problem).toBe('subgraph is not supported by this provider yet');
+    expect(out.problem).toBe('give exactly one of args.anchor or args.path');
+    expect(reads).toBe(0);
+    expect(out.provenance).toEqual({ providerCommit: HEAD, exhaustive: false, provenance: SUBGRAPH_HOW });
+  });
+
+  it('★★★ subgraph passes the PARSED args to the reader, and its answer and refusal both come back', () => {
+    const seen = [];
+    const readSubgraph = (parsed) => { seen.push(parsed); return parsed.depth === 2 ? { ok: true, value: { nodes: [] } } : { ok: false, problem: 'not in the index' }; };
+    const call = (args) => answerRequest({ request: { call: 'subgraph', args }, resolveItem, readSubgraph, head: HEAD });
+    expect(call({ path: 'src/a.js', depth: 2 })).toEqual({ ok: true, value: { nodes: [] }, provenance: { providerCommit: HEAD, exhaustive: false, provenance: SUBGRAPH_HOW } });
+    expect(call({ path: 'src/a.js' })).toMatchObject({ ok: false, problem: 'not in the index' });
+    expect(seen.map((p) => p.depth)).toEqual([2, 1]);
+    expect(seen[0].start).toEqual({ path: 'src/a.js' });
   });
 
   it('★★★ a call this provider does not know, including the retired `signals`, is refused by name', () => {
     for (const call of ['signals', 'drop_tables', '']) {
       const out = ask(call, { anchors: [anchor('alpha')] });
       expect(out.ok, call).toBe(false);
-      expect(out.problem, call).toMatch(/not a call this provider answers/u);
+      expect(out.problem, call).toMatch(/not a call this provider answers \(it answers: stamp, resolve, subgraph\)/u);
     }
   });
 

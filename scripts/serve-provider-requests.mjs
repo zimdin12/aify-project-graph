@@ -13,6 +13,9 @@
 // ⛔ EVERYTHING IS READ AT THE COMMIT, NOT THE WORKING TREE (`git show <head>:<path>`, DESIGN-GRAPHS amendment 2), so
 // a developer's uncommitted edits neither change an answer nor make it fail. That is why, unlike the sweep, this
 // does not refuse a dirty tree.
+// ⚠ EXCEPT `subgraph`, which reads the graph INDEX, read-only. The index describes whatever it was last built from,
+// so that answer names its own commit beside HEAD and says `stale`, with the reason, when they differ or when the
+// index was built over uncommitted changes.
 //
 // ⛔ A CLAIMED REQUEST IS ALWAYS ANSWERED, `ok: false` with the reason when it cannot be served, never left to
 // expire. An expired claim goes back to the queue for somebody else, who would get the same non-answer later.
@@ -21,9 +24,10 @@
 //   0 fine, including nothing claimed · 2 stop until the configuration is fixed · 3 try again next tick ·
 //   1 unexpected, a bug. Several outcomes in one run: the most severe wins.
 import { resolveAnchor } from './lib/anchor-resolver.mjs';
-import { DashboardSignalsClient, SignalsRefused } from './lib/dashboard-signals-client.mjs';
+import { DashboardSignalsClient, SignalsRefused, resultBody } from './lib/dashboard-signals-client.mjs';
 import { makeInstruments, readProviderConfig, headOf } from './lib/provider-runtime.mjs';
 import { answerRequest } from './lib/provider-requests.mjs';
+import { readSubgraph } from './lib/provider-subgraph.mjs';
 import { exitForRun } from './lib/serve-exit.mjs';
 
 const repoRoot = process.cwd();
@@ -84,10 +88,17 @@ async function main() {
   const failures = [];
   for (const request of claimed) {
     const answer = request.projectId === client.projectId
-      ? answerRequest({ request, resolveItem: (item) => resolveAnchor({ repoRoot, item, deps: instruments }), head })
+      ? answerRequest({
+        request,
+        resolveItem: (item) => resolveAnchor({ repoRoot, item, deps: instruments }),
+        readSubgraph: (parsed) => readSubgraph({ repoRoot, request: parsed, head }),
+        head,
+      })
       // The claim is scoped to this project, so this needs a misbehaving service. Answered, not dropped.
       : { ok: false, problem: `this host serves project ${client.projectId}, not ${request.projectId}`, provenance: null };
-    const summary = answer.ok ? `ok ${JSON.stringify(answer.value).slice(0, 160)}` : `NOT OK: ${answer.problem}`;
+    // Logged from the body as sent: an answer over the service's size cap goes out as a refusal, not as itself.
+    const sent = resultBody(client.hostKey, answer);
+    const summary = sent.ok ? `ok ${JSON.stringify(sent.value).slice(0, 160)}` : `NOT OK: ${sent.problem}`;
     try {
       await client.postResult(request.requestId, answer);
       console.log(`  STORED      ${request.requestId}  ${request.call}  ${summary}`);

@@ -4,7 +4,7 @@
 // `hostKey` in the result BODY is required (`required(raw, "hostKey")`): the service accepts a result only from the
 // host that holds the claim. `ok` must be a real boolean. Refusals come back as {error, code}.
 import { describe, it, expect } from 'vitest';
-import { DashboardSignalsClient, SignalsRefused } from '../../../scripts/lib/dashboard-signals-client.mjs';
+import { DashboardSignalsClient, SignalsRefused, SERVICE_BODY_CAP_BYTES, resultBody } from '../../../scripts/lib/dashboard-signals-client.mjs';
 
 function recordingFetch({ status = 200, body = {} } = {}) {
   const calls = [];
@@ -53,11 +53,27 @@ describe('posting a result', () => {
 
   it('★★★ a failure is posted with ok false and its problem, never with ok missing', async () => {
     const fetchImpl = recordingFetch({ body: { stored: true } });
-    await client({ fetchImpl }).postResult('R1', { ok: false, problem: 'subgraph is not supported by this provider yet', provenance: null });
+    await client({ fetchImpl }).postResult('R1', { ok: false, problem: 'src/a.js is not in the index', provenance: null });
     const sent = JSON.parse(fetchImpl.calls[0].init.body);
     expect(sent.ok).toBe(false);
-    expect(sent.problem).toBe('subgraph is not supported by this provider yet');
+    expect(sent.problem).toBe('src/a.js is not in the index');
     expect(sent.value).toBeNull();
+  });
+
+  it('★★★ an answer over the service\'s 1 MiB body cap is posted as a refusal with its size, never cut down', async () => {
+    const provenance = { providerCommit: 'c'.repeat(40), exhaustive: false, provenance: 'apg' };
+    // CONTROL FIRST: the same shape just under the cap goes out as itself, so the refusal below is the cap speaking.
+    const room = SERVICE_BODY_CAP_BYTES - Buffer.byteLength(JSON.stringify(resultBody('host-a', { ok: true, value: { pad: '' }, provenance })));
+    const under = resultBody('host-a', { ok: true, value: { pad: 'x'.repeat(room) }, provenance });
+    expect(Buffer.byteLength(JSON.stringify(under))).toBe(SERVICE_BODY_CAP_BYTES);
+    expect(under.ok).toBe(true);
+
+    const fetchImpl = recordingFetch({ body: { stored: true } });
+    await client({ fetchImpl }).postResult('R1', { ok: true, value: { pad: 'x'.repeat(room + 1) }, provenance });
+    const sent = JSON.parse(fetchImpl.calls[0].init.body);
+    expect(sent).toMatchObject({ hostKey: 'host-a', ok: false, value: null, provenance });
+    expect(sent.problem).toMatch(new RegExp(`^the answer is ${SERVICE_BODY_CAP_BYTES + 1} bytes, over the service's ${SERVICE_BODY_CAP_BYTES}-byte body cap`, 'u'));
+    expect(Buffer.byteLength(fetchImpl.calls[0].init.body)).toBeLessThan(SERVICE_BODY_CAP_BYTES);
   });
 
   it('★★★ a refusal keeps the service\'s words, e.g. a lease that expired while working', async () => {

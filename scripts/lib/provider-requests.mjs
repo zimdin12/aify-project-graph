@@ -1,46 +1,65 @@
 // Answer one call claimed from the dashboard's request queue. PURE: the resolver is passed in, nothing is read here.
 //
 // The calls and their shapes were agreed with dashboard-manager on 2026-10-01 against aify-dashboard 36b6217, whose
-// PROVIDER_CALLS are resolve, stamp and subgraph. `signals` left the queue: sweeps are the one signal path.
+// PROVIDER_CALLS are resolve, stamp and subgraph. `signals` left the queue: sweeps are the one signal path. subgraph's
+// shape was agreed on 2026-10-17 and lives in provider-subgraph.mjs.
 //
 // ⛔ AN ANSWER IS EITHER `ok` WITH PROVENANCE OR A REFUSAL WITH A PROBLEM. Never a bare empty list: "asked, and the
 // answer is nothing" must be told apart from "could not ask", and the service refuses an ok answer that does not
 // say who computed it and how much they saw.
 
-/** How every answer here was computed, in this provider's own words. */
+import { parseSubgraphArgs, SUBGRAPH_HOW } from './provider-subgraph.mjs';
+
+/** How stamp and resolve were computed, in this provider's own words. */
 const HOW = 'apg tree-sitter extraction of the commit (git show), not a full build';
 
-/** The calls answered here. Anything else is refused by name rather than guessed at. */
-const ANSWERERS = Object.freeze({
-  stamp: (anchors, outcomes, head) => ({ stamps: anchors.map((anchor, i) => stampEntry(anchor, outcomes[i], head)) }),
-  resolve: (anchors, outcomes) => ({ results: anchors.map((anchor, i) => resolveEntry(anchor, outcomes[i])) }),
-});
-
-/** Calls the queue may carry that this provider deliberately does not answer yet, with the words it says. */
-const NOT_YET = Object.freeze({
-  subgraph: 'subgraph is not supported by this provider yet',
+/**
+ * The calls answered here, each ({ args, deps, head }) => { ok, value | problem, how }. Anything else is refused by
+ * name rather than guessed at, and the refusal lists these names, so a call added here is listed without a second edit.
+ */
+const CALLS = Object.freeze({
+  stamp: ({ args, deps, head }) => byAnchor(args, deps, (anchors, outcomes) => (
+    { stamps: anchors.map((anchor, i) => stampEntry(anchor, outcomes[i], head)) })),
+  resolve: ({ args, deps }) => byAnchor(args, deps, (anchors, outcomes) => (
+    { results: anchors.map((anchor, i) => resolveEntry(anchor, outcomes[i])) })),
+  subgraph: ({ args, deps }) => {
+    const parsed = parseSubgraphArgs(args);
+    if (!parsed.ok) return { ok: false, problem: parsed.problem, how: SUBGRAPH_HOW };
+    const read = deps.readSubgraph(parsed.value);
+    return read.ok ? { ok: true, value: read.value, how: SUBGRAPH_HOW } : { ok: false, problem: read.problem, how: SUBGRAPH_HOW };
+  },
 });
 
 /**
- * @param request     { call, args } as claimed
- * @param resolveItem (item) => the anchor resolver's verdict for { watchId, anchor, stamp }
- * @param head        the commit everything was read at
+ * @param request      { call, args } as claimed
+ * @param resolveItem  (item) => the anchor resolver's verdict for { watchId, anchor, stamp }
+ * @param readSubgraph (parsedArgs) => provider-subgraph.mjs readSubgraph for this repository at `head`
+ * @param head         the commit everything was read at
  * @returns {{ ok: true, value, provenance } | { ok: false, problem, provenance }}
  */
-export function answerRequest({ request, resolveItem, head }) {
-  const provenance = { providerCommit: head, exhaustive: false, provenance: HOW };
+export function answerRequest({ request, resolveItem, readSubgraph, head }) {
   const call = request?.call;
-  if (Object.hasOwn(NOT_YET, call)) return { ok: false, problem: NOT_YET[call], provenance };
-  if (!Object.hasOwn(ANSWERERS, call)) {
-    return { ok: false, problem: `${JSON.stringify(call)} is not a call this provider answers (it answers: ${Object.keys(ANSWERERS).join(', ')})`, provenance };
+  if (!Object.hasOwn(CALLS, call)) {
+    return {
+      ok: false,
+      problem: `${JSON.stringify(call)} is not a call this provider answers (it answers: ${Object.keys(CALLS).join(', ')})`,
+      provenance: provenanceOf(HOW, head),
+    };
   }
-  const anchors = request?.args?.anchors;
-  const problem = anchorsProblem(anchors);
-  if (problem !== null) return { ok: false, problem, provenance };
+  const { how, ...answer } = CALLS[call]({ args: request?.args, deps: { resolveItem, readSubgraph }, head });
+  return { ...answer, provenance: provenanceOf(how, head) };
+}
 
+const provenanceOf = (how, head) => ({ providerCommit: head, exhaustive: false, provenance: how });
+
+/** stamp and resolve: validate the anchor list, ask the resolver about each, and shape the answer. */
+function byAnchor(args, { resolveItem }, shape) {
+  const anchors = args?.anchors;
+  const problem = anchorsProblem(anchors);
+  if (problem !== null) return { ok: false, problem, how: HOW };
   // A null stamp: these calls ask what is there now, never compare it with a baseline.
   const outcomes = anchors.map((anchor, i) => resolveItem({ watchId: `request-${i}`, anchor, stamp: null }));
-  return { ok: true, value: ANSWERERS[call](anchors, outcomes, head), provenance };
+  return { ok: true, value: shape(anchors, outcomes), how: HOW };
 }
 
 /** Why `anchors` cannot be answered, or null. An empty list is a question with nothing in it, so it is refused too. */
