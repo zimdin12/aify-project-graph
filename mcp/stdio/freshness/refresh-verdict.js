@@ -19,7 +19,7 @@
 // the signal's meaning in exactly the repos that later install hooks and need it.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { AIFY_HOOKS, AIFY_HOOK_MARKER } from '../../../scripts/install-graph-hook.mjs';
+import { AIFY_HOOKS, AIFY_HOOK_MARKER, hooksLocation } from '../../../scripts/install-graph-hook.mjs';
 import { readRefreshBreadcrumb } from './refresh-breadcrumb.js';
 
 const INSTALL_CMD = 'node <apg>/scripts/install-graph-hook.mjs <repoRoot>';
@@ -32,9 +32,13 @@ const INSTALL_CMD = 'node <apg>/scripts/install-graph-hook.mjs <repoRoot>';
  * superseded one — as the working mechanism.
  */
 function installedHookCount(repoRoot) {
+  // ⛔ Counted where GIT reads hooks, not in .git/hooks. With core.hooksPath set, hooks sitting in .git/hooks never
+  // run, and counting them reported a mechanism that could not fire. A location git cannot give counts nothing.
+  const where = hooksLocation(repoRoot);
+  if (where === null) return 0;
   let n = 0;
   for (const hook of AIFY_HOOKS) {
-    const p = join(repoRoot, '.git', 'hooks', hook);
+    const p = join(where.dir, hook);
     if (!existsSync(p)) continue;
     try {
       if (readFileSync(p, 'utf8').includes(AIFY_HOOK_MARKER)) n += 1;

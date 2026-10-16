@@ -6,7 +6,8 @@
 // Idempotent: replaces only the aify-delimited block, preserving any other hook
 // content. Run: node <thisRepo>/scripts/install-graph-hook.mjs [targetRepoRoot]
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync } from 'node:fs';
 
 export const AIFY_HOOK_MARKER = 'aify-project-graph post-commit reindex';
@@ -54,8 +55,52 @@ function stripAifyBlock(body) {
   return out.join('\n');
 }
 
-export function installGraphHook(targetRepoRoot = process.cwd(), reindexPath = REINDEX) {
-  const hooksDir = join(targetRepoRoot, '.git', 'hooks');
+/**
+ * Where git reads this repository's hooks, asked of git rather than assumed.
+ *
+ * ⛔ FOUND BY dashboard-manager, 2026-10-17. This used to be `<repo>/.git/hooks`, always. aify-dashboard sets
+ * core.hooksPath=.githooks, so the install reported success into a directory git never reads, and the index went
+ * stale with the hooks "installed". `rev-parse --git-path hooks` answers with core.hooksPath (local or global)
+ * applied, and with a worktree's hooks in its main checkout.
+ *
+ * @returns {{ dir: string, configured: boolean } | null} `configured` is true when git reads hooks from somewhere
+ *   other than the repository's own hooks directory; null when git cannot answer (not a repository).
+ */
+export function hooksLocation(repoRoot) {
+  const ask = (args) => execFileSync('git', ['-C', repoRoot, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  try {
+    const dir = resolve(repoRoot, ask(['rev-parse', '--git-path', 'hooks']));
+    const own = resolve(repoRoot, ask(['rev-parse', '--git-common-dir']), 'hooks');
+    return { dir, configured: dir !== own };
+  } catch {
+    return null;
+  }
+}
+
+/** Why the hooks were not installed. Thrown, so a caller cannot read a refusal as a success. */
+export class HookInstallRefused extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'HookInstallRefused';
+  }
+}
+
+/**
+ * ⛔ A CONFIGURED HOOKS DIRECTORY IS REFUSED BY DEFAULT. It is often tracked and shared by everyone who clones the
+ * repository, and these hooks carry this machine's absolute reindex path. Pass `intoHooksPath` to write there anyway.
+ */
+export function installGraphHook(targetRepoRoot = process.cwd(), reindexPath = REINDEX, { intoHooksPath = false } = {}) {
+  const where = hooksLocation(targetRepoRoot);
+  if (where === null) throw new HookInstallRefused(`${targetRepoRoot} is not a git repository git can read, so there is no hook to install`);
+  if (where.configured && !intoHooksPath) {
+    throw new HookInstallRefused(
+      `git reads this repository's hooks from ${where.dir} (core.hooksPath), not from its own hooks directory, so `
+      + 'hooks put in its own directory would never run. Writing into the configured directory would put this machine\'s '
+      + 'reindex path into it, and it is often tracked. Re-run with --into-hooks-path to write there anyway, or '
+      + 'refresh the index on commit some other way.',
+    );
+  }
+  const hooksDir = where.dir;
   if (!existsSync(hooksDir)) mkdirSync(hooksDir, { recursive: true });
   const written = [];
   for (const hook of AIFY_HOOKS) {
@@ -73,8 +118,16 @@ export function installGraphHook(targetRepoRoot = process.cwd(), reindexPath = R
 
 // CLI entry
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  const target = process.argv[2] || process.cwd();
-  const paths = installGraphHook(target);
-  console.log(`Installed ${paths.length} aify reindex hooks:`);
-  for (const p of paths) console.log(`  ${p}`);
+  const args = process.argv.slice(2);
+  const intoHooksPath = args.includes('--into-hooks-path');
+  const target = args.find((a) => !a.startsWith('--')) || process.cwd();
+  try {
+    const paths = installGraphHook(target, REINDEX, { intoHooksPath });
+    console.log(`Installed ${paths.length} aify reindex hooks:`);
+    for (const p of paths) console.log(`  ${p}`);
+  } catch (error) {
+    if (!(error instanceof HookInstallRefused)) throw error;
+    console.error(`NOT INSTALLED: ${error.message}`);
+    process.exitCode = 1;
+  }
 }

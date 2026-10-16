@@ -14,13 +14,31 @@ import { join } from 'node:path';
 import { refreshMechanismVerdict } from '../../../mcp/stdio/freshness/refresh-verdict.js';
 import { installGraphHook } from '../../../scripts/install-graph-hook.mjs';
 import { writeRefreshBreadcrumb } from '../../../mcp/stdio/freshness/refresh-breadcrumb.js';
+import { execFileSync } from 'node:child_process';
+
+const git = (repo, ...args) => execFileSync('git', ['-C', repo, ...args], { stdio: 'ignore' });
 
 describe('refresh mechanism verdict', () => {
   let repo;
+  // A real repository: hooks are counted where git reads them, which only git can say. The local hooksPath pins
+  // that to the repository's own hooks, so a global core.hooksPath on a dev machine cannot move them.
   beforeEach(() => {
     repo = mkdtempSync(join(tmpdir(), 'apg-refresh-'));
+    git(repo, 'init', '-q');
+    git(repo, 'config', 'core.hooksPath', '.git/hooks');
     mkdirSync(join(repo, '.git', 'hooks'), { recursive: true });
     mkdirSync(join(repo, '.aify-graph'), { recursive: true });
+  });
+
+  it('★★★ hooks sitting where git does NOT read them are not counted (core.hooksPath moved them)', () => {
+    installGraphHook(repo);
+    writeRefreshBreadcrumb(repo, { trigger: 'post-commit', from: 'a', to: 'b', status: 'ok' });
+    // CONTROL: counted while git reads .git/hooks.
+    expect(refreshMechanismVerdict(repo).hooks_installed).toBe(4);
+    git(repo, 'config', 'core.hooksPath', '.githooks');
+    const v = refreshMechanismVerdict(repo);
+    expect(v.hooks_installed).toBe(0);
+    expect(v.state).toBe('unconfigured');
   });
   afterEach(() => { try { rmSync(repo, { recursive: true, force: true }); } catch { /* windows lock */ } });
 

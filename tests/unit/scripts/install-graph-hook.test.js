@@ -2,11 +2,21 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { installGraphHook, AIFY_HOOK_MARKER, AIFY_HOOKS } from '../../../scripts/install-graph-hook.mjs';
+import { execFileSync } from 'node:child_process';
+import { installGraphHook, hooksLocation, HookInstallRefused, AIFY_HOOK_MARKER, AIFY_HOOKS } from '../../../scripts/install-graph-hook.mjs';
+
+const git = (repo, ...args) => execFileSync('git', ['-C', repo, ...args], { stdio: 'ignore' });
 
 describe('installGraphHook', () => {
   let repo;
-  beforeEach(() => { repo = mkdtempSync(join(tmpdir(), 'apg-hook-')); mkdirSync(join(repo, '.git', 'hooks'), { recursive: true }); });
+  // A real repository: the installer asks git where its hooks live, and a directory named .git is not one. The local
+  // hooksPath pins git to the repository's own hooks, so a global core.hooksPath on a dev machine cannot move them.
+  beforeEach(() => {
+    repo = mkdtempSync(join(tmpdir(), 'apg-hook-'));
+    git(repo, 'init', '-q');
+    git(repo, 'config', 'core.hooksPath', '.git/hooks');
+    mkdirSync(join(repo, '.git', 'hooks'), { recursive: true });
+  });
   afterEach(() => { try { rmSync(repo, { recursive: true, force: true }); } catch {} });
 
   it('writes a post-commit hook containing the aify block', () => {
@@ -78,6 +88,46 @@ describe('installGraphHook', () => {
       const body = readFileSync(join(repo, '.git', 'hooks', hook), 'utf8');
       expect(body).toContain(`echo keep-${hook}`);
       expect(body).toContain(AIFY_HOOK_MARKER);
+    }
+  });
+
+  it('★★★ a configured hooks directory is REFUSED, and nothing is written anywhere', () => {
+    // dashboard-manager, 2026-10-17: aify-dashboard sets core.hooksPath=.githooks, and the install reported success
+    // into .git/hooks, which git never reads there.
+    git(repo, 'config', 'core.hooksPath', '.githooks');
+    // CONTROL: git itself says the hooks moved, so the refusal below is answering the real configuration.
+    expect(hooksLocation(repo)).toEqual({ dir: join(repo, '.githooks'), configured: true });
+    expect(() => installGraphHook(repo)).toThrow(HookInstallRefused);
+    expect(() => installGraphHook(repo)).toThrow(/\.githooks.*core\.hooksPath/su);
+    for (const dir of ['.git/hooks', '.githooks']) {
+      for (const hook of AIFY_HOOKS) {
+        const p = join(repo, dir, hook);
+        expect(existsSync(p) && readFileSync(p, 'utf8').includes(AIFY_HOOK_MARKER), `${dir}/${hook}`).toBe(false);
+      }
+    }
+  });
+
+  it('★★★ asked to, it writes into the configured directory, which is where git reads them', () => {
+    git(repo, 'config', 'core.hooksPath', '.githooks');
+    const paths = installGraphHook(repo, undefined, { intoHooksPath: true });
+    expect(paths).toEqual(AIFY_HOOKS.map((h) => join(repo, '.githooks', h)));
+    for (const p of paths) expect(readFileSync(p, 'utf8')).toContain(AIFY_HOOK_MARKER);
+  });
+
+  it('★★★ the repository\'s own hooks directory is not "configured", whether or not hooksPath names it', () => {
+    expect(hooksLocation(repo)).toEqual({ dir: join(repo, '.git', 'hooks'), configured: false });
+    git(repo, 'config', '--unset', 'core.hooksPath');
+    expect(hooksLocation(repo)).toEqual({ dir: join(repo, '.git', 'hooks'), configured: false });
+  });
+
+  it('★★★ a directory git cannot read as a repository is refused, not given a .git/hooks', () => {
+    const bare = mkdtempSync(join(tmpdir(), 'apg-hook-nogit-'));
+    try {
+      expect(hooksLocation(bare)).toBeNull();
+      expect(() => installGraphHook(bare)).toThrow(/not a git repository/u);
+      expect(existsSync(join(bare, '.git'))).toBe(false);
+    } finally {
+      rmSync(bare, { recursive: true, force: true });
     }
   });
 
