@@ -24,7 +24,7 @@
 //   0 fine, including nothing claimed · 2 stop until the configuration is fixed · 3 try again next tick ·
 //   1 unexpected, a bug. Several outcomes in one run: the most severe wins.
 import { resolveAnchor } from './lib/anchor-resolver.mjs';
-import { DashboardSignalsClient, SignalsRefused, resultBody } from './lib/dashboard-signals-client.mjs';
+import { DashboardSignalsClient, SignalsRefused, resultBody, isNoAnswer } from './lib/dashboard-signals-client.mjs';
 import { makeInstruments, readProviderConfig, headOf } from './lib/provider-runtime.mjs';
 import { answerRequest } from './lib/provider-requests.mjs';
 import { readSubgraph } from './lib/provider-subgraph.mjs';
@@ -51,8 +51,7 @@ function parseArgs(argv) {
 /** A failure as serve-exit.mjs classifies it: the service's refusal, no HTTP answer at all, or anything else. */
 function failureOf(error, kind) {
   if (error instanceof SignalsRefused) return { kind, status: error.status, code: error.code };
-  // Node's fetch rejects with a TypeError ("fetch failed") whose cause carries the socket error.
-  if (error instanceof TypeError && /fetch failed/u.test(error.message)) return { kind: 'network' };
+  if (isNoAnswer(error)) return { kind: 'network' };
   return { kind: 'unexpected' };
 }
 

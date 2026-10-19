@@ -33,6 +33,12 @@ export function resultBody(hostKey, { ok, value = null, problem = null, provenan
   };
 }
 
+/** The request never got an HTTP answer. Node's fetch rejects with a TypeError ("fetch failed") whose cause
+ *  carries the socket error; any other error is not this, and stays a bug. */
+export function isNoAnswer(error) {
+  return error instanceof TypeError && /fetch failed/u.test(error.message);
+}
+
 /** What the service refused, in the shape the caller has to act on. Their codes, not invented here. */
 export class SignalsRefused extends Error {
   constructor(status, body) {

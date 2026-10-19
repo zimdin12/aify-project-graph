@@ -10,8 +10,8 @@
 //            409 stale_baseline | stale_watch_revision (re-reserve and re-measure); 409 inconsistent_retry,
 //            unknown_sweep, sweeps_adopted; 400 bad_sweep   (routes/provider.ts SIGNALS_STATUS)
 import { describe, it, expect } from 'vitest';
-import { DashboardSignalsClient, SignalsRefused } from '../../../scripts/lib/dashboard-signals-client.mjs';
-import { outcomeOfPost } from '../../../scripts/lib/sweep-outcome.mjs';
+import { DashboardSignalsClient, SignalsRefused, isNoAnswer } from '../../../scripts/lib/dashboard-signals-client.mjs';
+import { outcomeOfPost, outcomeOfRefusal, outcomeOfNoAnswer } from '../../../scripts/lib/sweep-outcome.mjs';
 
 function recordingFetch({ status = 200, body = {} } = {}) {
   const calls = [];
@@ -130,6 +130,45 @@ describe('what a run does with the answer', () => {
       expect(out.exit, code).toBe(2);
       expect(out.line, code).toMatch(/run again/u);
     }
+  });
+
+  // ⛔ EXIT 2 USED TO COVER EVERY REFUSAL, so a scheduler told "2 means run again" retried a wrong key or an
+  // inconsistent_retry for ever at one head. Found by probing 2026-10-19: a wrong key against the live service
+  // exited 2. Only a re-read can be fixed by running again; the rest are 6, and the service's own 5xx/429 are 5.
+  it('★★★ a refusal that running again cannot fix exits 6, quoting the status and code on one line', () => {
+    for (const [status, code] of [[401, 'unauthenticated'], [404, 'not_found'], [400, 'bad_sweep'],
+      [409, 'inconsistent_retry'], [409, 'unknown_sweep'], [409, 'incomplete_batch'], [409, 'sweeps_adopted']]) {
+      const out = outcomeOfRefusal(new SignalsRefused(status, { error: 'the text', code }));
+      expect(out.exit, code).toBe(6);
+      expect(out.line, code).toBe(`REFUSED ${status} ${code}: the text`);
+    }
+  });
+
+  it('★★★ the service busy or failing (5xx, 429) exits 5, the same as no answer at all', () => {
+    for (const status of [500, 503, 429]) {
+      expect(outcomeOfRefusal(new SignalsRefused(status, { error: 'busy', code: 'x' })).exit, String(status)).toBe(5);
+    }
+  });
+
+  it('★★★ a refusal at the post is classified the same way as one at the reservation', () => {
+    const refusal = new SignalsRefused(401, { error: 'the text', code: 'unauthenticated' });
+    expect(outcomeOfPost({ refusal })).toEqual(outcomeOfRefusal(refusal));
+  });
+
+  // ⛔ NO ANSWER USED TO EXIT 1, a bug, because fetch's TypeError escaped uncaught. A scheduler that stops a folder
+  // on 1 would then stop sweeping it for good after one dashboard restart. Found by probing 2026-10-19.
+  it('★★★ no HTTP answer at all exits 5, naming the socket error', () => {
+    const noAnswer = new TypeError('fetch failed', { cause: Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' }) });
+    expect(isNoAnswer(noAnswer)).toBe(true);
+    const out = outcomeOfNoAnswer(noAnswer);
+    expect(out.exit).toBe(5);
+    expect(out.line).toMatch(/^UNAVAILABLE no answer: ECONNREFUSED/u);
+  });
+
+  it('★★★ CONTROL: any other error is NOT "no answer", so it stays a bug (exit 1, uncaught)', () => {
+    expect(isNoAnswer(new TypeError('cannot read properties of undefined'))).toBe(false);
+    expect(isNoAnswer(new Error('fetch failed'))).toBe(false);
+    expect(isNoAnswer(new SignalsRefused(503, { code: 'x' }))).toBe(false);
   });
 
   it('★★★ an answer it does not recognise FAILS, rather than reading as applied', () => {

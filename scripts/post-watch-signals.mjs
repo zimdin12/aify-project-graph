@@ -9,9 +9,12 @@
 // returns, and posts with the sweep's id, so the service can order this reporter's reports. The first
 // reservation for a project adopts sweeps for this reporter there, and after that an unswept post is refused.
 //
-// Exit codes: 1 incomplete batch, bad argument or unrecognised answer; 2 refused by the service (for a stale
-// baseline or revision, running again reserves afresh); 3 stale sweep: a later sweep of this reporter was applied
-// first, this one was kept as history and changed nothing; 4 uncommitted changes.
+// Exit codes (scripts/lib/sweep-outcome.mjs EXIT; the aify-env schedule acts on them, agreed 2026-10-19):
+//   0 applied or repeat · 1 a bug here: incomplete batch, bad argument, missing setting or unrecognised answer ·
+//   2 stale baseline or revision: run again now, which reserves afresh · 3 stale sweep: a later sweep of this
+//   reporter was applied first, this one was kept as history and changed nothing · 4 uncommitted changes ·
+//   5 no answer, or the service busy or failing (5xx, 429): try again later · 6 refused, and running again at this
+//   head cannot fix it; the last line reads `REFUSED <status> <code>: <the service's text>`.
 //
 // Configuration comes from the environment, never from a constant in here:
 //   APG_DASHBOARD_URL      default http://localhost:9700
@@ -28,8 +31,8 @@
 // ⇒ So an anchor with no baseline reports `restamp` on every sweep. A baseline comes only from a person naming the
 // anchor to `scripts/reconfirm-anchor.mjs`; after that, `unchanged` and `changed` are reachable.
 import { resolveAnchor, splitBatch } from './lib/anchor-resolver.mjs';
-import { DashboardSignalsClient, SignalsRefused } from './lib/dashboard-signals-client.mjs';
-import { outcomeOfPost } from './lib/sweep-outcome.mjs';
+import { DashboardSignalsClient, SignalsRefused, isNoAnswer } from './lib/dashboard-signals-client.mjs';
+import { EXIT, outcomeOfPost, outcomeOfRefusal, outcomeOfNoAnswer } from './lib/sweep-outcome.mjs';
 import { makeInstruments, readProviderConfig, headOf, dirtyCountOf, dirtyRefusal } from './lib/provider-runtime.mjs';
 
 // The repository is the working directory, so pointing this at a scratch repo is `cd` and nothing else.
@@ -41,7 +44,7 @@ async function main() {
   const unknown = args.filter((a) => a !== '--dry-run' && a !== '--allow-dirty');
   if (unknown.length > 0) {
     console.error(`unknown argument(s): ${unknown.join(' ')}`);
-    process.exit(1);
+    process.exit(EXIT.failed);
   }
   const dryRun = args.includes('--dry-run');
   const allowDirty = args.includes('--allow-dirty');
@@ -58,7 +61,7 @@ async function main() {
   const refusal = dirtyRefusal({ dirty, allowDirty, act: 'sweep' });
   if (refusal !== null && !dryRun) {
     console.error(`\nNOTHING SENT: ${refusal}`);
-    process.exit(4);
+    process.exit(EXIT.dirty);
   }
 
   // 1. Reserve a sweep, and measure the set it returns. The revision and predecessor it returns are posted back
@@ -76,11 +79,7 @@ async function main() {
       console.log(`sweep         #${reserved.sweepId}, after ${reserved.predecessor === null ? 'none applied yet' : `#${reserved.predecessor}`}`);
     }
   } catch (error) {
-    if (error instanceof SignalsRefused) {
-      console.error(`\nREFUSED ${error.status} ${error.code}\n  ${error.detail ?? ''}`);
-      process.exit(2);
-    }
-    throw error;
+    stopOn(failureOutcome(error));
   }
   console.log(`watch set     revision ${set.watchRevision}, ${set.items.length} items`);
 
@@ -92,7 +91,7 @@ async function main() {
   const batch = splitBatch(resolved, set.items.map((i) => i.watchId));
   if (!batch.complete) {
     console.error(`INCOMPLETE — missing [${batch.missing}] duplicated [${batch.duplicated}]`);
-    process.exit(1);
+    process.exit(EXIT.failed);
   }
 
   // 4. Show the whole verdict, per anchor, before anything leaves the machine.
@@ -130,11 +129,22 @@ async function main() {
     });
     outcome = outcomeOfPost({ reply });
   } catch (error) {
-    if (!(error instanceof SignalsRefused)) throw error;
-    outcome = outcomeOfPost({ refusal: error });
+    outcome = failureOutcome(error);
   }
-  (outcome.exit === 0 ? console.log : console.error)(`\n${outcome.line}`);
-  if (outcome.exit !== 0) process.exit(outcome.exit);
+  if (outcome.exit !== EXIT.ok) stopOn(outcome);
+  console.log(`\n${outcome.line}`);
+}
+
+/** A thrown request, as an outcome: the service's refusal, or no answer at all. Anything else is a bug, rethrown. */
+function failureOutcome(error) {
+  if (error instanceof SignalsRefused) return outcomeOfRefusal(error);
+  if (isNoAnswer(error)) return outcomeOfNoAnswer(error);
+  throw error;
+}
+
+function stopOn(outcome) {
+  console.error(`\n${outcome.line}`);
+  process.exit(outcome.exit);
 }
 
 await main();
