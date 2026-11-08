@@ -1,8 +1,9 @@
 # Plan — simplify what exists, then prove it reaches a consumer
 
-**Written 2026-09-08.** Supersedes the ORDERING in `docs/PLAN-2026-09-06-two-tags.md`. That
-document's findings stand and it remains the history of the delta arc; what is retired is its
-active sequence, which still orders work that has since been withdrawn.
+**Written 2026-09-08.** Supersedes the ORDERING in `docs/PLAN-2026-09-06-two-tags.md`, whose findings
+remain history rather than an active sequence. For the November audit's proposed delivery order,
+use the current planning section of `docs/PLAN-2026-09-20-dashboard-seam.md`. It awaits named
+cross-repository owner approval; this plan's protected measurement gates remain in force.
 
 Driven by the round-4 review at `bf053cd5`, which was asked for scope and product judgement rather
 than defects. Every pointer in it was re-derived against the pinned tree before this was written.
