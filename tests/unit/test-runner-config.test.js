@@ -76,4 +76,13 @@ describe('the running suite is configured by vitest.config.js', () => {
     expect(lsp.include.length, 'the lsp tier is not empty').toBeGreaterThan(0);
     expect(unit.exclude, 'every lsp-tier file is kept out of the unit tier').toEqual(expect.arrayContaining(lsp.include));
   });
+
+  it('★★ both tiers record product-source reads for the ratchet, the lsp tier included (#10)', async () => {
+    // A worker can only observe its own tier; the lsp tier's wiring is visible here and nowhere else.
+    const config = (await import('../../vitest.config.js')).default;
+    for (const name of ['unit', 'lsp']) {
+      const tier = config.test.projects.find((p) => p.test?.name === name).test;
+      expect(tier.setupFiles.some((f) => f.includes('source-text-reads.setup')), name).toBe(true);
+    }
+  });
 });

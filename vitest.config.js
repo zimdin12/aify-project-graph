@@ -18,6 +18,8 @@ const LSP_TIER = [
   'tests/unit/code-intel/cli/doctor.test.js',
 ];
 const UNIT_TIER_SETUP = './tests/helpers/unit-tier.setup.js';
+// Both tiers record test code reading product source text, for the ratchet in tests/helpers/temp-root.global.js (#10).
+const SOURCE_READS_SETUP = './tests/helpers/source-text-reads.setup.js';
 const UNIT_TIER_GUARD = fileURLToPath(new URL('./tests/helpers/unit-tier-forbids-language-servers.js', import.meta.url));
 
 // ⛔ EVERY TEST'S TEMP DIRECTORY LIVES INSIDE ONE PER-RUN ROOT THAT IS DELETED WHOLESALE.
@@ -95,7 +97,7 @@ export default defineConfig({
           name: 'unit',
           include: ['tests/**/*.test.js'],
           exclude: [...configDefaults.exclude, ...LSP_TIER],
-          setupFiles: [UNIT_TIER_SETUP],
+          setupFiles: [SOURCE_READS_SETUP, UNIT_TIER_SETUP],
           sequence: { groupOrder: 0 },
           env: {
             APG_LANGUAGE_SERVER_REFUSALS: process.env.APG_LANGUAGE_SERVER_REFUSALS,
@@ -109,6 +111,7 @@ export default defineConfig({
         test: {
           name: 'lsp',
           include: LSP_TIER,
+          setupFiles: [SOURCE_READS_SETUP],
           sequence: { groupOrder: 1 },
           poolOptions: { forks: { singleFork: true } },
         },

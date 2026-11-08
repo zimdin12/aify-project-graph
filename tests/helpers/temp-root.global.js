@@ -15,8 +15,9 @@
 // spawned child writes to its temp dir, clangd included — lands inside ONE directory that this
 // teardown deletes in a single operation. A test that forgets to clean up is now harmless.
 import { rmSync, readdirSync, statSync, existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, basename } from 'node:path';
 import { tmpdir } from 'node:os';
+import { SOURCE_READS_FILE, KNOWN_PRODUCT_SOURCE_READERS, unlistedReaders } from './source-text-reads.js';
 
 const ROOT_PREFIX = 'apg-vitest-';
 
@@ -52,6 +53,29 @@ function languageServerRefusals(root) {
   return [...new Set(readFileSync(path, 'utf8').split('\n').filter(Boolean))];
 }
 
+function productSourceReads(root) {
+  const path = join(root, SOURCE_READS_FILE);
+  if (!existsSync(path)) return [];
+  return [...new Set(readFileSync(path, 'utf8').split('\n').filter(Boolean))];
+}
+
+// The test files this run saw reading product source text, printed every run; the error names any not on the list.
+export function sourceTextVerdict(records, known = KNOWN_PRODUCT_SOURCE_READERS, root = '') {
+  const readers = [...new Set(records.map((r) => r.split('\t')[0]))].sort();
+  const unlisted = unlistedReaders(records, known);
+  // The root is named because a test drives this teardown on a scratch root, and its "0" lands in the same log.
+  const report = `[source-text] ${readers.length} test file(s) read product source text in ${basename(root)}`
+    + ` (ratchet list: ${known.size}):\n${readers.map((f) => `  ${f}`).join('\n')}\n`;
+  const error = unlisted.length === 0 ? null
+    : `${unlisted.length} test file(s) read product source text and are not on KNOWN_PRODUCT_SOURCE_READERS`
+      + ` (tests/helpers/source-text-reads.js). A test that reads source cannot fail when the behaviour breaks: run the`
+      + ` code instead, or add the file with a reason if its artifact under test is text.\n${unlisted.map((f) => {
+        const read = records.filter((r) => r.startsWith(`${f}\t`)).map((r) => r.split('\t')[1]);
+        return `  ${f} read ${[...new Set(read)].join(', ')}`;
+      }).join('\n')}`;
+  return { report, error };
+}
+
 export default function setup() {
   // The root itself is created in vitest.config.js, because the value must reach the worker `env`
   // at config-evaluation time. This hook owns only its REMOVAL.
@@ -60,9 +84,12 @@ export default function setup() {
   return () => {
     const pruned = pruneAbandonedRoots(root);
     if (pruned > 0) process.stderr.write(`[temp-root] pruned ${pruned} abandoned run root(s)\n`);
-    if (!root) return;
+    // Each vitest project runs this teardown; the first removes the root, and a second reading the vanished record would
+    // print a false "0 files read product source".
+    if (!root || !existsSync(root)) return;
     // Read before the root (which holds it) is deleted; fail after, so cleanup still happens.
     const refusals = languageServerRefusals(root);
+    const sourceText = sourceTextVerdict(productSourceReads(root), KNOWN_PRODUCT_SOURCE_READERS, root);
     try {
       rmSync(root, { recursive: true, force: true });
     } catch (error) {
@@ -74,5 +101,7 @@ export default function setup() {
       throw new Error(`a parallel unit-tier test started a real language server ${refusals.length} time(s); move each`
         + ` file below to LSP_TIER in vitest.config.js (tests/helpers/unit-tier-forbids-language-servers.js):\n${refusals.join('\n')}`);
     }
+    process.stderr.write(sourceText.report);
+    if (sourceText.error) throw new Error(sourceText.error);
   };
 }
