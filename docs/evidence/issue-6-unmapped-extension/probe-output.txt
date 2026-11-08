@@ -1,0 +1,10 @@
+BookStack 0b6b667, aify-dashboard d683d634
+== BEFORE (pushed code)
+apg checkout C:/Users/Administrator/AppData/Local/Temp/apg-specimens/apg-before at 65ab39f5
+  uncaughtException from the language server: invalid AST (this ends an unguarded process)
+  (the BEFORE run printed nothing more: after that exception it hung for over 5 minutes and was stopped by hand; no language server it started was left running)
+== AFTER (this change)
+apg checkout C:/Docker/aify-project-graph at aa2b7648
+app/Http/Controller.php                  -> language_unsupported; language servers started: none
+ui/src/lib/StateCard.svelte              -> language_unsupported; language servers started: none
+scripts/lib/apg-index.mjs                -> ok; language servers started: node.exe

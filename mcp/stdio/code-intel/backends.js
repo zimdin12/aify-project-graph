@@ -67,4 +67,20 @@ export function inferLanguage(file) {
   return EXT_TO_LANG[m[0].toLowerCase()] || null;
 }
 
+/**
+ * The language server a live query drives: the caller's explicit language, else the one the file's extension maps to.
+ * Null when neither names one (#6). There is no default: a `.svelte`, `.glsl` or `.php` file used to start clangd and
+ * come back with C++ answers about a file that is not C++.
+ */
+export function liveLanguageFor({ language, file }) {
+  return language || inferLanguage(file) || null;
+}
+
+/** The refusal for a file `liveLanguageFor` could not place, naming its extension and what is supported. */
+export function unmappedFileMessage(file) {
+  const ext = /\.[A-Za-z0-9]+$/.exec(String(file ?? ''))?.[0] ?? '(no extension)';
+  return `no language server handles ${ext} files (${file}); the live verbs drive ${Object.keys(BACKENDS).join(', ')}, `
+    + 'chosen by extension or by an explicit language';
+}
+
 export { BACKENDS };

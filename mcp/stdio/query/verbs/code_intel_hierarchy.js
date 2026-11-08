@@ -27,7 +27,7 @@ import { join } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { getLiveSession } from '../../code-intel/live.js';
 import { computeCoverage, coverageCause } from '../../code-intel/coverage.js';
-import { inferLanguage } from '../../code-intel/backends.js';
+import { liveLanguageFor, unmappedFileMessage } from '../../code-intel/backends.js';
 import { liveProvenanceFor, backendNameFor } from '../../code-intel/provenance.js';
 import { identifierColumn, leafNameOf } from '../../code-intel/identifier-position.js';
 import { toRepoRelative } from '../../ingest/code-intel/paths.js';
@@ -733,8 +733,9 @@ export async function codeIntelHierarchy(args = {}) {
   const breadthCap = Math.min(Math.max(Number(breadthArg) || DEFAULT_BREADTH_CAP, 1), 100);
   const totalCap = Math.min(Math.max(Number(totalArg) || DEFAULT_TOTAL_NODES, 1), 1000);
 
-  // Explicit language wins; else infer from the file extension; else default cpp.
-  const lang = language || inferLanguage(file) || 'cpp';
+  // Explicit language wins; else infer from the file extension; an unmapped extension is refused (#6).
+  const lang = liveLanguageFor({ language, file });
+  if (!lang) return errorResponse('language_unsupported', unmappedFileMessage(file));
   let session;
   try { session = await getLiveSession({ language: lang, projectRoot: repoRoot, spawn }); }
   catch (err) { return errorResponse(err.code || 'internal_error', err.message); }

@@ -13,7 +13,7 @@ import { getLiveSession } from '../../code-intel/live.js';
 import { computeCoverage, coverageCause } from '../../code-intel/coverage.js';
 import { liveProvenanceFor } from '../../code-intel/provenance.js';
 import { shapeScanAppliesTo } from '../../code-intel/shape-detectors.js';
-import { inferLanguage } from '../../code-intel/backends.js';
+import { liveLanguageFor, unmappedFileMessage } from '../../code-intel/backends.js';
 import { toRepoRelative, uriToRepoRelativeSafe } from '../../ingest/code-intel/paths.js';
 import { selectCppPrewarmFiles } from '../../code-intel/prewarm/cpp.js';
 import { openExistingDb } from '../../storage/db.js';
@@ -792,7 +792,8 @@ export async function codeIntelDiagnostics({ repoRoot, language, files = [], dia
   if (!Array.isArray(files) || files.length === 0) return { status: 'ok', files: [], diagnostics: [] };
   const waitMs = Number.isFinite(diagnosticsWaitMs) && diagnosticsWaitMs >= 0
     ? diagnosticsWaitMs : DEFAULT_DIAGNOSTICS_WAIT_MS;
-  const lang = language || inferLanguage(files[0]) || 'cpp';
+  const lang = liveLanguageFor({ language, file: files[0] });
+  if (!lang) return errorResponse('language_unsupported', unmappedFileMessage(files[0]));
   let session;
   try { session = await getLiveSession({ language: lang, projectRoot: repoRoot, spawn }); }
   catch (err) { return errorResponse(err.code || 'internal_error', err.message); }
@@ -860,7 +861,8 @@ export async function codeIntelReferences({ repoRoot, language, file, line, col,
   if (!contract.ok) return errorResponse('unsupported_evidence_contract_version', contract.error);
   // The file extension is authoritative for which language server to drive, so
   // agents don't have to pass `language` for TS/Python repos (default is cpp).
-  const lang = language || inferLanguage(file) || 'cpp';
+  const lang = liveLanguageFor({ language, file });
+  if (!lang) return errorResponse('language_unsupported', unmappedFileMessage(file));
   let session;
   try { session = await getLiveSession({ language: lang, projectRoot: repoRoot, spawn }); }
   catch (err) { return errorResponse(err.code || 'internal_error', err.message); }
@@ -1134,7 +1136,8 @@ export async function codeIntelReferences({ repoRoot, language, file, line, col,
 export async function codeIntelDefinitions({ repoRoot, language, file, line, col, warmupFiles = [], warmupMs, prewarmCap, waitForReadyMs = 0, spawn }) {
   const startedAt = Date.now();
   if (!repoRoot || !file || !line) return errorResponse('invalid_request', 'repoRoot, file and line are all required — pass file (repo-relative) and line (1-based)');
-  const lang = language || inferLanguage(file) || 'cpp';
+  const lang = liveLanguageFor({ language, file });
+  if (!lang) return errorResponse('language_unsupported', unmappedFileMessage(file));
   let session;
   try { session = await getLiveSession({ language: lang, projectRoot: repoRoot, spawn }); }
   catch (err) { return errorResponse(err.code || 'internal_error', err.message); }
@@ -1173,7 +1176,8 @@ export async function codeIntelDefinitions({ repoRoot, language, file, line, col
 export async function codeIntelHover({ repoRoot, language, file, line, col, warmupFiles = [], warmupMs, prewarmCap, waitForReadyMs = 0, spawn }) {
   const startedAt = Date.now();
   if (!repoRoot || !file || !line) return errorResponse('invalid_request', 'repoRoot, file and line are all required — pass file (repo-relative) and line (1-based)');
-  const lang = language || inferLanguage(file) || 'cpp';
+  const lang = liveLanguageFor({ language, file });
+  if (!lang) return errorResponse('language_unsupported', unmappedFileMessage(file));
   let session;
   try { session = await getLiveSession({ language: lang, projectRoot: repoRoot, spawn }); }
   catch (err) { return errorResponse(err.code || 'internal_error', err.message); }
@@ -1193,7 +1197,8 @@ export async function codeIntelHover({ repoRoot, language, file, line, col, warm
 /** Symbol outline for one file. */
 export async function codeIntelSymbols({ repoRoot, language, file, spawn }) {
   if (!repoRoot || !file) return errorResponse('invalid_request', 'repoRoot and file are required — file must be repo-relative');
-  const lang = language || inferLanguage(file) || 'cpp';
+  const lang = liveLanguageFor({ language, file });
+  if (!lang) return errorResponse('language_unsupported', unmappedFileMessage(file));
   let session;
   try { session = await getLiveSession({ language: lang, projectRoot: repoRoot, spawn }); }
   catch (err) { return errorResponse(err.code || 'internal_error', err.message); }
