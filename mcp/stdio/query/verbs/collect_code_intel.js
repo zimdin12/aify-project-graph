@@ -29,6 +29,7 @@ import { createPyrightProvider } from '../../code-intel/providers/pyright.js';
 import { openDb, openExistingDb } from '../../storage/db.js';
 import { importV02Collection } from '../../ingest/code-intel/importer.js';
 import { loadEffectiveIgnoredDirs, pathContainsIgnoredDir } from '../../ingest/ignored-dirs.js';
+import { CPP_EXTENSIONS } from '../../code-intel/compile-db.js';
 
 // FIX 2 (test-round-2026-05-31): `language` used to be required-with-no-default,
 // inconsistent with every other code_intel_* verb (which default to 'cpp').
@@ -171,7 +172,8 @@ export const LANGUAGE_FILE_EXTENSIONS = Object.freeze({
   typescript: ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'],
   javascript: ['.js', '.jsx', '.mjs', '.cjs'],
   python: ['.py'],
-  cpp: ['.cpp', '.cc', '.cxx', '.h', '.hpp'],
+  // Derived from the collector's own set (#7): a hand list here missed .c, .hh and .hxx.
+  cpp: [...CPP_EXTENSIONS],
 });
 
 const RECORDS_PER_FILE_ANOMALY = 1000;

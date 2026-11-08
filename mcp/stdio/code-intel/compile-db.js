@@ -901,7 +901,8 @@ function stripInternal(entry) {
   return out;
 }
 
-const CPP_EXTENSIONS = new Set(['.cpp', '.cc', '.cxx', '.c', '.h', '.hpp', '.hh', '.hxx']);
+// The C/C++ source extensions the collector enumerates. The coverage denominator derives its C++ set from this (#7).
+export const CPP_EXTENSIONS = new Set(['.cpp', '.cc', '.cxx', '.c', '.h', '.hpp', '.hh', '.hxx']);
 
 // ── Compile-DB COVERAGE (false-exhaustive guard) ─────────────────────────────
 // clangd's textDocument/references is best-effort over its index, and that index
