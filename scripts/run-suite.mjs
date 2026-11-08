@@ -15,7 +15,7 @@
 // a harness summary. A harness notification has twice reported "exit code 0" for a RED suite in this
 // project, so the log carries VITEST_EXIT and the log is the authority.
 import { spawn, execFileSync } from 'node:child_process';
-import { createWriteStream, mkdirSync, copyFileSync, appendFileSync, readFileSync } from 'node:fs';
+import { createWriteStream, mkdirSync, copyFileSync, appendFileSync, readFileSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -147,6 +147,8 @@ child.on('close', (code) => {
     appendFileSync(SCRATCH, namedSkips());
     appendFileSync(SCRATCH, `\nSUITE FOR COMMIT ${headAtStart}\nFINISHED ${new Date().toISOString()}\nVITEST_EXIT=${code}\n`);
     copyFileSync(SCRATCH, DEST);
+    // The repo copy is the record. Both scratch files used to stay in the temp directory, two per gate run.
+    for (const scratch of [SCRATCH, RESULTS_JSON]) rmSync(scratch, { force: true });
     console.log(`suite exit ${code} — log copied to docs/evidence/suite/latest.log`);
 
     // ⛔⛔ DID THE TREE HOLD STILL? The entry check refuses a dirty START and then never looks again,
