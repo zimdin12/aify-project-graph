@@ -342,7 +342,7 @@ export async function graphExplainDiff({ repoRoot, range, staged = false, files,
     //
     // ⇒ Producer proven, consumer absent, claim shipped anyway — the fourth recorded instance of
     // that shape here. The tool description now says so plainly. The consumer arrives in the delta
-    // work (`docs/PLAN-2026-09-06-two-tags.md`, D3), and the description changes back THEN, on
+    // work (`docs/archive/PLAN-2026-09-06-two-tags.md`, D3), and the description changes back THEN, on
     // evidence, rather than staying true-by-intention in the meantime.
     let overlayWritten = null;
     if (overlay) {

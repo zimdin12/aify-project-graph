@@ -32,7 +32,7 @@ const REPO = fileURLToPath(new URL('../../../', import.meta.url));
 // select the ratchet: the guard was right and it was never asked.
 //
 // ⚠ SUPERSEDED PLANS ARE EXCLUDED, AND THE SOURCE IS THE DOCUMENT'S OWN DECLARED STATE rather
-// than a list kept here. `docs/PLAN-2026-09-06-two-tags.md` is history: it carries twelve
+// than a list kept here. `docs/archive/PLAN-2026-09-06-two-tags.md` is history: it carries twelve
 // unresolved citations, and one of them — `dashboard/server.js`, ambiguous between
 // mcp/stdio/server.js and mcp/stdio/dashboard/server.js — is the exact ambiguity that made me
 // resolve a reviewer's pointer against the wrong file on 2026-09-08. Freezing history is not the
@@ -102,8 +102,11 @@ describe('every file the plan cites resolves to exactly one file', () => {
       .toBeGreaterThan(0);
     expect(active, 'the current plan must be gated')
       .toContain('docs/PLAN-2026-09-08-simplify-and-reach.md');
-    expect(active, 'a superseded plan is history and is not held to the gate')
-      .not.toContain('docs/PLAN-2026-09-06-two-tags.md');
+    // The superseded plan now lives in docs/archive (#17), out of this scan, so the filter's discriminating half is
+    // checked on its real banner: a superseded plan left at the root would be excluded, not gated.
+    expect(SUPERSEDED.test(readFileSync(join(REPO, 'docs/archive/PLAN-2026-09-06-two-tags.md'), 'utf8')),
+      'a superseded plan is history and is not held to the gate').toBe(true);
+    expect(active.filter((p) => SUPERSEDED.test(readFileSync(join(REPO, p), 'utf8')))).toEqual([]);
   });
 
   it('NEGATIVE CONTROL: the resolver can say NO', () => {

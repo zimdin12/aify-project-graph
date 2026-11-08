@@ -11,6 +11,10 @@ Columns:
 - **Implemented.** What HEAD does, checked when this page was written (2026-11-08, at `2a2bd795`). "Not checked"
   means I did not look.
 
+A note whose decisions are all superseded moves to `docs/archive/`. aify-dashboard's search leaves
+`docs/archive/` and `docs/evidence/` out by default (`FENCED_UNDER_DOCS`, aify-dashboard#6); open such a note
+by its path.
+
 Each source is `path:line` followed by words found on that line, so a moved note or a shifted line is visible.
 `tests/unit/docs/decisions-index-cites-real-lines.test.js` checks every one.
 
@@ -28,14 +32,14 @@ Each source is `path:line` followed by words found on that line, so a moved note
 | 2026-09-20 | Retire `graph_lookup` and `graph_summary` (superseded by `whereis`). A surface change, not dead-code cleanup. | SUPERSEDED by P4, which retires the whole agent MCP surface | Agreed 2026-09-20 | No. Both are still registered in `mcp/stdio/tools/schema.js`. | `docs/PLAN-2026-09-20-dashboard-seam.md:197` "Retire `graph_lookup` and `graph_summary`" |
 | 2026-09-20 | Delete the dead structural-digest writer. | SUPERSEDED as a standalone step; the 2026-11-04 plan does not schedule it | Agreed 2026-09-20 | No. `writeStructuralDigest` is still defined. | `docs/PLAN-2026-09-20-dashboard-seam.md:189` "Delete the dead structural-digest writer" |
 | 2026-09-20 | The deletion-guard hook stays apg's, delivered through aify-wrapper. | CURRENT until P4 | Agreed 2026-09-20 | No. "Neither hook is wired anywhere today." | `docs/PLAN-2026-09-20-dashboard-seam.md:213` "Neither hook" |
-| 2026-09-19 | apg runs as a library and CLI only, no standing service; read-only feature export; retire the viewer. | SUPERSEDED by the 2026-11-04 provider-only decision | No. A proposal. | n/a | `docs/2026-09-19-dashboard-boundary-proposal.md:5` "A proposal only" |
+| 2026-09-19 | apg runs as a library and CLI only, no standing service; read-only feature export; retire the viewer. | SUPERSEDED by the 2026-11-04 provider-only decision | No. A proposal. | n/a | `docs/archive/2026-09-19-dashboard-boundary-proposal.md:5` "A proposal only" |
 
 ## Languages
 
 | Date | Decision | Status | Approved | Implemented | Source |
 |---|---|---|---|---|---|
 | 2026-08-30 | F4, a PHP language-server backend, is gated on a PHP runtime on the host, not on a licence. phpactor is MIT and needs no bundling. | CURRENT | Installing a runtime is Steven's call. #6 plans phpactor on PATH that degrades cleanly when absent. | No PHP backend in `mcp/stdio/code-intel/backends.js` | `docs/2026-08-30-f4-php-is-gated-on-a-runtime-not-a-licence.md:1` "gated on a runtime, not on a licence" |
-| 2026-08-26 | F4 does not earn a backend: blocked on a licence. | SUPERSEDED 2026-08-30 by the row above | n/a | n/a | `docs/2026-08-26-f4-php-spike.md:9` "Q1 fails on licensing" |
+| 2026-08-26 | F4 does not earn a backend: blocked on a licence. | SUPERSEDED 2026-08-30 by the row above | n/a | n/a | `docs/archive/2026-08-26-f4-php-spike.md:9` "Q1 fails on licensing" |
 | 2026-08-10 | No PHP extractor work before step 3 of the one-plan. | SUPERSEDED by P3 of the 2026-11-04 plan, which schedules the PHP work | n/a | PHP fixtures and fixes landed under #4 and #15 | `docs/2026-08-10-one-plan.md:915` "No PHP extractor work before step 3" |
 | 2026-08-10 | The 105.3% PHP figure is not a quality rate. | CURRENT | n/a | n/a | `docs/2026-08-10-one-plan.md:832` "RETIRED" |
 
@@ -44,7 +48,7 @@ Each source is `path:line` followed by words found on that line, so a moved note
 | Date | Decision | Status | Approved | Implemented | Source |
 |---|---|---|---|---|---|
 | 2026-09-08 | Retire dead paths, verify reach, exercise real tasks, refactor the seams they expose, then consider a funded series. | Ordering SUPERSEDED by the 2026-11-04 draft for delivery; its measurement gates stay in force | Owner-directed | Not checked | `docs/PLAN-2026-09-08-simplify-and-reach.md:3` "Supersedes the ORDERING"; `docs/PLAN-2026-09-08-simplify-and-reach.md:6` "measurement gates remain in force" |
-| 2026-09-06 | Two tags, then build the delta. | SUPERSEDED 2026-09-08 | n/a | n/a | `docs/PLAN-2026-09-06-two-tags.md:3` "SUPERSEDED 2026-09-08" |
+| 2026-09-06 | Two tags, then build the delta. | SUPERSEDED 2026-09-08 | n/a | n/a | `docs/archive/PLAN-2026-09-06-two-tags.md:3` "SUPERSEDED 2026-09-08" |
 | 2026-09-03 | Order: suite green, fail-open, then the rest. | SUPERSEDED by the 2026-09-06 and 2026-09-08 plans | n/a | n/a | `docs/ROADMAP-2026-09-03.md:5` "Supersedes the ordering" |
 | 2026-09-03 | Drop M3b. | CURRENT | Decided 2026-09-03 | n/a | `docs/PLAN-agent-knowledge-system.md:525` "DROP" |
 | 2026-09-02 | M4: do not narrow the tool surface. | CURRENT until P4 retires the surface | n/a | n/a | `docs/PLAN-agent-knowledge-system.md:566` "DO NOT NARROW" |
@@ -106,6 +110,6 @@ An inventory of every `docs/*.md` searched for decision words ("decided", "super
 "Steven's call" and the like), reading the plans and roadmaps in full and the other notes' first lines plus
 matching passages. A decision written without such words can be missing; the likeliest places are
 `docs/THE-GOAL.md`, `docs/2026-08-10-state-of-the-service.md` and `docs/M1a-A-site-identity-design.md`.
-`docs/evidence/` and `docs/archive/` were not read.
+`docs/evidence/` and the notes that were already in `docs/archive/` were not read.
 
 When a decision changes, edit its row here and add a pointer line under the title of the note it corrects.

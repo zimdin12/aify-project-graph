@@ -496,7 +496,7 @@ export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
       // not measuring it, and a comment asserting an instrument is not one.
       //
       // The rows are kept because "a request reached this endpoint at time T" is honest data and
-      // costs nothing. Only the claim was wrong. docs/PLAN-2026-09-06-two-tags.md records the
+      // costs nothing. Only the claim was wrong. docs/archive/PLAN-2026-09-06-two-tags.md records the
       // criterion as UNMEASURABLE FROM RETAINED INSTRUMENTATION rather than as a failed trial, and
       // says what a real one would need — agreed prospectively, not reconstructed afterwards.
       try {

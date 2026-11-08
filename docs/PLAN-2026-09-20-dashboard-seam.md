@@ -154,7 +154,7 @@ its future standalone/export/no-standing-provider direction; existing behavior r
 migration gates pass. Its viewer-use acceptance and evidence/measurement protections survive.
 
 2026-09-20. Agreed with dashboard-manager over four rounds. The boundary proposal is
-`docs/2026-09-19-dashboard-boundary-proposal.md` (3e9cc455); the joint ownership table is
+`docs/archive/2026-09-19-dashboard-boundary-proposal.md` (3e9cc455); the joint ownership table is
 DESIGN-APG-OWNERSHIP.md in aify-dashboard (d2f00f4), where every one of apg's 43 verbs appears
 exactly once with an owner.
 

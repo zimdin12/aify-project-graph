@@ -1,6 +1,6 @@
 # Plan — simplify what exists, then prove it reaches a consumer
 
-**Written 2026-09-08.** Supersedes the ORDERING in `docs/PLAN-2026-09-06-two-tags.md`, whose findings
+**Written 2026-09-08.** Supersedes the ORDERING in `docs/archive/PLAN-2026-09-06-two-tags.md`, whose findings
 remain history rather than an active sequence. For the November audit's proposed delivery order,
 use the current planning section of `docs/PLAN-2026-09-20-dashboard-seam.md`. It awaits named
 cross-repository owner approval; this plan's protected measurement gates remain in force.
@@ -12,7 +12,7 @@ than defects. Every pointer in it was re-derived against the pinned tree before 
 
 ## 0. Why the previous plan had to be replaced rather than edited
 
-`docs/PLAN-2026-09-06-two-tags.md` ends with the order
+`docs/archive/PLAN-2026-09-06-two-tags.md` ends with the order
 `S1 -> S2 -> S3 -> S4 -> S5(tag) -> D1 -> D2 -> D3 -> D4 -> tag`, and its D1 section orders the
 `structural_digest` table. `./CHANGELOG.md` withdraws exactly that comparison: a stored digest cannot
 be attributed to the source its named commit contained, because the indexer parses the working tree
@@ -26,7 +26,7 @@ not upcoming milestones. D1 to D4 are not unfinished repairs.
 ⚠ The goal still requires a human view of what changed. It does not require this implementation.
 The existing Git-diff-against-current-graph view stays, labelled as **what the diff touches** and
 not as historical structural movement. That distinction is already stated correctly at
-`docs/PLAN-2026-09-06-two-tags.md` lines 71-80.
+`docs/archive/PLAN-2026-09-06-two-tags.md` lines 71-80.
 
 ---
 
