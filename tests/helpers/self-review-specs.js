@@ -61,23 +61,25 @@ function assertWellFormed(file, entries) {
 /**
  * Every declared witness spec, derived physically from disk.
  *
+ * @param {string} [dir] the spec directory; a test that plants malformed files passes a scratch copy, never the
+ *   real one, which other files in the parallel unit tier are reading at the same time.
  * @throws if any `.json` in the directory is neither a well-formed spec nor named apparatus.
  */
-export function declaredSpecs() {
+export function declaredSpecs(dir = SPEC_DIR) {
   const out = [];
-  for (const file of readdirSync(SPEC_DIR)) {
+  for (const file of readdirSync(dir)) {
     if (!file.endsWith('.json')) continue;          // non-JSON is not this contract's business
     if (APPARATUS_FILES.has(file)) continue;        // classified, by name, deliberately
 
     if (!file.endsWith('.spec.json')) {
-      throw new Error(`${file} is an unclassified .json in ${SPEC_DIR}. Name it *.spec.json if it `
+      throw new Error(`${file} is an unclassified .json in ${dir}. Name it *.spec.json if it `
         + 'declares witnesses, or add it to APPARATUS_FILES if it does not. Silently skipping it '
         + 'would shrink the denominator with nothing to notice.');
     }
 
     let entries;
     try {
-      entries = JSON.parse(readFileSync(join(SPEC_DIR, file), 'utf8'));
+      entries = JSON.parse(readFileSync(join(dir, file), 'utf8'));
     } catch (err) {
       throw new Error(`${file} does not parse: ${err.message}. A spec file that stops parsing must `
         + 'break the gate, not vanish from the population.');

@@ -8,22 +8,24 @@
 //
 // ⇒ the reviewer: *"fails if a would-be spec is silently excluded — not merely filters until
 // tests turn green."*
-import { describe, it, expect, afterEach } from 'vitest';
-import { writeFileSync, rmSync, existsSync } from 'node:fs';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { writeFileSync, rmSync, cpSync, mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { declaredSpecs, SPEC_DIR, APPARATUS_FILES } from '../../helpers/self-review-specs.js';
 
-// Files this test creates inside the real spec directory. Removed in afterEach, and asserted gone.
-const scratch = [];
-const write = (name, body) => {
-  const p = join(SPEC_DIR, name);
-  scratch.push(p);
-  writeFileSync(p, body);
-  return p;
-};
-afterEach(() => {
-  for (const p of scratch.splice(0)) rmSync(p, { force: true });
+// ⛔ PLANTED INTO A COPY, NEVER INTO tests/self-review. This file used to write its malformed specs into the real
+// directory and remove them afterwards. Once the unit tier ran files in parallel (#10), anchor-addressability read
+// the directory while a planted file sat in it and went red on object.spec.json and partial.spec.json (gate run of
+// 2026-11-08). Each case below still derives the real population plus one planted file.
+let dir;
+beforeEach(() => {
+  dir = join(mkdtempSync(join(tmpdir(), 'apg-specs-')), 'self-review');
+  cpSync(SPEC_DIR, dir, { recursive: true });
 });
+afterEach(() => { try { rmSync(join(dir, '..'), { recursive: true, force: true }); } catch { /* win lock */ } });
+const write = (name, body) => writeFileSync(join(dir, name), body);
+const derive = () => declaredSpecs(dir);
 
 describe('the spec derivation classifies every file, and refuses the unclassifiable', () => {
   it('★★★ POSITIVE CONTROL: the real directory derives cleanly', () => {
@@ -38,27 +40,27 @@ describe('the spec derivation classifies every file, and refuses the unclassifia
     // would, under a pattern-based skip, be treated as apparatus and its declarations would vanish
     // from every count.
     write('some-new-thing.json', '{"anything": true}');
-    expect(() => declaredSpecs()).toThrow(/unclassified \.json/);
+    expect(() => derive()).toThrow(/unclassified \.json/);
   });
 
   it('★★★ a *.spec.json that does not parse THROWS', () => {
     write('broken.spec.json', '{ this is not json');
-    expect(() => declaredSpecs()).toThrow(/does not parse/);
+    expect(() => derive()).toThrow(/does not parse/);
   });
 
   it('★★★ a *.spec.json holding a non-array THROWS', () => {
     write('object.spec.json', '{"name": "not an array"}');
-    expect(() => declaredSpecs()).toThrow(/does not hold an array/);
+    expect(() => derive()).toThrow(/does not hold an array/);
   });
 
   it('★★★ an EMPTY *.spec.json THROWS — indistinguishable from deleted in the totals', () => {
     write('empty.spec.json', '[]');
-    expect(() => declaredSpecs()).toThrow(/declares no witnesses/);
+    expect(() => derive()).toThrow(/declares no witnesses/);
   });
 
   it('★★★ a declaration missing required fields THROWS, and names them', () => {
     write('partial.spec.json', JSON.stringify([{ name: 'P1 half a declaration', file: 'x.js' }]));
-    expect(() => declaredSpecs()).toThrow(/missing from, to, tests/);
+    expect(() => derive()).toThrow(/missing from, to, tests/);
   });
 
   it('★★★ apparatus is skipped BY EXACT NAME, and the ledger is the only entry', () => {
@@ -67,15 +69,9 @@ describe('the spec derivation classifies every file, and refuses the unclassifia
     expect([...APPARATUS_FILES]).toEqual(['migration-ledger.json']);
   });
 
-  it('★★★ CONTROL: the scratch files really are removed', () => {
-    // Without this the suite could leave debris in the real spec directory and every later run
-    // would derive a different population — the contamination this file is about.
-    const p = write('temp-check.spec.json', JSON.stringify([{
-      name: 'T', file: 'x', from: 'a', to: 'b', tests: [],
-    }]));
-    expect(existsSync(p)).toBe(true);
-    rmSync(p, { force: true });
-    scratch.length = 0;
-    expect(existsSync(p), 'removal actually works').toBe(false);
+  it('★★★ CONTROL: the copy derives exactly what the real directory does', () => {
+    // Every planted case derives the copy. If the copy differed from the real directory, a throw could come from the
+    // copying rather than from the planted file.
+    expect(derive()).toEqual(declaredSpecs());
   });
 });
