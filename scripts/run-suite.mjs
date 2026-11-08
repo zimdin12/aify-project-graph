@@ -20,6 +20,7 @@ import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { classifyRunIntegrity } from './lib/suite-run-integrity.mjs';
+import { readTreeChanges } from './lib/tree-changes.mjs';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DEST = join(REPO, 'docs/evidence/suite/latest.log');
@@ -74,12 +75,14 @@ const headAtStart = (() => {
 // ⭐ FUNCTIONS, NOT ONE-SHOTS, because the END of the run needs the same two readings. The entry
 // check below and the integrity check afterwards must ask the identical question, or they can
 // disagree about what "dirty" means and the disagreement would look like a defect in the code.
-function readTrackedDirty() {
-  try {
-    const unstaged = execFileSync('git', ['-C', REPO, 'diff', '--name-only'], { encoding: 'utf8' });
-    const staged = execFileSync('git', ['-C', REPO, 'diff', '--cached', '--name-only'], { encoding: 'utf8' });
-    return `${unstaged}${staged}`.split('\n').filter(Boolean);
-  } catch { return null; }
+// Untracked files count too: vitest collects every test file ON DISK, so an uncommitted one joins the run. On
+// 2026-11-08 one did, and a gate run for three committed fixes went RED for a file no commit contained.
+function readDirty() {
+  const changes = readTreeChanges(REPO);
+  return changes && [
+    ...changes.tracked.map((path) => ({ mark: 'M', path })),
+    ...changes.untracked.map((path) => ({ mark: '??', path })),
+  ];
 }
 
 function readHead() {
@@ -88,11 +91,14 @@ function readHead() {
   } catch { return 'unknown'; }
 }
 
-const trackedDirty = readTrackedDirty() ?? [];
-if (trackedDirty.length > 0) {
-  console.error('REFUSED: the tree has tracked changes, so the suite would measure a dirty repo.');
-  for (const f of trackedDirty) console.error(`  M ${f}`);
-  console.error('\nCommit them first (the previous run\'s log is the usual culprit), then re-run.');
+const dirty = readDirty();
+if (dirty === null || dirty.length > 0) {
+  console.error(dirty === null
+    ? 'REFUSED: git could not report the tree, so nothing says what the suite would measure.'
+    : 'REFUSED: the tree has tracked changes or untracked files, so the suite would measure a dirty repo.');
+  for (const { mark, path } of dirty ?? []) console.error(`  ${mark} ${path}`);
+  console.error('\nCommit them, or move untracked files out of the checkout, then re-run. The previous run\'s log is'
+    + ' the usual tracked culprit; a test file for the next change is the usual untracked one.');
   process.exit(2);
 }
 
@@ -151,7 +157,7 @@ child.on('close', (code) => {
     const integrity = classifyRunIntegrity({
       headAtStart,
       headAtEnd: readHead(),
-      dirtyAtEnd: readTrackedDirty(),
+      dirtyAtEnd: readDirty()?.map((row) => row.path) ?? null,
       // The copy two lines above put this file there. Without naming it the guard would void every
       // run, which is how a check becomes noise.
       expectedWrites: ['docs/evidence/suite/latest.log'],
