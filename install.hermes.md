@@ -181,7 +181,7 @@ Verify with `node "$CLONE_PATH/bin/apg.js" code-intel doctor cpp`. The repo need
 
 ### Code-intel verbs (after install)
 
-For C++ work the bounded live verbs are `code_intel_diagnostics / references / definitions / hover / symbols / hierarchy / analyze` (clangd live, no collect round-trip). For repo-wide ranked callers, run `graph_collect_code_intel({language:"cpp", scope:"all"})` once → `graph_callers` then renders `[lsp✓]` + `LSP_VERIFIED` on real caller edges. `graph_shader` bridges C++↔GLSL bindings. **Trust rule: `[lsp✓]` / `LSP_VERIFIED` = clangd ground truth — don't re-grep it; absence claims gate on `evidence.exhaustive === true`.**
+For C++ work the bounded live verbs are `code_intel_diagnostics / references / definitions / hover / symbols / hierarchy / analyze` (clangd live, no collect round-trip). For repo-wide ranked callers, run `graph_collect_code_intel({language:"cpp", scope:"all"})` once → `graph_callers` then renders `[lsp✓]` + `LSP_VERIFIED` on real caller edges. `graph_shader` bridges C++↔GLSL bindings. **Trust rule: `[lsp✓]` / `LSP_VERIFIED` = clangd ground truth — don't re-grep it; returned locations are a floor, so an absence claim needs `rg`: no field licenses one.**
 
 ### Multi-repo caveat — MCP is cwd-bound
 

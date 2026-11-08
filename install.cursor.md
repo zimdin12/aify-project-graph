@@ -100,7 +100,7 @@ alwaysApply: false
 When `.aify-graph/` exists in the workspace:
 
 - Prefer `graph_packet({mode:"orient"|"plan"|"verify"|...})` for context primer over file-by-file Read.
-- Use `code_intel_references` for absence claims (dead code, safe-to-delete) — trust the answer only when `evidence.exhaustive === true`. When degraded, follow `evidence.fallback`.
+- `code_intel_references` returns a floor, not a complete set: an absence claim (dead code, safe-to-delete) needs `rg`. When degraded, follow `evidence.fallback`.
 - Use `code_intel_diagnostics` for post-edit error checks without a full build.
 - Static briefs at `.aify-graph/brief.*.md` are the cheap cross-repo path.
 

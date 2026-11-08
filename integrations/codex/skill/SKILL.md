@@ -171,7 +171,7 @@ Analyzer `partial` / `not_collected` means evidence was unavailable for some req
 
 ⭐ **And `[lsp✓]` still means what it always meant.** Withholding the SET claim does not touch the PER-EDGE one: a node marked `[lsp✓]` is compiler-resolved ground truth and does not need re-grepping. Precision and exhaustiveness are orthogonal — an incomplete set of exact answers is still exact.
 
-**Trust rule:** `[lsp✓]` / `LSP_VERIFIED` = language-server ground truth — don't re-grep it. Absence claims gate on `evidence.exhaustive === true`, never on an empty result.
+**Trust rule:** `[lsp✓]` / `LSP_VERIFIED` = language-server ground truth — don't re-grep it. An absence claim needs `rg`: no field licenses one, and an empty result is not one.
 
 ## Edge provenance
 
