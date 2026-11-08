@@ -237,8 +237,8 @@ If the graph feels thin, improve the overlay before blaming the engine:
 The graph's tree-sitter edges are heuristic. To upgrade them to compiler-verified
 (`LSP_VERIFIED` / `[lsp✓]`) edges, run `graph_collect_code_intel` — it now drives a
 real language server for **C++ (clangd), TypeScript/JavaScript (typescript-language-server),
-and Python (pyright)**, auto-selected by file extension / repo markers. The servers are
-bundled with the plugin (no host LSP setup). Honesty: C++ gated on compile-DB coverage; TS
+and Python (pyright)**, auto-selected by file extension / repo markers. typescript-language-server
+and pyright ship with the plugin; clangd is not bundled (install LLVM, set `APG_CLANGD`, or put it on PATH). Honesty: C++ gated on compile-DB coverage; TS
 exhaustive only when the file is inside its nearest tsconfig project (not just present at the root); Python is never provably exhaustive (dynamic dispatch) → a
 verified floor, not "safe to delete".
 

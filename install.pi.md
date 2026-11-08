@@ -104,7 +104,7 @@ node "$PLUGIN_ROOT/scripts/import-code-intel.mjs" "$PWD" "$PWD/.aify-graph/code-
 node "$PLUGIN_ROOT/scripts/graph-brief.mjs" "$PWD"
 ```
 
-**Pi native LSP routing (optional).** If Pi's native LSP extension should drive clangd through the APG wrapper (uniform error exits, fix hints, project-local→bundled→global resolution), drop `.pi-lsp.json` in the target repo's root. Template at `$PLUGIN_ROOT/docs/integrations/pi-lsp.json.example`:
+**Pi native LSP routing (optional).** If Pi's native LSP extension should drive clangd through the APG wrapper (uniform error exits, fix hints; clangd is not bundled, and the wrapper finds it on PATH only), drop `.pi-lsp.json` in the target repo's root. Template at `$PLUGIN_ROOT/docs/integrations/pi-lsp.json.example`:
 
 ```json
 {

@@ -66,8 +66,8 @@ OUTPUT CONTRACTS:
 
 LANGUAGES (LSP trust spine): code_intel_* + graph_collect_code_intel work on C++ (clangd),
 TypeScript/JavaScript (typescript-language-server), and Python (pyright). Language is inferred
-from the file extension — you do NOT need to pass language. The servers are bundled with the
-plugin; the host needs no LSP config. Honesty per language: C++ gated on compile-DB coverage;
+from the file extension — you do NOT need to pass language. typescript-language-server and
+pyright ship with the plugin; clangd is not bundled (install LLVM, set APG_CLANGD, or put it on PATH). Honesty per language: C++ gated on compile-DB coverage;
 TS exhaustive only when the queried file is INSIDE its nearest tsconfig/jsconfig project (a root
 tsconfig merely existing is not enough — a file outside its include scope returns
 partial_tsconfig_scope); Python is NEVER provably exhaustive (duck typing
