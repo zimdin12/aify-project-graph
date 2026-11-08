@@ -1,5 +1,7 @@
 # A gate on creation is not a gate on the edge
 
+> **Successor:** the defect is addressed by `docs/2026-08-26-one-door-for-external-edges.md`. See `docs/DECISIONS.md`.
+
 > ⛔⛔ **REVERTED 2026-08-26 AFTER REVIEW. The defect below is real; the fix was not, and it deleted
 > real edges.** `graph-senior-dev` falsified the central predicate and I reproduced every blocker.
 > Read this document as a record of a defect that is STILL OPEN plus a fix that was withdrawn — not

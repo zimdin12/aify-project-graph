@@ -1,5 +1,7 @@
 # Making the project graph actually good for agents — plan
 
+> **Later ordering:** the milestone order here was replaced by `docs/ROADMAP-2026-09-03.md` and its successors; the current plans are listed in `docs/DECISIONS.md`.
+
 ## The purpose, stated so every item can be checked against it
 
 We are building a knowledge system for AI agents (Claude Code, Hermes), not for humans. The

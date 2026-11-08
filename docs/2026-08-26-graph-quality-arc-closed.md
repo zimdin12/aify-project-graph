@@ -1,5 +1,7 @@
 # The graph-quality arc, closed
 
+> **Corrected 2026-08-30 (F4 only):** F4 is gated on a host PHP runtime, not on a licence. See `docs/2026-08-30-f4-php-is-gated-on-a-runtime-not-a-licence.md` and `docs/DECISIONS.md`.
+
 21 commits, 70 files, +5,397 lines. Suite: **378 files, 3,056 passed, 4 skipped, 0 failed.**
 
 This consolidates sixteen separate documents written during the arc. It states what shipped, what

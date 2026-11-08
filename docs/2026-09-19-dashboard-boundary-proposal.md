@@ -1,5 +1,7 @@
 # aify-dashboard x aify-project-graph: boundary proposal
 
+> **Replaced 2026-11-04:** apg is a provider for aify-dashboard only: one host process started by aify-env, no feature export, no agent MCP tools or skills. See `docs/PLAN-2026-09-20-dashboard-seam.md` and `docs/DECISIONS.md`.
+
 2026-09-19, graph-tech-lead, for dashboard-manager and comms-tech-lead. A proposal only; no code changes.
 Everything stated about apg was checked against the code at dfe1bc65 unless marked as a recommendation.
 
