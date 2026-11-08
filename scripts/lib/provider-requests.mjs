@@ -10,6 +10,13 @@
 
 import { parseSubgraphArgs, SUBGRAPH_HOW } from './provider-subgraph.mjs';
 
+/**
+ * The answer format, published in docs/schemas/provider-answer.v1.schema.json (#1). Every ok value carries it, so a
+ * reader can refuse a shape it does not know instead of reading it as this one. Bump it, and the schema, when a value
+ * changes meaning or loses a field.
+ */
+export const PROVIDER_FORMAT_VERSION = 1;
+
 /** How stamp and resolve were computed, in this provider's own words. */
 const HOW = 'apg tree-sitter extraction of the commit (git show), not a full build';
 
@@ -47,7 +54,8 @@ export function answerRequest({ request, resolveItem, readSubgraph, head }) {
     };
   }
   const { how, ...answer } = CALLS[call]({ args: request?.args, deps: { resolveItem, readSubgraph }, head });
-  return { ...answer, provenance: provenanceOf(how, head) };
+  const versioned = answer.ok ? { ...answer, value: { formatVersion: PROVIDER_FORMAT_VERSION, ...answer.value } } : answer;
+  return { ...versioned, provenance: provenanceOf(how, head) };
 }
 
 const provenanceOf = (how, head) => ({ providerCommit: head, exhaustive: false, provenance: how });

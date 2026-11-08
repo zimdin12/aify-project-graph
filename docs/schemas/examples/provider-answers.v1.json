@@ -1,0 +1,248 @@
+{
+  "generator": "node scripts/provider-examples.mjs",
+  "head": "fdc9bf6e6656fcb0a330a1fce8ac605dd0a31f23",
+  "answers": {
+    "stamp": {
+      "ok": true,
+      "value": {
+        "formatVersion": 1,
+        "stamps": [
+          {
+            "anchor": {
+              "path": "scripts/lib/anchor-resolver.mjs",
+              "name": "resolveAnchor",
+              "kind": "symbol"
+            },
+            "stamp": {
+              "hash": "687fccb07a749fafe76bff5c685ad64f7e652cb98892e3531c8d98dd63edfcb9",
+              "stampVersion": "apg-symbol-shape-1",
+              "commit": "fdc9bf6e6656fcb0a330a1fce8ac605dd0a31f23"
+            }
+          },
+          {
+            "anchor": {
+              "path": "scripts/lib/provider-requests.mjs",
+              "kind": "file"
+            },
+            "stamp": {
+              "hash": "54772f22ce3dcb10efa5d5181cab865736fdc46f0941699115261e3f185a9bf9",
+              "stampVersion": "apg-file-structural-1",
+              "commit": "fdc9bf6e6656fcb0a330a1fce8ac605dd0a31f23"
+            }
+          },
+          {
+            "anchor": {
+              "path": "scripts/no-such-file.mjs",
+              "kind": "file"
+            },
+            "refused": "gone",
+            "reason": "scripts/no-such-file.mjs is not present in commit fdc9bf6e6656, spelled exactly"
+          }
+        ]
+      },
+      "provenance": {
+        "providerCommit": "fdc9bf6e6656fcb0a330a1fce8ac605dd0a31f23",
+        "exhaustive": false,
+        "provenance": "apg tree-sitter extraction of the commit (git show), not a full build"
+      }
+    },
+    "resolve": {
+      "ok": true,
+      "value": {
+        "formatVersion": 1,
+        "results": [
+          {
+            "anchor": {
+              "path": "scripts/lib/anchor-resolver.mjs",
+              "name": "resolveAnchor",
+              "kind": "symbol"
+            },
+            "status": "found"
+          },
+          {
+            "anchor": {
+              "path": "scripts/lib/provider-requests.mjs",
+              "kind": "file"
+            },
+            "status": "found"
+          },
+          {
+            "anchor": {
+              "path": "scripts/no-such-file.mjs",
+              "kind": "file"
+            },
+            "status": "gone"
+          }
+        ]
+      },
+      "provenance": {
+        "providerCommit": "fdc9bf6e6656fcb0a330a1fce8ac605dd0a31f23",
+        "exhaustive": false,
+        "provenance": "apg tree-sitter extraction of the commit (git show), not a full build"
+      }
+    },
+    "subgraph": {
+      "ok": true,
+      "value": {
+        "formatVersion": 1,
+        "indexCommit": "fdc9bf6e6656fcb0a330a1fce8ac605dd0a31f23",
+        "stale": false,
+        "staleBecause": [],
+        "head": "fdc9bf6e6656fcb0a330a1fce8ac605dd0a31f23",
+        "matched": {
+          "nodes": 30,
+          "edges": 59,
+          "dropped": {
+            "external": 14
+          }
+        },
+        "truncated": true,
+        "nodes": [
+          {
+            "id": "ec323531f1374fdac4d7190691b8c5703b6d49c4",
+            "kind": "Function",
+            "name": "resolveAnchor",
+            "qname": "scripts.lib.anchor-resolver.resolveAnchor",
+            "path": "scripts/lib/anchor-resolver.mjs",
+            "lineRange": [
+              207,
+              343
+            ],
+            "anchor": {
+              "kind": "symbol",
+              "path": "scripts/lib/anchor-resolver.mjs",
+              "name": "resolveAnchor"
+            }
+          },
+          {
+            "id": "013a5f0a525c9aa966cf20130d520760c2de7b99",
+            "kind": "Function",
+            "name": "run",
+            "qname": "docs.evidence.issue-23-content-watch.probe.run",
+            "path": "docs/evidence/issue-23-content-watch/probe.mjs",
+            "lineRange": [
+              14,
+              14
+            ],
+            "anchor": {
+              "kind": "symbol",
+              "path": "docs/evidence/issue-23-content-watch/probe.mjs",
+              "name": "run"
+            }
+          },
+          {
+            "id": "08c2e3f31d33892679911f693a74f48ad8815b5a",
+            "kind": "Function",
+            "name": "docLinkSet",
+            "qname": "scripts.lib.anchor-resolver.docLinkSet",
+            "path": "scripts/lib/anchor-resolver.mjs",
+            "lineRange": [
+              192,
+              194
+            ],
+            "anchor": {
+              "kind": "symbol",
+              "path": "scripts/lib/anchor-resolver.mjs",
+              "name": "docLinkSet"
+            }
+          },
+          {
+            "id": "0cb6ab240a25776a9547813cbb54da4226a10652",
+            "kind": "File",
+            "name": "reconfirm-plan.test.js",
+            "qname": "tests/unit/scripts/reconfirm-plan.test.js",
+            "path": "tests/unit/scripts/reconfirm-plan.test.js",
+            "lineRange": [
+              1,
+              157
+            ],
+            "anchor": {
+              "kind": "file",
+              "path": "tests/unit/scripts/reconfirm-plan.test.js"
+            }
+          },
+          {
+            "id": "1db1237699ecf3c22d78a1a1c8a6c6232af6eba2",
+            "kind": "File",
+            "name": "anchor-resolver.mjs",
+            "qname": "scripts/lib/anchor-resolver.mjs",
+            "path": "scripts/lib/anchor-resolver.mjs",
+            "lineRange": [
+              1,
+              432
+            ],
+            "anchor": {
+              "kind": "file",
+              "path": "scripts/lib/anchor-resolver.mjs"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "from": "013a5f0a525c9aa966cf20130d520760c2de7b99",
+            "to": "013a5f0a525c9aa966cf20130d520760c2de7b99",
+            "type": "REFERENCES",
+            "resolution": "name",
+            "provenance": "EXTRACTED"
+          },
+          {
+            "from": "013a5f0a525c9aa966cf20130d520760c2de7b99",
+            "to": "ec323531f1374fdac4d7190691b8c5703b6d49c4",
+            "type": "CALLS",
+            "resolution": "name",
+            "provenance": "EXTRACTED"
+          },
+          {
+            "from": "0cb6ab240a25776a9547813cbb54da4226a10652",
+            "to": "1db1237699ecf3c22d78a1a1c8a6c6232af6eba2",
+            "type": "IMPORTS",
+            "resolution": "name",
+            "provenance": "EXTRACTED"
+          },
+          {
+            "from": "0cb6ab240a25776a9547813cbb54da4226a10652",
+            "to": "ec323531f1374fdac4d7190691b8c5703b6d49c4",
+            "type": "CALLS",
+            "resolution": "name",
+            "provenance": "EXTRACTED"
+          },
+          {
+            "from": "1db1237699ecf3c22d78a1a1c8a6c6232af6eba2",
+            "to": "08c2e3f31d33892679911f693a74f48ad8815b5a",
+            "type": "DEFINES",
+            "resolution": "structural",
+            "provenance": "EXTRACTED"
+          },
+          {
+            "from": "1db1237699ecf3c22d78a1a1c8a6c6232af6eba2",
+            "to": "ec323531f1374fdac4d7190691b8c5703b6d49c4",
+            "type": "DEFINES",
+            "resolution": "structural",
+            "provenance": "EXTRACTED"
+          },
+          {
+            "from": "ec323531f1374fdac4d7190691b8c5703b6d49c4",
+            "to": "08c2e3f31d33892679911f693a74f48ad8815b5a",
+            "type": "CALLS",
+            "resolution": "name",
+            "provenance": "EXTRACTED"
+          }
+        ]
+      },
+      "provenance": {
+        "providerCommit": "fdc9bf6e6656fcb0a330a1fce8ac605dd0a31f23",
+        "exhaustive": false,
+        "provenance": "apg graph index, read-only (tree-sitter extraction; an edge is compiler-resolved only where its resolution says compiler)"
+      }
+    },
+    "refusal": {
+      "ok": false,
+      "problem": "\"signals\" is not a call this provider answers (it answers: stamp, resolve, subgraph)",
+      "provenance": {
+        "providerCommit": "fdc9bf6e6656fcb0a330a1fce8ac605dd0a31f23",
+        "exhaustive": false,
+        "provenance": "apg tree-sitter extraction of the commit (git show), not a full build"
+      }
+    }
+  }
+}

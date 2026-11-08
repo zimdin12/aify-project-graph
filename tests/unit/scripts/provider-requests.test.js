@@ -9,7 +9,7 @@
 // without it (queue.ts provenanceFrom). exhaustive is false: a tree-sitter extraction is not a full build.
 import { describe, it, expect } from 'vitest';
 import { resolveAnchor, STAMP_VERSIONS } from '../../../scripts/lib/anchor-resolver.mjs';
-import { answerRequest } from '../../../scripts/lib/provider-requests.mjs';
+import { answerRequest, PROVIDER_FORMAT_VERSION } from '../../../scripts/lib/provider-requests.mjs';
 import { SUBGRAPH_HOW } from '../../../scripts/lib/provider-subgraph.mjs';
 
 const HEAD = 'c'.repeat(40);
@@ -88,7 +88,8 @@ describe('what is refused outright, with the reason', () => {
     const seen = [];
     const readSubgraph = (parsed) => { seen.push(parsed); return parsed.depth === 2 ? { ok: true, value: { nodes: [] } } : { ok: false, problem: 'not in the index' }; };
     const call = (args) => answerRequest({ request: { call: 'subgraph', args }, resolveItem, readSubgraph, head: HEAD });
-    expect(call({ path: 'src/a.js', depth: 2 })).toEqual({ ok: true, value: { nodes: [] }, provenance: { providerCommit: HEAD, exhaustive: false, provenance: SUBGRAPH_HOW } });
+    // The reader's value comes back unchanged apart from the format version every ok value carries (#1).
+    expect(call({ path: 'src/a.js', depth: 2 })).toEqual({ ok: true, value: { formatVersion: PROVIDER_FORMAT_VERSION, nodes: [] }, provenance: { providerCommit: HEAD, exhaustive: false, provenance: SUBGRAPH_HOW } });
     expect(call({ path: 'src/a.js' })).toMatchObject({ ok: false, problem: 'not in the index' });
     expect(seen.map((p) => p.depth)).toEqual([2, 1]);
     expect(seen[0].start).toEqual({ path: 'src/a.js' });

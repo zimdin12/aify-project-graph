@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/zimdin12/aify-project-graph/docs/schemas/provider-answer.v1.schema.json",
+  "title": "aify-project-graph provider answer, format version 1",
+  "description": "What apg posts for one claimed dashboard provider request (scripts/lib/provider-requests.mjs answerRequest). An ok answer's value carries formatVersion; a reader refuses a version it does not know rather than reading it as this one. Examples, generated through the real provider path: docs/schemas/examples/provider-answers.v1.json.",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["ok", "value", "provenance"],
+      "properties": {
+        "ok": { "const": true },
+        "value": { "oneOf": [{ "$ref": "#/$defs/subgraph" }, { "$ref": "#/$defs/resolve" }, { "$ref": "#/$defs/stamp" }] },
+        "provenance": { "$ref": "#/$defs/provenance" }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["ok", "problem", "provenance"],
+      "properties": {
+        "ok": { "const": false },
+        "problem": { "type": "string", "minLength": 1 },
+        "provenance": { "$ref": "#/$defs/provenance" }
+      }
+    }
+  ],
+  "$defs": {
+    "formatVersion": { "const": 1 },
+    "provenance": {
+      "description": "Who computed the answer and how much it saw. exhaustive is always false: every returned set is a floor, and an absence needs a text search to establish.",
+      "type": "object",
+      "required": ["providerCommit", "exhaustive", "provenance"],
+      "properties": {
+        "providerCommit": { "type": "string", "minLength": 1 },
+        "exhaustive": { "const": false },
+        "provenance": { "type": "string", "minLength": 1 }
+      }
+    },
+    "anchor": {
+      "type": "object",
+      "required": ["kind", "path"],
+      "properties": {
+        "kind": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "name": { "type": "string" }
+      }
+    },
+    "subgraph": {
+      "type": "object",
+      "required": ["formatVersion", "indexCommit", "head", "stale", "staleBecause", "matched", "truncated", "nodes", "edges"],
+      "properties": {
+        "formatVersion": { "$ref": "#/$defs/formatVersion" },
+        "indexCommit": { "type": ["string", "null"] },
+        "head": { "type": "string", "minLength": 1 },
+        "stale": { "type": "boolean" },
+        "staleBecause": { "type": "array", "items": { "type": "string" } },
+        "matched": {
+          "type": "object",
+          "required": ["nodes", "edges", "dropped"],
+          "properties": {
+            "nodes": { "type": "integer", "minimum": 0 },
+            "edges": { "type": "integer", "minimum": 0 },
+            "dropped": { "type": "object", "required": ["external"], "properties": { "external": { "type": "integer", "minimum": 0 } } }
+          }
+        },
+        "truncated": { "type": "boolean" },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "kind", "name", "qname", "path", "lineRange", "anchor"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "kind": { "type": "string", "minLength": 1 },
+              "name": { "type": "string" },
+              "qname": { "type": ["string", "null"] },
+              "path": { "type": ["string", "null"] },
+              "lineRange": { "oneOf": [{ "type": "null" }, { "type": "array", "items": { "type": "integer" }, "minItems": 2, "maxItems": 2 }] },
+              "anchor": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/anchor" }] }
+            }
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["from", "to", "type", "resolution", "provenance"],
+            "properties": {
+              "from": { "type": "string", "minLength": 1 },
+              "to": { "type": "string", "minLength": 1 },
+              "type": { "type": "string", "minLength": 1 },
+              "resolution": { "description": "A reader keeps unknown values conservative rather than refusing them.", "type": "string", "minLength": 1 },
+              "provenance": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    },
+    "resolve": {
+      "type": "object",
+      "required": ["formatVersion", "results"],
+      "properties": {
+        "formatVersion": { "$ref": "#/$defs/formatVersion" },
+        "results": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["anchor", "status"],
+            "properties": {
+              "anchor": { "type": "object" },
+              "status": { "enum": ["found", "gone", "unwatched", "ambiguous"] },
+              "reasonCode": { "type": "string" },
+              "candidates": { "type": "array" }
+            }
+          }
+        }
+      }
+    },
+    "stamp": {
+      "type": "object",
+      "required": ["formatVersion", "stamps"],
+      "properties": {
+        "formatVersion": { "$ref": "#/$defs/formatVersion" },
+        "stamps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["anchor"],
+            "oneOf": [
+              {
+                "required": ["stamp"],
+                "properties": {
+                  "stamp": {
+                    "type": "object",
+                    "required": ["hash", "stampVersion", "commit"],
+                    "properties": { "hash": { "type": "string", "minLength": 1 }, "stampVersion": { "type": "string", "minLength": 1 }, "commit": { "type": "string", "minLength": 1 } }
+                  }
+                }
+              },
+              { "required": ["refused", "reason"], "properties": { "refused": { "type": "string", "minLength": 1 }, "reason": { "type": "string" } } }
+            ]
+          }
+        }
+      }
+    }
+  }
+}
