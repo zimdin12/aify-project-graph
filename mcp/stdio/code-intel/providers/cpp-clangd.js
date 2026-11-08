@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import crypto from 'node:crypto';
+import { newCollectionId, rangeFromLsp } from '../lsp-records.js';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { LspClient } from '../lsp-client.js';
 import { toRepoRelative, uriToRepoRelativeSafe } from '../../ingest/code-intel/paths.js';
@@ -69,10 +69,6 @@ function resolveCollectBudgetMs(req) {
 const PROVIDER_NAME = 'cpp-clangd';
 const PROVIDER_VERSION = '0.1.0';
 
-function newCollectionId() {
-  const ts = new Date().toISOString().replace(/[:.]/g, '-');
-  return `ci-${ts}-${crypto.randomBytes(4).toString('hex')}`;
-}
 
 // Repo-relative path prefixes that almost always represent
 // build/dep/vendor/third-party noise from CMake-style generators. Filtered by
@@ -84,12 +80,6 @@ export const BUILD_DEP_PREFIXES = [
   'node_modules/', '.deps/', '.cache/', 'extern/', 'external/'
 ];
 
-function rangeFromLsp(range) {
-  return {
-    start: { line: range.start.line + 1, col: range.start.character + 1 },
-    end: { line: range.end.line + 1, col: range.end.character + 1 }
-  };
-}
 
 // Routes through the shared normalizer so a collection cannot record raw
 // `file:///C:/...` URIs (or throw outright) when clangd's canonical path form

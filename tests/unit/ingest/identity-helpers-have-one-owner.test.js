@@ -26,8 +26,18 @@ describe('identity helpers have one definition in mcp/', () => {
     expect(definitionsOf('extractFile')).toHaveLength(1);
   });
 
-  it.each(['stableId', 'nodeText'])('★★★ %s is defined once', (name) => {
+  it.each(['stableId', 'nodeText', 'rangeFromLsp', 'newCollectionId'])('★★★ %s is defined once', (name) => {
     expect(definitionsOf(name)).toHaveLength(1);
+  });
+
+  it('★★★ rangeFromLsp: 0-based LSP positions become 1-based, and a missing range is null, not a throw', async () => {
+    // cpp-clangd.js's copy dereferenced range.start, so a symbol or diagnostic without a range threw inside the
+    // collection loop; the other three copies returned null. The owner returns null.
+    const { rangeFromLsp } = await import('../../../mcp/stdio/code-intel/lsp-records.js');
+    expect(rangeFromLsp({ start: { line: 0, character: 4 }, end: { line: 2, character: 0 } }))
+      .toEqual({ start: { line: 1, col: 5 }, end: { line: 3, col: 1 } });
+    expect(rangeFromLsp(undefined)).toBeNull();
+    expect(rangeFromLsp(null)).toBeNull();
   });
 
   it('★★★ node identity bytes are unchanged: sha1 of the parts joined with "::"', () => {

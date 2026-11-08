@@ -6,6 +6,7 @@
 // (diagnostics, references, definitions, hover, symbols). APG-owned, drives
 // clangd through the existing wrapper resolution chain.
 
+import { rangeFromLsp } from '../../code-intel/lsp-records.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
@@ -517,10 +518,6 @@ function markNoValueAdded(result) {
   return result;
 }
 
-function rangeFromLsp(r) {
-  if (!r) return null;
-  return { start: { line: r.start.line + 1, col: r.start.character + 1 }, end: { line: r.end.line + 1, col: r.end.character + 1 } };
-}
 
 export async function openIfNeeded(session, file) {
   const abs = path.isAbsolute(file) ? file : path.join(session.projectRoot, file);

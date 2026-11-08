@@ -9,7 +9,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import crypto from 'node:crypto';
+import { newCollectionId, rangeFromLsp } from '../lsp-records.js';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { LspClient } from '../lsp-client.js';
 import { getHeadCommit } from '../../freshness/git.js';
@@ -78,14 +78,6 @@ export function relativizeUri(uri, realRoot) {
   return null;
 }
 
-function newCollectionId() {
-  const ts = new Date().toISOString().replace(/[:.]/g, '-');
-  return `ci-${ts}-${crypto.randomBytes(4).toString('hex')}`;
-}
-function rangeFromLsp(range) {
-  if (!range) return null;
-  return { start: { line: range.start.line + 1, col: range.start.character + 1 }, end: { line: range.end.line + 1, col: range.end.character + 1 } };
-}
 // (Removed) `uriToRepoRelative` lived here with its arguments REVERSED —
 // `toRepoRelative(uri, projectRoot)` — and passing a `file://` URI where a
 // filesystem path was expected. It was never called, which is the only reason it

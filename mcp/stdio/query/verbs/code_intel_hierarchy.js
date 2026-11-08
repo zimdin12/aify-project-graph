@@ -21,6 +21,7 @@
 // bounded by depth + per-level breadth caps + a total-node cap and a
 // "TRUNCATED — N more" tail, so it stays budgeted and cache-stable.
 
+import { rangeFromLsp } from '../../code-intel/lsp-records.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { join } from 'node:path';
@@ -115,10 +116,6 @@ function resolveColdParseWaitMs(mode) {
   return mode === 'bounded' ? 600 : 1500;
 }
 
-function rangeFromLsp(r) {
-  if (!r) return null;
-  return { start: { line: r.start.line + 1, col: r.start.character + 1 }, end: { line: r.end.line + 1, col: r.end.character + 1 } };
-}
 
 function uriToRel(uri, projectRoot) {
   try { return toRepoRelative(projectRoot, fileURLToPath(uri)); } catch { return uri; }

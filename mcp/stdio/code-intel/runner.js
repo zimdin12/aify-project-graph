@@ -1,4 +1,4 @@
-import crypto from 'node:crypto';
+import { newCollectionId } from './lsp-records.js';
 import { getProvider } from './providers/index.js';
 import { dedupCollectionRecords } from './dedup-records.js';
 
@@ -14,10 +14,6 @@ const HINTS = {
 
 const PROVIDER_BY_LANGUAGE = { cpp: 'cpp-clangd', typescript: 'ts-langserver', javascript: 'ts-langserver', python: 'pyright' };
 
-function newCollectionId() {
-  const ts = new Date().toISOString().replace(/[:.]/g, '-');
-  return `ci-${ts}-${crypto.randomBytes(4).toString('hex')}`;
-}
 
 function errorCollection({ language, projectRoot, code, message }) {
   return {
