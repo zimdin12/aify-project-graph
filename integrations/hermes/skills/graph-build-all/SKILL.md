@@ -105,15 +105,28 @@ If the target repo is C++ heavy and has `compile_commands.json` (or
 `build/compile_commands.json`), offer the optional precision import. Skip this
 by default on small/Pi hosts or repos without a compile database.
 
+Inside an agent session, call `graph_collect_code_intel(language="cpp", scope="all")`:
+it collects and imports in one step. From a shell, collect with clangd, then import
+and regenerate briefs:
+
 ```bash
-node <AIFY_GRAPH_CLONE>/tools/code-intel/cpp-clangd/extract.mjs <TARGET_REPO>
-node <AIFY_GRAPH_CLONE>/scripts/import-code-intel.mjs <TARGET_REPO> <TARGET_REPO>/.aify-graph/code-intel/cpp-clangd.jsonl
+node <AIFY_GRAPH_CLONE>/bin/apg.js code-intel collect cpp --project-root <TARGET_REPO> --json > <TARGET_REPO>/.aify-graph/cpp-collection.json
+node <AIFY_GRAPH_CLONE>/scripts/import-code-intel.mjs <TARGET_REPO> <TARGET_REPO>/.aify-graph/cpp-collection.json
 node <AIFY_GRAPH_CLONE>/scripts/graph-brief.mjs <TARGET_REPO>
 ```
 
-This imports compiler/LSP-shaped facts as normal graph nodes/edges with
-`CODE_INTEL` provenance. It improves C++ routing precision, but it is not
-required for the base graph to work.
+clangd is not bundled: `node <AIFY_GRAPH_CLONE>/bin/apg.js code-intel doctor cpp`
+says whether it was found and how to fix it if not. Imported facts carry
+`CODE_INTEL` provenance. They improve C++ routing precision, but the base graph
+works without them.
+
+Legacy v0.1 path, a source scan with no compiler behind it. Use it only when
+clangd cannot run on this host:
+
+```bash
+node <AIFY_GRAPH_CLONE>/tools/code-intel/cpp-clangd/extract.mjs <TARGET_REPO>
+node <AIFY_GRAPH_CLONE>/scripts/import-code-intel.mjs <TARGET_REPO> <TARGET_REPO>/.aify-graph/code-intel/cpp-clangd.jsonl
+```
 
 ### 7. Auto-offer `/graph-build-tasks` when a tracker MCP is present
 
