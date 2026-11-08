@@ -80,8 +80,8 @@ describe('deploy-skills and a skill name that is a link out of the root', () => 
   });
 
   // Seen on this host 2026-11-08: blast-radius is agents-setup's junction in ~/.claude/skills and absent from
-  // ~/.codex/skills, so a plain deploy would have CREATED apg's same-named skill there, beside agents-setup's copy in
-  // ~/.agents/skills. A name another owner holds in any root is not apg's to create in another.
+  // ~/.codex/skills, so a plain deploy would have CREATED apg's same-named skill there, beside another blast-radius
+  // junction in ~/.agents/skills. A name another owner holds in any root is not apg's to create in another.
   it('★★★ a name that is foreign in one root is not created in another; an ordinary skill still is (control)', () => {
     const codex = join(home, '.codex', 'skills');
     mkdirSync(codex, { recursive: true });

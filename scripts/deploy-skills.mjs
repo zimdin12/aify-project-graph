@@ -119,7 +119,8 @@ let overallOk = true;
 
 // ⛔ A NAME ANOTHER OWNER HOLDS IN ANY ROOT IS NOT OURS TO CREATE IN ANOTHER. Seen 2026-11-08: blast-radius is
 // agents-setup's junction in ~/.claude/skills and absent from ~/.codex/skills, so a plain deploy would have created
-// apg's same-named skill there, beside agents-setup's copy in ~/.agents/skills. Refusing the link (#21) protected one
+// apg's same-named skill there, beside another blast-radius junction in ~/.agents/skills (not agents-setup's: an
+// older link into a local pstack clone, owned by neither). Refusing the link (#21) protected one
 // root; the name is the thing with one owner.
 const ownedElsewhere = new Set(RUNTIMES.flatMap((rt) => discoverSources(rt.sourceRoot).flatMap((s) =>
   [...new Set(rt.candidates)].filter((p) => existsSync(p)).some((root) => foreignTarget(root, s.name)) ? [s.name] : [])));
