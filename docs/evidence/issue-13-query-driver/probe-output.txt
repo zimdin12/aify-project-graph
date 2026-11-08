@@ -1,0 +1,7 @@
+clangd C:/Program Files/LLVM/bin/clangd.exe
+APG args carry --query-driver: false
+now (no --query-driver)    exit=0 errorLines=1 ranADriver=false
+  E[07:25:26.671] config error at C:\Users\Administrator\projects\sand_castle\wt\sc-coder\.clangd:47:0: Config should be a dictionary
+old (--query-driver=*)     exit=0 errorLines=2 ranADriver=true
+  E[07:25:29.064] config error at C:\Users\Administrator\projects\sand_castle\wt\sc-coder\.clangd:47:0: Config should be a dictionary
+  E[07:25:29.142] System include extraction: driver execution failed with return code: 2 - ''. Args: ["C:\\PROGRA~1\\MIB055~1\\2022\\Preview\\VC\\Tools\\MSVC\\1443~1.346\\bin\\Hostx64\\x64\\cl.exe" -E -

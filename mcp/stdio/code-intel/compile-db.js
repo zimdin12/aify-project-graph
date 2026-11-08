@@ -253,8 +253,8 @@ function rewriteCommandString(cmd) {
 // garbage types. References/hierarchy still mostly work (they don't need the
 // stdlib resolved), so the pragmatic Windows fix is: keep the project's real
 // `-I/-D/-std` flags (already WSL→host-normalized) but STRIP the Linux-only
-// toolchain anchors that can only mislead clangd, and let clangd infer the host
-// compiler's includes via the `--query-driver=*` launch flag.
+// toolchain anchors that can only mislead clangd. clangd queries a compiler for
+// its includes only if the operator trusts it (APG_TRUSTED_COMPILERS, #13).
 //
 // This pass is win32-ONLY. On Linux the "foreign" Linux paths ARE the host
 // paths, so detection returns false and nothing is stripped (pure no-op).

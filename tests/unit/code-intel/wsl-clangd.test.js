@@ -208,8 +208,7 @@ describe('buildClangdSpawn — WSL transport arg construction (mocked detect)', 
     });
     expect(command).not.toBe('wsl.exe');
     expect(pathMode).toBeUndefined();
-    // Windows transport: --query-driver + the NORMALIZED dir.
-    expect(args).toContain('--query-driver=*');
+    // Windows transport: the NORMALIZED dir.
     expect(args).toContain('--compile-commands-dir=C:/r/.aify-graph/code-intel');
   });
 
@@ -232,5 +231,32 @@ describe('buildClangdSpawn — WSL transport arg construction (mocked detect)', 
     // shared tuned flags still present
     expect(args).toContain('--background-index');
     expect(args).toContain('--pch-storage=memory');
+  });
+});
+
+// ⛔ #13: clangd EXECUTES every driver its --query-driver globs match, and the drivers are named by the repo's
+// compile_commands.json. `*` let any repo run any binary through a call that looks like analysis.
+describe('buildClangdSpawn — --query-driver names only operator-trusted compilers (#13)', () => {
+  const driverFlags = (env) => buildClangdSpawn({ env, compileDb: { found: false } }).args
+    .filter((a) => a.startsWith('--query-driver'));
+  const trusted = process.execPath; // an absolute file that exists on every host running this suite
+  const trustedDir = path.dirname(process.execPath);
+
+  it('no trusted compilers => no --query-driver at all, never `*`', () => {
+    expect(driverFlags({})).toEqual([]);
+  });
+
+  it('trusted absolute file and directory => exactly those absolute paths', () => {
+    const env = { APG_TRUSTED_COMPILERS: [trusted, trustedDir].join(path.delimiter) };
+    const posixify = (p) => p.replaceAll('\\', '/');
+    expect(driverFlags(env)).toEqual([`--query-driver=${posixify(trusted)},${posixify(trustedDir)}/*`]);
+  });
+
+  it('relative, bare-name, glob and missing entries are dropped, so a repo-owned ./g++ never matches', () => {
+    const env = { APG_TRUSTED_COMPILERS: ['./tools/g++', 'g++', '*', path.join(trustedDir, 'no-such-compiler')].join(path.delimiter) };
+    expect(driverFlags(env)).toEqual([]);
+    // Control: the same list plus one trusted path yields that path alone, so the drop is about the entries.
+    expect(driverFlags({ APG_TRUSTED_COMPILERS: `${env.APG_TRUSTED_COMPILERS}${path.delimiter}${trusted}` }))
+      .toEqual([`--query-driver=${trusted.replaceAll('\\', '/')}`]);
   });
 });

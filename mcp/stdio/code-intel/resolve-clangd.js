@@ -203,14 +203,38 @@ export function decideWslMode({ compileDb, env = process.env, detect = detectWsl
 }
 
 /**
+ * The `--query-driver` value: only compilers the operator trusts, or null for none (#13).
+ *
+ * ⛔ clangd EXECUTES every driver its globs match, and the drivers are named by the repo's compile_commands.json,
+ * which is the untrusted part. `*` let any repo run any binary through a call that looks like analysis.
+ * `APG_TRUSTED_COMPILERS` lists absolute compiler files or directories (a directory admits what is in it),
+ * separated by the platform path delimiter. An entry that is not an existing absolute path is dropped, so a
+ * bare `g++` or a repo's `./tools/g++` never matches.
+ * @param {NodeJS.ProcessEnv} [env]
+ * @returns {string|null}
+ */
+export function trustedQueryDriver(env = process.env) {
+  const globs = String(env?.APG_TRUSTED_COMPILERS ?? '').split(path.delimiter)
+    .map((entry) => entry.trim())
+    .filter((entry) => path.isAbsolute(entry))
+    .flatMap((entry) => {
+      let stat;
+      try { stat = fs.statSync(entry); } catch { return []; }
+      const abs = entry.replaceAll('\\', '/').replace(/\/+$/u, '');
+      return [stat.isDirectory() ? `${abs}/*` : abs];
+    });
+  return globs.length > 0 ? globs.join(',') : null;
+}
+
+/**
  * Build the clangd spawn config (command + tuned args) for the L1 foundation.
  * Background index ON, in-memory PCH, bounded parallelism, large result cap,
  * and — when a compile DB exists — point clangd at its directory.
  *
  * Two transports:
- *  - DEFAULT (Windows clangd): unchanged. `--query-driver=*` + the WSL→host
- *    NORMALIZED DB dir. References/hierarchy work; foreign-DB diagnostics/hover
- *    are degraded (bogus stdlib cascade).
+ *  - DEFAULT (host clangd): the WSL→host NORMALIZED DB dir, and `--query-driver`
+ *    only for operator-trusted compilers (`trustedQueryDriver`). References/hierarchy
+ *    work; foreign-DB diagnostics/hover are degraded (bogus stdlib cascade).
  *  - WSL (opt-in via APG_CLANGD_WSL): launch clangd UNDER WSL
  *    (`wsl.exe -e clangd …`) pointed at the ORIGINAL Linux DB dir
  *    (e.g. `…/build-linux`, mapped to `/mnt/c/...`). NO Windows normalization,
@@ -245,25 +269,19 @@ export function buildClangdSpawn({ compileDb, env = process.env, detect = detect
     return { command: 'wsl.exe', args, pathMode: 'wsl', wsl: decision.wsl };
   }
 
-  // DEFAULT Windows transport (unchanged behaviour).
+  // DEFAULT transport.
   const { command } = resolveClangd();
-  const args = [
-    ...BASE_CLANGD_ARGS,
-    // P0-3: foreign (Linux/WSL) compile DBs name a POSIX compiler driver
-    // (`/usr/bin/c++`). `--query-driver=*` lets clangd interrogate whatever
-    // driver an entry names (and a host compiler if present) to discover its
-    // system include paths, instead of hard-failing the stdlib lookup. Harmless
-    // on native DBs (clangd only queries drivers actually referenced).
-    '--query-driver=*'
-  ];
+  const args = [...BASE_CLANGD_ARGS];
+  const queryDriver = trustedQueryDriver(env);
+  if (queryDriver) args.push(`--query-driver=${queryDriver}`);
   if (compileDb && compileDb.found && compileDb.normalizedDir) {
     args.push(`--compile-commands-dir=${compileDb.normalizedDir}`);
   }
   // ⛔ WITHOUT THIS, EVERY TU INCLUDING A STANDARD HEADER RETURNS AN EMPTY CALLER SET, quietly.
   // Measured 2026-08-25: 2 references vs 0 on identical TUs differing only by `#include <cstddef>`,
   // status "ok" on both. clang-cl locates the MSVC STL through INCLUDE, and a clangd child inherits
-  // whatever the MCP server was launched with — on a normal shell, nothing. `--query-driver=*`
-  // above does NOT cover it; that interrogates a GCC-style driver and supplies no MSVC paths.
+  // whatever the MCP server was launched with — on a normal shell, nothing. `--query-driver`
+  // does NOT cover it; that interrogates a GCC-style driver and supplies no MSVC paths.
   //
   // The headers were never missing. On this machine <cstddef> and <chrono> sit in
   // VC/Tools/MSVC/14.43.34604/include the whole time — clangd was simply never told where.
