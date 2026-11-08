@@ -1,282 +1,266 @@
 
  RUN  v3.2.4 C:/Docker/aify-project-graph
 
-12:13:22 [vite] (ssr) warning: invalid import "../../../mcp/stdio/query/verbs/${module}". A file extension must be included in the static part of the import. For example: import(`./foo/${bar}.js`).
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+······fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+·····fatal: not a git repository (or any of the parent directories): .git
+··········fatal: not a git repository (or any of the parent directories): .git
+···fatal: not a git repository (or any of the parent directories): .git
+·················fatal: not a git repository (or any of the parent directories): .git
+·······fatal: not a git repository (or any of the parent directories): .git
+······fatal: not a git repository (or any of the parent directories): .git
+·············fatal: not a git repository (or any of the parent directories): .git
+··········fatal: not a git repository (or any of the parent directories): .git
+······fatal: not a git repository (or any of the parent directories): .git
+············fatal: not a git repository (or any of the parent directories): .git
+························fatal: not a git repository (or any of the parent directories): .git
+················fatal: not a git repository (or any of the parent directories): .git
+······fatal: not a git repository (or any of the parent directories): .git
+········fatal: not a git repository (or any of the parent directories): .git
+·········fatal: not a git repository (or any of the parent directories): .git
+····fatal: not a git repository (or any of the parent directories): .git
+········fatal: not a git repository (or any of the parent directories): .git
+················12:34:10 [vite] (ssr) warning: invalid import "../../../mcp/stdio/query/verbs/${module}". A file extension must be included in the static part of the import. For example: import(`./foo/${bar}.js`).
   Plugin: vite:dynamic-import-vars
   File: C:/Docker/aify-project-graph/tests/unit/query/no-match-names-its-scope.test.js
-·fatal: not a git repository (or any of the parent directories): .git
 ····fatal: not a git repository (or any of the parent directories): .git
-········fatal: not a git repository (or any of the parent directories): .git
-···············fatal: not a git repository (or any of the parent directories): .git
-···········fatal: not a git repository (or any of the parent directories): .git
-················fatal: not a git repository (or any of the parent directories): .git
-···········fatal: not a git repository (or any of the parent directories): .git
-···················fatal: not a git repository (or any of the parent directories): .git
-·············································fatal: not a git repository (or any of the parent directories): .git
-··················fatal: not a git repository (or any of the parent directories): .git
-···············fatal: not a git repository (or any of the parent directories): .git
-·····················fatal: not a git repository (or any of the parent directories): .git
-···············fatal: not a git repository (or any of the parent directories): .git
-·············fatal: not a git repository (or any of the parent directories): .git
-·······fatal: not a git repository (or any of the parent directories): .git
-······fatal: not a git repository (or any of the parent directories): .git
-················fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-···········fatal: not a git repository (or any of the parent directories): .git
-·········fatal: not a git repository (or any of the parent directories): .git
-·12:13:50 [vite] (ssr) warning: Invalid URL
-  Plugin: vite:dynamic-import-vars
-  File: C:/Docker/aify-project-graph/tests/unit/query/stale-process-not-cached.test.js
-12:13:50 [vite] (ssr) warning: Invalid URL
-  Plugin: vite:dynamic-import-vars
-  File: C:/Docker/aify-project-graph/tests/unit/query/stale-process-not-cached.test.js
-12:13:50 [vite] (ssr) warning: Invalid URL
-  Plugin: vite:dynamic-import-vars
-  File: C:/Docker/aify-project-graph/tests/unit/query/stale-process-not-cached.test.js
-·····fatal: not a git repository (or any of the parent directories): .git
-···fatal: not a git repository (or any of the parent directories): .git
-·····fatal: not a git repository (or any of the parent directories): .git
 ····fatal: not a git repository (or any of the parent directories): .git
-······fatal: not a git repository (or any of the parent directories): .git
-····fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
 ··fatal: not a git repository (or any of the parent directories): .git
-···················fatal: not a git repository (or any of the parent directories): .git
-···fatal: not a git repository (or any of the parent directories): .git
-········12:13:54 [vite] (ssr) warning: invalid import "../../../mcp/stdio/query/verbs/${module}". A file extension must be included in the static part of the import. For example: import(`./foo/${bar}.js`).
+······fatal: not a git repository (or any of the parent directories): .git
+····fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+··············fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+··············fatal: not a git repository (or any of the parent directories): .git
+····fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+····-··········fatal: not a git repository (or any of the parent directories): .git
+··········fatal: not a git repository (or any of the parent directories): .git
+···············fatal: not a git repository (or any of the parent directories): .git
+··········fatal: not a git repository (or any of the parent directories): .git
+·······fatal: not a git repository (or any of the parent directories): .git
+·············fatal: not a git repository (or any of the parent directories): .git
+···········fatal: not a git repository (or any of the parent directories): .git
+·12:34:21 [vite] (ssr) warning: invalid import "../../../mcp/stdio/query/verbs/${module}". A file extension must be included in the static part of the import. For example: import(`./foo/${bar}.js`).
   Plugin: vite:dynamic-import-vars
   File: C:/Docker/aify-project-graph/tests/unit/query/results-banner-failure-is-disclosed.test.js
-·fatal: not a git repository (or any of the parent directories): .git
-····fatal: not a git repository (or any of the parent directories): .git
-····fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
+·······fatal: not a git repository (or any of the parent directories): .git
 ·············fatal: not a git repository (or any of the parent directories): .git
-········fatal: not a git repository (or any of the parent directories): .git
 ····fatal: not a git repository (or any of the parent directories): .git
-···fatal: not a git repository (or any of the parent directories): .git
-······fatal: not a git repository (or any of the parent directories): .git
-··fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-·······fatal: not a git repository (or any of the parent directories): .git
-·······fatal: not a git repository (or any of the parent directories): .git
-···········fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
 ·····fatal: not a git repository (or any of the parent directories): .git
-···fatal: not a git repository (or any of the parent directories): .git
-········fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-······fatal: not a git repository (or any of the parent directories): .git
-···fatal: not a git repository (or any of the parent directories): .git
-··························fatal: not a git repository (or any of the parent directories): .git
-··fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-········fatal: not a git repository (or any of the parent directories): .git
-···fatal: not a git repository (or any of the parent directories): .git
-············fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-····-··············································fatal: not a git repository (or any of the parent directories): .git
-·······fatal: not a git repository (or any of the parent directories): .git
-··fatal: not a git repository (or any of the parent directories): .git
-····fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-··fatal: not a git repository (or any of the parent directories): .git
 ·········fatal: not a git repository (or any of the parent directories): .git
-····fatal: not a git repository (or any of the parent directories): .git
-····fatal: not a git repository (or any of the parent directories): .git
+·····fatal: not a git repository (or any of the parent directories): .git
 ··fatal: not a git repository (or any of the parent directories): .git
-········fatal: not a git repository (or any of the parent directories): .git
-······fatal: not a git repository (or any of the parent directories): .git
-···fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-···fatal: not a git repository (or any of the parent directories): .git
-··fatal: not a git repository (or any of the parent directories): .git
+························fatal: not a git repository (or any of the parent directories): .git
+················fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
+······ATTESTATION DRIFT (1): carrierDerived.duplicateMultiplicity.rowsLostToDeduplication
+···fatal: not a git repository (or any of the parent directories): .git
+·································ATTESTATION DRIFT (1): carrierDerived.fieldPopulation.provenance
 ·······fatal: not a git repository (or any of the parent directories): .git
+··ATTESTATION DRIFT (1): carrierDerived.duplicateMultiplicity.maxMultiplicity
+··fatal: not a git repository (or any of the parent directories): .git
+··············ATTESTATION DRIFT (1): carrierDerived.carrier.bytes
+·fatal: not a git repository (or any of the parent directories): .git
+····12:34:34 [vite] (ssr) warning: Invalid URL
+  Plugin: vite:dynamic-import-vars
+  File: C:/Docker/aify-project-graph/tests/unit/query/stale-process-not-cached.test.js
+12:34:34 [vite] (ssr) warning: Invalid URL
+  Plugin: vite:dynamic-import-vars
+  File: C:/Docker/aify-project-graph/tests/unit/query/stale-process-not-cached.test.js
+12:34:34 [vite] (ssr) warning: Invalid URL
+  Plugin: vite:dynamic-import-vars
+  File: C:/Docker/aify-project-graph/tests/unit/query/stale-process-not-cached.test.js
+··ATTESTATION DRIFT (1): carrierDerived.carrier.envelopeWrittenAt
+·fatal: not a git repository (or any of the parent directories): .git
+···········ATTESTATION DRIFT (1): capture.producedBy.manifestCommit
+··············ATTESTATION DRIFT (1): capture.instrumentTree.dirtyPaths
+··········ATTESTATION DRIFT (1): carrierDerived.duplicateMultiplicity.maxMultiplicity
 ······fatal: not a git repository (or any of the parent directories): .git
-···12:14:15 [vite] (ssr) warning: invalid import "../../../mcp/stdio/query/verbs/${module}". A file extension must be included in the static part of the import. For example: import(`./foo/${bar}.js`).
+·······fatal: not a git repository (or any of the parent directories): .git
+··ATTESTATION DRIFT (1): carrierDerived.carrier.extraClaim
+·········ATTESTATION DRIFT (1): carrierDerived.duplicateMultiplicity.rowsLostToDeduplication
+··········fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+···············fatal: not a git repository (or any of the parent directories): .git
+············fatal: not a git repository (or any of the parent directories): .git
+···fatal: not a git repository (or any of the parent directories): .git
+··········fatal: not a git repository (or any of the parent directories): .git
+······················fatal: not a git repository (or any of the parent directories): .git
+················fatal: not a git repository (or any of the parent directories): .git
+········fatal: not a git repository (or any of the parent directories): .git
+·····fatal: not a git repository (or any of the parent directories): .git
+··········fatal: Needed a single revision
+fatal: not a git repository (or any of the parent directories): .git
+·········fatal: not a git repository (or any of the parent directories): .git
+·······fatal: Invalid revision range deadbeefdeadbeefdeadbeefdeadbeefdeadbeef..591d2c48af1072dac09c72d0add1509a33cc0100
+······················fatal: not a git repository (or any of the parent directories): .git
+····fatal: not a git repository (or any of the parent directories): .git
+···············fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+····fatal: not a git repository (or any of the parent directories): .git
+·······fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+····fatal: not a git repository (or any of the parent directories): .git
+·····fatal: not a git repository (or any of the parent directories): .git
+·12:34:56 [vite] (ssr) warning: invalid import "../../../mcp/stdio/query/verbs/${module}". A file extension must be included in the static part of the import. For example: import(`./foo/${bar}.js`).
   Plugin: vite:dynamic-import-vars
   File: C:/Docker/aify-project-graph/tests/unit/query/contract-failure-is-disclosed.test.js
-···fatal: not a git repository (or any of the parent directories): .git
-··fatal: not a git repository (or any of the parent directories): .git
-···········fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
-·············fatal: not a git repository (or any of the parent directories): .git
-············fatal: not a git repository (or any of the parent directories): .git
-········ATTESTATION DRIFT (1): carrierDerived.duplicateMultiplicity.rowsLostToDeduplication
-·········ATTESTATION DRIFT (1): carrierDerived.fieldPopulation.provenance
-···············ATTESTATION DRIFT (1): carrierDerived.duplicateMultiplicity.maxMultiplicity
-··············fatal: not a git repository (or any of the parent directories): .git
-·ATTESTATION DRIFT (1): carrierDerived.carrier.bytes
+···fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
 ····fatal: not a git repository (or any of the parent directories): .git
 ·fatal: not a git repository (or any of the parent directories): .git
-················ATTESTATION DRIFT (1): carrierDerived.carrier.envelopeWrittenAt
-········fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+··fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
 ·····fatal: not a git repository (or any of the parent directories): .git
-ATTESTATION DRIFT (1): capture.producedBy.manifestCommit
-·········ATTESTATION DRIFT (1): capture.instrumentTree.dirtyPaths
-·····ATTESTATION DRIFT (1): carrierDerived.duplicateMultiplicity.maxMultiplicity
-··fatal: not a git repository (or any of the parent directories): .git
-··fatal: not a git repository (or any of the parent directories): .git
-··ATTESTATION DRIFT (1): carrierDerived.carrier.extraClaim
-·fatal: not a git repository (or any of the parent directories): .git
-·····ATTESTATION DRIFT (1): carrierDerived.duplicateMultiplicity.rowsLostToDeduplication
-·fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
-········fatal: not a git repository (or any of the parent directories): .git
 ······fatal: not a git repository (or any of the parent directories): .git
-·································fatal: not a git repository (or any of the parent directories): .git
-······································12:14:33 [vite] (ssr) warning: invalid import "../../../mcp/stdio/query/verbs/${module}". A file extension must be included in the static part of the import. For example: import(`./foo/${bar}.js`).
+···fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+···fatal: not a git repository (or any of the parent directories): .git
+·····fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+······fatal: not a git repository (or any of the parent directories): .git
+·····fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+··········fatal: not a git repository (or any of the parent directories): .git
+··fatal: not a git repository (or any of the parent directories): .git
+············fatal: not a git repository (or any of the parent directories): .git
+··········12:35:05 [vite] (ssr) warning: invalid import "../../../mcp/stdio/query/verbs/${module}". A file extension must be included in the static part of the import. For example: import(`./foo/${bar}.js`).
   Plugin: vite:dynamic-import-vars
   File: C:/Docker/aify-project-graph/tests/unit/query/empty-set-absence-names-uncommitted.test.js
-········fatal: not a git repository (or any of the parent directories): .git
-·····fatal: not a git repository (or any of the parent directories): .git
-···········fatal: Needed a single revision
-····················fatal: Invalid revision range deadbeefdeadbeefdeadbeefdeadbeefdeadbeef..875c9a028adaba1c6cbb34d1b69a2e349f722f4d
-·fatal: not a git repository (or any of the parent directories): .git
-·········fatal: not a git repository (or any of the parent directories): .git
-····12:14:39 [vite] (ssr) warning: invalid import "../../../mcp/stdio/query/verbs/${mod}". A file extension must be included in the static part of the import. For example: import(`./foo/${bar}.js`).
+···························································fatal: not a git repository (or any of the parent directories): .git
+······························································12:35:07 [vite] (ssr) warning: invalid import "../../../mcp/stdio/query/verbs/${mod}". A file extension must be included in the static part of the import. For example: import(`./foo/${bar}.js`).
   Plugin: vite:dynamic-import-vars
   File: C:/Docker/aify-project-graph/tests/unit/query/every-absence-names-its-scope.test.js
-·····························fatal: not a git repository (or any of the parent directories): .git
-···············fatal: not a git repository (or any of the parent directories): .git
-··········fatal: not a git repository (or any of the parent directories): .git
-··············fatal: not a git repository (or any of the parent directories): .git
-·······fatal: not a git repository (or any of the parent directories): .git
-··fatal: not a git repository (or any of the parent directories): .git
+··························fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
 ···fatal: not a git repository (or any of the parent directories): .git
-·········fatal: not a git repository (or any of the parent directories): .git
-·····fatal: not a git repository (or any of the parent directories): .git
-··················fatal: not a git repository (or any of the parent directories): .git
-·······················fatal: not a git repository (or any of the parent directories): .git
-···fatal: not a git repository (or any of the parent directories): .git
-··fatal: not a git repository (or any of the parent directories): .git
-·····fatal: not a git repository (or any of the parent directories): .git
-·······fatal: not a git repository (or any of the parent directories): .git
-····fatal: ambiguous argument 'nope-no-such-ref..HEAD': unknown revision or path not in the working tree.
-Use '--' to separate paths from revisions, like this:
-'git <command> [<revision>...] -- [<file>...]'
-··fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
 ····fatal: not a git repository (or any of the parent directories): .git
-·····fatal: not a git repository (or any of the parent directories): .git
-················fatal: not a git repository (or any of the parent directories): .git
-········fatal: not a git repository (or any of the parent directories): .git
-··························································fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
-···fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-···fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-················fatal: not a git repository (or any of the parent directories): .git
-·····fatal: not a git repository (or any of the parent directories): .git
 ····fatal: not a git repository (or any of the parent directories): .git
-··········fatal: not a git repository (or any of the parent directories): .git
 ·fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
 ·····fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-···········fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+······fatal: not a git repository (or any of the parent directories): .git
 ·fatal: not a git repository (or any of the parent directories): .git
 ······fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-··fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
 ·fatal: not a git repository (or any of the parent directories): .git
-···fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
 ····fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-·······fatal: not a git repository (or any of the parent directories): .git
-················fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
 ·fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
+·············fatal: not a git repository (or any of the parent directories): .git
+·······fatal: not a git repository (or any of the parent directories): .git
+··fatal: not a git repository (or any of the parent directories): .git
 ·fatal: not a git repository (or any of the parent directories): .git
 ·····fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-fatal: ambiguous argument 'HEAD': unknown revision or path not in the working tree.
+fatal: not a git repository (or any of the parent directories): .git
+················fatal: not a git repository (or any of the parent directories): .git
+··fatal: ambiguous argument 'nope-no-such-ref..HEAD': unknown revision or path not in the working tree.
 Use '--' to separate paths from revisions, like this:
 'git <command> [<revision>...] -- [<file>...]'
-fatal: not a git repository (or any of the parent directories): .git
-··fatal: not a git repository (or any of the parent directories): .git
-····fatal: not a git repository (or any of the parent directories): .git
-··fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
+················································fatal: not a git repository (or any of the parent directories): .git
+·····fatal: not a git repository (or any of the parent directories): .git
+··························fatal: not a git repository (or any of the parent directories): .git
 ·················fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
+·······fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
-··fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-··fatal: not a git repository (or any of the parent directories): .git
+······fatal: not a git repository (or any of the parent directories): .git
 ·······fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
+··········fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+······fatal: not a git repository (or any of the parent directories): .git
+·····fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+·······fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+··fatal: not a git repository (or any of the parent directories): .git
 ·fatal: not a git repository (or any of the parent directories): .git
-············fatal: not a git repository (or any of the parent directories): .git
-········fatal: not a git repository (or any of the parent directories): .git
-··································fatal: not a git repository (or any of the parent directories): .git
-···············stderr | tests/unit/freshness/orchestrator.test.js > freshness orchestrator > A: a forced rebuild at the SAME commit preserves the LSP trust spine
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+····fatal: not a git repository (or any of the parent directories): .git
+··stderr | tests/unit/freshness/orchestrator.test.js > freshness orchestrator > A: a forced rebuild at the SAME commit preserves the LSP trust spine
 [aify-project-graph] restored 1 LSP-verified edge(s) from commit-current collection ci-2026-05-09T12-34-56Z-abc123 (rebuild preserved the trust spine)
 
-·fatal: not a git repository (or any of the parent directories): .git
-··············fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-···fatal: not a git repository (or any of the parent directories): .git
+··········fatal: not a git repository (or any of the parent directories): .git
 ········fatal: not a git repository (or any of the parent directories): .git
-·············fatal: not a git repository (or any of the parent directories): .git
+···fatal: not a git repository (or any of the parent directories): .git
+····fatal: not a git repository (or any of the parent directories): .git
+····fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
 ··fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+····fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
 ·····fatal: not a git repository (or any of the parent directories): .git
-···········fatal: not a git repository (or any of the parent directories): .git
-·····fatal: not a git repository (or any of the parent directories): .git
-······fatal: not a git repository (or any of the parent directories): .git
+····fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
 ···fatal: not a git repository (or any of the parent directories): .git
-········fatal: not a git repository (or any of the parent directories): .git
-···········fatal: not a git repository (or any of the parent directories): .git
+····fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
-·······················fatal: not a git repository (or any of the parent directories): .git
-······························fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
+··fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+·········fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+····fatal: not a git repository (or any of the parent directories): .git
+···············fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+····fatal: not a git repository (or any of the parent directories): .git
+··fatal: not a git repository (or any of the parent directories): .git
+·refusing to modify C:\Users\Administrator\AppData\Local\Temp\apg-vitest-71868-1794134025095\apg-hookinstall-UySLDO\settings.json: it is not valid JSON (Expected property name or '}' in JSON at position 2 (line 1 column 3))
+·fatal: not a git repository (or any of the parent directories): .git
+····fatal: not a git repository (or any of the parent directories): .git
+·······fatal: ambiguous argument 'HEAD': unknown revision or path not in the working tree.
+Use '--' to separate paths from revisions, like this:
+'git <command> [<revision>...] -- [<file>...]'
+fatal: not a git repository (or any of the parent directories): .git
+··········································································fatal: not a git repository (or any of the parent directories): .git
+···············fatal: not a git repository (or any of the parent directories): .git
+··fatal: not a git repository (or any of the parent directories): .git
+··············fatal: not a git repository (or any of the parent directories): .git
+·············fatal: not a git repository (or any of the parent directories): .git
 ·····fatal: not a git repository (or any of the parent directories): .git
-·····················································································································································································································fatal: not a git repository (or any of the parent directories): .git
-················fatal: not a git repository (or any of the parent directories): .git
+·································fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+········································································fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+·······························fatal: not a git repository (or any of the parent directories): .git
+··fatal: not a git repository (or any of the parent directories): .git
+························fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+··············fatal: not a git repository (or any of the parent directories): .git
+···························fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
 ···························fatal: not a git repository (or any of the parent directories): .git
-·················refusing to modify C:\Users\Administrator\AppData\Local\Temp\apg-vitest-78000-1794132801814\apg-hookinstall-XmT359\settings.json: it is not valid JSON (Expected property name or '}' in JSON at position 2 (line 1 column 3))
-·fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
 ·····fatal: not a git repository (or any of the parent directories): .git
 ··fatal: not a git repository (or any of the parent directories): .git
-··fatal: not a git repository (or any of the parent directories): .git
-············-·························fatal: not a git repository (or any of the parent directories): .git
-················································fatal: not a git repository (or any of the parent directories): .git
-·stdout | tests/unit/negative-assertions-are-controlled.test.js > negative assertions must not spread uncontrolled > ★★★ adoption is reported, so "available" is never mistaken for "adopted"
-NEGATIVE ASSERTIONS — controlled: 162 · bare: 154 · 51.3% controlled
-
-···································································································································································································································································································································································-······················································································································································stderr | tests/unit/scripts/mutation-restore-cannot-eat-uncommitted-work.test.js > a mutation cycle cannot destroy uncommitted work > ★★★ withMutation restores even when the body THROWS
-Promise returned by `expect(actual).rejects.toThrow(expected)` was not awaited. Vitest currently auto-awaits hanging assertions at the end of the test, but this will cause the test to fail in Vitest 3. Please remember to await the assertion.
-    at C:/Docker/aify-project-graph/tests/unit/scripts/mutation-restore-cannot-eat-uncommitted-work.test.js:83:7
-
-··························································································································stdout | tests/unit/source-files-do-not-grow.test.js > source files do not grow past the bar > ★★ the number of files over 400 lines of code never INCREASES
+·············stdout | tests/unit/source-files-do-not-grow.test.js > source files do not grow past the bar > ★★ the number of files over 400 lines of code never INCREASES
 
 FILES OVER 400 LINES OF CODE: 20 (baseline 20)
    963 code / 1631 phys  mcp/stdio/query/verbs/pull.js
@@ -286,44 +270,120 @@ FILES OVER 400 LINES OF CODE: 20 (baseline 20)
    732 code / 1442 phys  mcp/stdio/query/verbs/consequences.js
 
 
-·································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································-·····································································································································································································································································································································································································································································································································································································································stdout | tests/unit/suite-composition.test.js > suite composition — what the green headline actually covers > ★ reports the three denominators separately, so no one number stands for all of them
+·················fatal: not a git repository (or any of the parent directories): .git
+································fatal: not a git repository (or any of the parent directories): .git
+············fatal: not a git repository (or any of the parent directories): .git
+···············································[source-text] 0 test file(s) read product source text in apg-teardown-probe-DX7GMJ (ratchet list: 57):
+
+························································stdout | tests/unit/negative-assertions-are-controlled.test.js > negative assertions must not spread uncontrolled > ★★★ adoption is reported, so "available" is never mistaken for "adopted"
+NEGATIVE ASSERTIONS — controlled: 162 · bare: 154 · 51.3% controlled
+
+·········································-································································································································fatal: not a git repository (or any of the parent directories): .git
+···········································fatal: not a git repository (or any of the parent directories): .git
+·······················fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+·····························fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+··············································································································································································································-·················································································································································································stderr | tests/unit/scripts/mutation-restore-cannot-eat-uncommitted-work.test.js > a mutation cycle cannot destroy uncommitted work > ★★★ withMutation restores even when the body THROWS
+Promise returned by `expect(actual).rejects.toThrow(expected)` was not awaited. Vitest currently auto-awaits hanging assertions at the end of the test, but this will cause the test to fail in Vitest 3. Please remember to await the assertion.
+    at C:/Docker/aify-project-graph/tests/unit/scripts/mutation-restore-cannot-eat-uncommitted-work.test.js:83:7
+
+······································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································-·····································································································································································································································································································································································································································································································································································································stdout | tests/unit/suite-composition.test.js > suite composition — what the green headline actually covers > ★ reports the three denominators separately, so no one number stands for all of them
 
 SUITE COMPOSITION — quote these three, not one:
-  behavioural files : 522
+  behavioural files : 523
   mixed files       : 35  (contain source-only cases too — a FLOOR)
   source-contract   : 6  (cannot fail when behaviour breaks)
-  total             : 563
+  total             : 564
 
 
-····················································································································································fatal: not a git repository (or any of the parent directories): .git
-······fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-·fatal: not a git repository (or any of the parent directories): .git
+·······································································································································································································fatal: not a git repository (or any of the parent directories): .git
 ·fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
 ·fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
-···fatal: not a git repository (or any of the parent directories): .git
-···················fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+·fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+···········fatal: not a git repository (or any of the parent directories): .git
+···········fatal: not a git repository (or any of the parent directories): .git
 ······
 
- Test Files  563 passed (563)
-      Tests  4451 passed | 4 skipped (4455)
-   Start at  12:13:21
-   Duration  140.11s (transform 20.46s, setup 22.81s, collect 417.12s, tests 2656.04s, environment 113ms, prepare 120.74s)
+ Test Files  564 passed (564)
+      Tests  4458 passed | 4 skipped (4462)
+   Start at  12:33:45
+   Duration  146.63s (transform 24.77s, setup 41.53s, collect 434.37s, tests 2841.03s, environment 111ms, prepare 107.74s)
 
-JSON report written to C:/Users/Administrator/AppData/Local/Temp/apg-suite-52164-1794132800618.json
+JSON report written to C:/Users/Administrator/AppData/Local/Temp/apg-suite-64668-1794134024026.json
+[source-text] 57 test file(s) read product source text in apg-vitest-71868-1794134025095 (ratchet list: 57):
+  tests/unit/code-intel/converged-not-empty.test.js
+  tests/unit/code-intel/every-clangd-spawn-bounds-pch.test.js
+  tests/unit/code-intel/evidence-unavailable-remedy.test.js
+  tests/unit/code-intel/guessed-position-not-queried.test.js
+  tests/unit/code-intel/index-readiness-covers-the-client.test.js
+  tests/unit/code-intel/resolve-clang-cl.test.js
+  tests/unit/code-intel/selection-selector.test.js
+  tests/unit/dashboard/explain-diff-endpoint.test.js
+  tests/unit/extractor-labels-have-one-writer.test.js
+  tests/unit/ingest/extraction-reports-its-coverage.test.js
+  tests/unit/ingest/identity-helpers-have-one-owner.test.js
+  tests/unit/integrations/legacy-collector-is-never-the-recommendation.test.js
+  tests/unit/integrations/no-surface-claims-bundled-clangd.test.js
+  tests/unit/integrations/no-surface-licenses-absence.test.js
+  tests/unit/integrations/refresh-docs-parity.test.js
+  tests/unit/integrations/verb-count-parity.test.js
+  tests/unit/no-extension-list-outside-the-registry.test.js
+  tests/unit/no-raw-nul-bytes.test.js
+  tests/unit/overlay/task-status.test.js
+  tests/unit/query/a-cap-is-not-a-count.test.js
+  tests/unit/query/absence-authority-is-not-honoured-by-any-verb.test.js
+  tests/unit/query/absence-headlines-name-the-scope.test.js
+  tests/unit/query/cause-vocabulary.test.js
+  tests/unit/query/empty-set-absence-names-uncommitted.test.js
+  tests/unit/query/every-absence-names-its-scope.test.js
+  tests/unit/query/every-absence-names-its-unmodelled-constructs.test.js
+  tests/unit/query/framing-not-data.test.js
+  tests/unit/query/fresh-per-call.test.js
+  tests/unit/query/one-git-observation-per-read.test.js
+  tests/unit/query/overcount-risk.test.js
+  tests/unit/query/packet-authority-boundaries.test.js
+  tests/unit/query/packet-route-inventory.test.js
+  tests/unit/query/packet-seal.test.js
+  tests/unit/query/pull-docs-unconsulted-source.test.js
+  tests/unit/query/pull-relations.test.js
+  tests/unit/query/record-volume-canary.test.js
+  tests/unit/query/remedy-names-a-reachable-verb.test.js
+  tests/unit/query/remedy-reachability.test.js
+  tests/unit/query/response-budget.test.js
+  tests/unit/query/server-build-identity.test.js
+  tests/unit/query/server-reports-its-own-version.test.js
+  tests/unit/query/staleness-consequence.test.js
+  tests/unit/query/surfaces-agree-on-scope.test.js
+  tests/unit/query/token-estimate-has-one-constant.test.js
+  tests/unit/scripts/adoption-gate-is-recorded-not-remembered.test.js
+  tests/unit/scripts/anchor-addressability.test.js
+  tests/unit/scripts/arm-workspace.test.js
+  tests/unit/scripts/audit-preconditions-still-hold.test.js
+  tests/unit/scripts/carrier-must-hold-across-the-run.test.js
+  tests/unit/scripts/hazard-detectors.test.js
+  tests/unit/scripts/mutation-restore-cannot-eat-uncommitted-work.test.js
+  tests/unit/scripts/reindex-payload.test.js
+  tests/unit/scripts/suite-run-integrity.test.js
+  tests/unit/source-files-do-not-grow.test.js
+  tests/unit/storage/code-node-types-has-one-owner.test.js
+  tests/unit/storage/producers-emit-only-declared-types.test.js
+  tests/unit/util/append-all.test.js
 
 SKIPPED TESTS (4) — a skip is not a pass:
   [skipped] C:/Docker/aify-project-graph/tests/unit/graph-identity-differential.test.js > graphIdentity refuses rather than reporting a partial identity ★★ SYMLINK — fails CLOSED, because stat() would have followed it out of the population
+  [skipped] C:/Docker/aify-project-graph/tests/unit/eval/regression-invariants.test.js > invariant: target_rollup-style filenames survive ignore-prefix logic (regression for commit 27f4d86) bare filenames without a directory prefix are not in scope for the 27f4d86 fix
   [skipped] C:/Docker/aify-project-graph/tests/unit/code-intel/coverage-first-party-gate.test.js > compile-DB coverage requires first-party coverage keeps the foreign-toolchain verdict when the DB is also foreign
   [skipped] C:/Docker/aify-project-graph/tests/unit/code-intel/selection-digest-vectors.test.js > selected_tu_set_digest — metamorphic properties ★★★ a case-SIBLING tree is NOT inside the root (the executed WSL defect)
-  [skipped] C:/Docker/aify-project-graph/tests/unit/eval/regression-invariants.test.js > invariant: target_rollup-style filenames survive ignore-prefix logic (regression for commit 27f4d86) bare filenames without a directory prefix are not in scope for the 27f4d86 fix
 
-SUITE FOR COMMIT ab7a42ffec23cb580a6332762381749c5d71bea4
-FINISHED 2026-11-08T10:15:42.661Z
+SUITE FOR COMMIT 786bbe3f103799fe445ef8f58fd3b36c973c3f98
+FINISHED 2026-11-08T10:36:12.471Z
 VITEST_EXIT=0
