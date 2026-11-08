@@ -1,0 +1,18 @@
+== BEFORE (pushed code)
+apg 65ab39f5 on C:/Users/Administrator/AppData/Local/Temp/apg-specimens/BookStack 0b6b667: 1846 php files
+aliased use clauses in source: 56
+IMPORTS targets still carrying " as ": 56
+class-naming targets that start with an alias (Alias or Alias\Rest): 105
+aliased IMPORTS emitted as the FQN of a project class or namespace (BookStack\, Database\Factories\, Database\Seeders\): 0, whose file or folder exists: 0
+  e.g. app/Access/Controllers/RegisterController.php: IMPORTS "Illuminate\\Contracts\\Validation\\Validator as ValidatorContract"
+  e.g. app/Access/Controllers/RegisterController.php: REFERENCES "ValidatorContract"
+  e.g. app/Access/Controllers/ResetPasswordController.php: IMPORTS "Illuminate\\Validation\\Rules\\Password as PasswordRule"
+  e.g. app/Access/Controllers/ResetPasswordController.php: REFERENCES "PasswordRule"
+  e.g. app/Access/Controllers/SocialController.php: USES_TYPE "SocialUser"
+  e.g. app/Access/SocialAuthService.php: REFERENCES "SocialUser"
+== AFTER (this change, on top of the HEAD shown)
+apg 702b54c0 on C:/Users/Administrator/AppData/Local/Temp/apg-specimens/BookStack 0b6b667: 1846 php files
+aliased use clauses in source: 56
+IMPORTS targets still carrying " as ": 0
+class-naming targets that start with an alias (Alias or Alias\Rest): 0
+aliased IMPORTS emitted as the FQN of a project class or namespace (BookStack\, Database\Factories\, Database\Seeders\): 14, whose file or folder exists: 14

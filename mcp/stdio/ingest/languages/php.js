@@ -82,7 +82,7 @@ const DISPATCH_METHODS = new Set([
 // All three are static, conservative, and Laravel-neutral (rules fire on
 // pattern shape, not project type — false positives are rare because the
 // shapes are specific).
-function postExtractPhp({ tree, source, filePath, fileNode, nodes, symbolsById }) {
+function postExtractPhp({ tree, source, filePath, fileNode, nodes, refs: walkerRefs = [] }) {
   const refs = [];
   // Map class nodes in this file by the class's start line so we can attach
   // constructor-injection USES_TYPE to the right Class.
@@ -261,8 +261,21 @@ function postExtractPhp({ tree, source, filePath, fileNode, nodes, symbolsById }
   }
 
   walk(tree.rootNode);
+
+  // ⛔ A REFERENCE TO AN ALIAS IS A REFERENCE TO WHAT IT IMPORTS (#4). Applied to the walker's refs as well as these,
+  // deliberately, because the walker cannot know the file's aliases: `B` in `run(B $b)` or `extends B` is the class
+  // `use App\Services\Billing as B` names, and left as `B` it resolves to nothing or to an unrelated class B.
+  const aliases = aliasesOf(tree, source);
+  if (aliases.size > 0) {
+    for (const ref of [...walkerRefs, ...refs]) {
+      if (CLASS_NAMING_RELATIONS.has(ref.relation) && aliases.has(ref.target)) ref.target = aliases.get(ref.target);
+    }
+  }
   return { refs };
 }
+
+// Relations whose target is a class name, so an alias in it stands for the imported class.
+const CLASS_NAMING_RELATIONS = new Set(['USES_TYPE', 'REFERENCES', 'EXTENDS', 'IMPLEMENTS']);
 
 
 // PHP's module identity is its `namespace` directive, not its file path. So
@@ -284,20 +297,38 @@ function moduleFromAst({ tree, source, filePath, defaultLabel }) {
   return `${namespace.replace(/\\/g, '.')}.${base}`;
 }
 
-function extractImportTargets({ node, source }) {
-  const clause = node.namedChildren.find((child) => child.type === 'namespace_use_clause');
-  if (clause) {
-    return [source.slice(clause.startIndex, clause.endIndex)];
-  }
+// One `use` clause as { name, alias }: the imported name (its first named child), and the local name written after
+// `as`, or null. `use X as Y` imports X; the clause's whole text "X as Y" names nothing and never resolved (#4).
+function useClause(clause, source) {
+  const asAt = clause.children.findIndex((child) => child.type === 'as');
+  const aliasNode = asAt === -1 ? null : clause.children.slice(asAt + 1).find((child) => child.isNamed);
+  return { name: nodeText(clause.namedChildren[0], source).trim(), alias: aliasNode ? nodeText(aliasNode, source).trim() : null };
+}
 
+/** Every `use` clause of one declaration, single or grouped (`use App\{A as X, B}`), with its full name. */
+function useClausesOf(node, source) {
+  const clause = node.namedChildren.find((child) => child.type === 'namespace_use_clause');
+  if (clause) return [useClause(clause, source)];
   const baseNode = node.namedChildren.find((child) => child.type === 'namespace_name');
   const groupNode = node.namedChildren.find((child) => child.type === 'namespace_use_group');
   if (!baseNode || !groupNode) return [];
-
-  const base = source.slice(baseNode.startIndex, baseNode.endIndex);
+  const base = nodeText(baseNode, source);
   return groupNode.namedChildren
     .filter((child) => child.type === 'namespace_use_clause')
-    .map((child) => `${base}\\${source.slice(child.startIndex, child.endIndex)}`);
+    .map((child) => { const one = useClause(child, source); return { ...one, name: `${base}\\${one.name}` }; });
+}
+
+function extractImportTargets({ node, source }) {
+  return useClausesOf(node, source).map((clause) => clause.name);
+}
+
+/** This file's aliases, local name -> the name it imports. */
+function aliasesOf(tree, source) {
+  const aliases = new Map();
+  for (const node of tree.rootNode.descendantsOfType('namespace_use_declaration')) {
+    for (const { name, alias } of useClausesOf(node, source)) if (alias) aliases.set(alias, name);
+  }
+  return aliases;
 }
 
 export default {
