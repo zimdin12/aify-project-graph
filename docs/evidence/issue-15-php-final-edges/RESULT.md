@@ -25,4 +25,20 @@ REFERENCES by target type: Class=3101 External=2663 Module=10
 USES_TYPE by target type:  Class=784 External=129
 REFERENCES landing on a Method/Function: 0 edges, 0 names
   top: 
+
+== AFTER fix 2 (qualified class names) apg eb02fb6a + uncommitted changes on C:\Users\Administrator\AppData\Local\Temp\apg-specimens\BookStack
+php files indexed: 1843; CALLS from php (control): 21988
+EXTENDS by target type:    Class=346 External=111
+IMPLEMENTS by target type: Class=84
+REFERENCES by target type: Class=3111 External=2663
+USES_TYPE by target type:  Class=784 External=129
+REFERENCES landing on a Method/Function: 0 edges, 0 names
+  top: 
 ```
+
+Reading the three runs:
+- Fix 1 (variables and property reads, refs #15): REFERENCES landing on a Method/Function 2521 -> 0.
+- Fix 2 (a qualified class name binds to the class its file declares, refs #4): REFERENCES landing on a Module 10 -> 0,
+  REFERENCES to a Class 3101 -> 3111. EXTENDS and IMPLEMENTS did not change on BookStack (no aliased project-class
+  `extends`); the fixture in tests/fixtures/ingest/matrix-php has one and is asserted.
+- CALLS from PHP: 21988 in every run (control).

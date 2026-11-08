@@ -167,12 +167,16 @@ describe('PHP constructs (final edges of tests/fixtures/ingest/matrix-php)', () 
       .toEqual([]);
   });
 
-  // A qualified class name (which is what #4 rewrites an alias to) resolves to the FILE's Module node, not the class the
-  // file declares. So `extends BaseDocument` (an alias of App\Billing\Document) lands on the module, and "what extends
-  // Document" misses Invoice; the plain `CreditNote extends Document` above lands on the class.
-  it.fails('KNOWN DEFECT: an aliased (qualified) class name binds to the file Module, not the class', () => {
-    expect(edge('Invoice', 'EXTENDS', 'Document', 'Class')).toHaveLength(1);
-    expect(edge('Invoice', 'REFERENCES', 'App.Support.Money', 'Module')).toEqual([]);
+  // A qualified class name (which is what #4 rewrites an alias to) resolved to the FILE's Module node, not the class the
+  // file declares: `extends BaseDocument` (an alias of App\Billing\Document) landed on the module, and "what extends
+  // Document" missed Invoice.
+  it('★★★ expected: an aliased (qualified) class name binds to the class its file declares', () => {
+    expect(edge('Invoice', 'EXTENDS', 'Document', 'Class').map((e) => e.to_file)).toEqual(['src/Billing/Document.php']);
+    expect(edge('Invoice', 'REFERENCES', 'Money', 'Class').map((e) => e.to_file)).toEqual(['src/Support/Money.php']);
+    expect(phpEdges.filter((e) => ['EXTENDS', 'IMPLEMENTS', 'REFERENCES'].includes(e.relation) && e.to_type === 'Module'))
+      .toEqual([]);
+    // control: importing the name is still an import of the module
+    expect(edge('Invoice.php', 'IMPORTS', 'App.Support.Money', 'Module')).toHaveLength(1);
   });
 });
 

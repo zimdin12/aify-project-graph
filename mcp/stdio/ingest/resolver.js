@@ -637,6 +637,21 @@ function resolveViaImportEvidence(ref, resolvers, importContext) {
   return null;
 }
 
+// A PHP qualified class name (`App\Support\Money`, and what #4 rewrites an alias to) spells the same dotted name as the
+// FILE's Module node (namespace + PSR-4 basename), while the class node's own name carries no namespace. So the qname
+// passes landed on the module: `extends BaseDocument` (an alias of App\Billing\Document) gave EXTENDS -> Module, and
+// "what extends Document" missed it. When such a name is used AS A CLASS, bind the one class that file declares under
+// the name's last segment; an IMPORTS keeps the module, and a file declaring no such class (or two) keeps it too.
+const CLASS_NAMING_RELATIONS = new Set(['EXTENDS', 'IMPLEMENTS', 'REFERENCES', 'USES_TYPE']);
+function phpClassDeclaredBy(match, ref, resolvers) {
+  if (match?.type !== 'Module' || !CLASS_NAMING_RELATIONS.has(ref.relation) || refLanguageFamily(ref) !== 'php') return null;
+  const leaf = String(match.extra?.qname ?? match.label ?? '').split('.').at(-1);
+  if (!leaf) return null;
+  const declared = resolvers.findByLabel(leaf)
+    .filter((n) => n.file_path === match.file_path && (n.type === 'Class' || n.type === 'Interface'));
+  return declared.length === 1 ? declared[0] : null;
+}
+
 function resolveTarget(ref, resolvers, importContext = null) {
   // L5 shader bridge: LOADS_SHADER refs target a shader filename (usually a
   // bare basename like "cas.comp.glsl" loaded via ShaderCompiler::loadFile).
@@ -663,7 +678,7 @@ function resolveTarget(ref, resolvers, importContext = null) {
     const exactMatches = filterByLanguageFamily(exactRaw, ref);
     const exactMatch = preferProximate(exactMatches, ref.source_file);
     if (exactMatch) {
-      return { node: exactMatch, provenance: pickProvenance(exactMatches, 'EXTRACTED') };
+      return { node: phpClassDeclaredBy(exactMatch, ref, resolvers) ?? exactMatch, provenance: pickProvenance(exactMatches, 'EXTRACTED') };
     }
   }
 
@@ -672,7 +687,9 @@ function resolveTarget(ref, resolvers, importContext = null) {
       const suffixRaw = resolvers.findByQnameSuffix(candidate);
       const suffixMatches = filterByLanguageFamily(suffixRaw, ref);
       const suffixMatch = preferProximate(suffixMatches, ref.source_file);
-      if (suffixMatch) return { node: suffixMatch, provenance: pickProvenance(suffixMatches, 'INFERRED') };
+      if (suffixMatch) {
+        return { node: phpClassDeclaredBy(suffixMatch, ref, resolvers) ?? suffixMatch, provenance: pickProvenance(suffixMatches, 'INFERRED') };
+      }
     }
   }
 
