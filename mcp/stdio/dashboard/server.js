@@ -329,6 +329,11 @@ const MIME = {
   '.svg': 'image/svg+xml',
 };
 
+/** Whether a request's Host names this server: 127.0.0.1 or localhost, on the port it is bound to. PURE. */
+export function hostIsOwn(host, port) {
+  return port !== undefined && [`127.0.0.1:${port}`, `localhost:${port}`].includes(String(host ?? '').toLowerCase());
+}
+
 export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
   const nodeColumns = new Set(db.all('PRAGMA table_info(nodes)').map((row) => row.name));
   const hasCommunityId = nodeColumns.has('community_id');
@@ -369,8 +374,15 @@ export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
   });
 
   const server = http.createServer(async (req, res) => {
+    // ⛔ ONLY REQUESTS ADDRESSED TO THIS SERVER (#12). Without a Host check a DNS-rebound page could read /api/source
+    // while the viewer ran. The port is the one actually bound, so an ephemeral port 0 works.
+    if (!hostIsOwn(req.headers.host, server.address()?.port)) {
+      res.writeHead(421, { 'Content-Type': 'text/plain' });
+      res.end('this viewer only answers requests addressed to 127.0.0.1 or localhost on its own port');
+      return;
+    }
     const writeJson = (body) => {
-      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'null' });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(body));
     };
 
@@ -713,7 +725,7 @@ export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
       const budget = Math.max(800, Math.min(40000, parseInt(url.searchParams.get('budget') || '6000', 10) || 6000));
       const architecture = loadArchitecture();
       const text = computeDigest(db, { budget, architecture });
-      res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Access-Control-Allow-Origin': 'null' });
+      res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
       res.end(text);
       return;
     }
@@ -726,7 +738,7 @@ export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
       // Repo name so the dashboard titles itself after the project it's showing
       // (not the hardcoded tool name) — matters once you point it at several repos.
       const repoName = resolve(repoRoot).split(/[/\\]/).filter(Boolean).pop() || 'project';
-      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'null' });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ nodeCount, edgeCount, types, relations, repoName }));
       return;
     }
@@ -740,7 +752,7 @@ export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
       // at 100 chars + 8 token slice in the helper protects against
       // pathological inputs.
       const results = searchNodesFts(db, rawQ, 20);
-      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'null' });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(results));
       return;
     }
@@ -766,7 +778,7 @@ export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
         ORDER BY e.relation, e.confidence DESC, n.label
         LIMIT 20
       `, { id });
-      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'null' });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ node, incoming, outgoing }));
       return;
     }
