@@ -20,13 +20,15 @@
 // NON-SUCCESS rather than collapsing them into zero or excluding them once results are visible.
 
 import { createHash } from 'node:crypto';
+import { lstatSync, readlinkSync, realpathSync } from 'node:fs';
+import { join, relative, isAbsolute, resolve } from 'node:path';
 
 /**
  * Every outcome a single installation can have. DECLARED so a consumer can switch exhaustively and
  * so a test can assert each one is reachable — a vocabulary entry no input can produce is the
  * dead-branch defect this repo shipped once already, in a `cause` value no input could emit.
  */
-export const DEPLOYMENT_STATES = Object.freeze(['match', 'stale', 'diverged', 'missing', 'unreadable']);
+export const DEPLOYMENT_STATES = Object.freeze(['match', 'stale', 'diverged', 'missing', 'unreadable', 'foreign']);
 
 const sha = (s) => createHash('sha256').update(s ?? '').digest('hex');
 
@@ -36,10 +38,17 @@ const sha = (s) => createHash('sha256').update(s ?? '').digest('hex');
  * @param {{source: {path: string, bytes: string}, installed: {path: string, bytes?: string, error?: string} | null}} args
  * @returns {{state: string, ok: boolean, name?: string, sourceBytes: number, installedBytes: number|null, sourceSha: string, installedSha: string|null, detail: string}}
  */
-export function classifyInstallation({ source, installed, name }) {
+export function classifyInstallation({ source, installed, name, foreign = null }) {
   const sourceBytes = source?.bytes?.length ?? 0;
   const sourceSha = sha(source?.bytes);
   const base = { name: name ?? source?.path, sourceBytes, sourceSha, installedBytes: null, installedSha: null };
+
+  // ⛔ FIRST, BEFORE "missing" (#21). A skill name that leads out of the install root belongs to another source: on
+  // this host ~/.claude/skills/blast-radius is a junction into another product's skill, and apg ships the same name.
+  // Any write here lands in THAT product's files, and a dangling link read as "missing" would recreate its folder.
+  if (foreign) {
+    return { ...base, state: 'foreign', ok: false, detail: `resolves outside the install root, to ${foreign}: another source owns it, so nothing is written` };
+  }
 
   if (!installed) {
     return { ...base, state: 'missing', ok: false, detail: 'no installed copy found at the expected path' };
@@ -141,4 +150,20 @@ export function summariseDeployment(rows) {
     failures,
     reason: failures.length === 0 ? null : `${failures.length} of ${list.length} installations are not in sync with source`,
   };
+}
+
+/**
+ * Where `<root>/<name>` or its SKILL.md really is, when that is outside `root` (#21); null when inside or absent.
+ * A link that resolves nowhere (dangling) is foreign too: its target is named by the link, not by this root.
+ */
+export function foreignTarget(root, name) {
+  const realRoot = realpathSync(root);
+  for (const path of [join(root, name), join(root, name, 'SKILL.md')]) {
+    try { lstatSync(path); } catch { continue; } // absent: nothing here to lead anywhere
+    let real;
+    try { real = realpathSync(path); } catch { return resolve(root, readlinkSync(path)); }
+    const rel = relative(realRoot, real);
+    if (rel.startsWith('..') || isAbsolute(rel)) return real;
+  }
+  return null;
 }

@@ -24,7 +24,7 @@ import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync, statSy
 import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { classifyInstallation, summariseDeployment, detectShadowRoots } from './lib/skill-deployment.mjs';
+import { classifyInstallation, summariseDeployment, detectShadowRoots, foreignTarget } from './lib/skill-deployment.mjs';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
 const CHECK_ONLY = process.argv.includes('--check');
@@ -103,11 +103,15 @@ function readInstalled(root, name) {
   catch (err) { return { path, error: err.code || String(err) }; }
 }
 
-const classifyAll = (sources, root) => sources.map((s) => classifyInstallation({
-  name: s.name,
-  source: { path: s.path, bytes: readFileSync(s.path, 'utf8'), mtimeMs: statSync(s.path).mtimeMs },
-  installed: readInstalled(root, s.name),
-}));
+const classifyAll = (sources, root) => sources.map((s) => {
+  const foreign = foreignTarget(root, s.name);
+  return classifyInstallation({
+    name: s.name,
+    source: { path: s.path, bytes: readFileSync(s.path, 'utf8'), mtimeMs: statSync(s.path).mtimeMs },
+    installed: foreign ? null : readInstalled(root, s.name),
+    foreign,
+  });
+});
 
 const report = [];
 let anyRootPresent = false;
@@ -149,6 +153,8 @@ for (const rt of RUNTIMES) {
     if (!CHECK_ONLY) {
       for (const r of rows) {
         if (r.ok) continue;
+        // ⛔ NEVER, not even with --force: another source owns what this name leads to (#21).
+        if (r.state === 'foreign') { refused += 1; continue; }
         if ((r.state === 'diverged' || r.state === 'unreadable') && !FORCE) { refused += 1; continue; }
         const src = sources.find((s) => s.name === r.name);
         const dest = join(root, r.name, 'SKILL.md');

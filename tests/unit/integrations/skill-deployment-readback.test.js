@@ -99,7 +99,7 @@ describe('classifyInstallation — every outcome is a NAMED state, never a silen
   });
 
   it('⭐ the state vocabulary is DECLARED, so a consumer can switch on it exhaustively', () => {
-    expect([...DEPLOYMENT_STATES].sort()).toEqual(['diverged', 'match', 'missing', 'stale', 'unreadable']);
+    expect([...DEPLOYMENT_STATES].sort()).toEqual(['diverged', 'foreign', 'match', 'missing', 'stale', 'unreadable']);
     // And every declared state must be reachable — a vocabulary entry no input can produce is the
     // dead-branch defect this repo shipped once already (a cause value no input could emit).
     const produced = new Set([
@@ -108,6 +108,8 @@ describe('classifyInstallation — every outcome is a NAMED state, never a silen
       classifyInstallation({ source: src('a'), installed: inst('ab', 9000) }).state,
       classifyInstallation({ source: src('a'), installed: null }).state,
       classifyInstallation({ source: src('a'), installed: { path: 'i', error: 'EACCES', mtimeMs: 1000 } }).state,
+      // #21: a name leading out of the install root, decided before anything is read.
+      classifyInstallation({ source: src('a'), installed: null, foreign: '/elsewhere/skill' }).state,
     ]);
     expect([...produced].sort()).toEqual([...DEPLOYMENT_STATES].sort());
   });
