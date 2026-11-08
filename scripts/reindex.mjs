@@ -11,9 +11,7 @@
 import { join, resolve } from 'node:path';
 import { appendFileSync, mkdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { ensureFresh } from '../mcp/stdio/freshness/orchestrator.js';
-import { writeUnresolvedCategorization } from '../mcp/stdio/freshness/unresolved-categorization.js';
-import { generateBrief } from '../mcp/stdio/brief/generator.js';
+import { refreshGraph } from './lib/refresh-graph.mjs';
 import { writeRefreshBreadcrumb, readRefreshBreadcrumb } from '../mcp/stdio/freshness/refresh-breadcrumb.js';
 
 const repoRoot = resolve(process.argv[2] || process.cwd());
@@ -53,12 +51,7 @@ function head() {
 const from = readRefreshBreadcrumb(repoRoot)?.to ?? null;
 
 try {
-  const started = Date.now();
-  const result = await ensureFresh({ repoRoot });
-  const reindexMs = Date.now() - started;
-  generateBrief({ repoRoot });
-  const categorization = await writeUnresolvedCategorization({ repoRoot });
-  const totalMs = Date.now() - started;
+  const { result, categorization, reindexMs, totalMs } = await refreshGraph(repoRoot);
   log(`${result?.nodes ?? '?'}N/${result?.edges ?? '?'}E in ${reindexMs}ms; `
     + `briefs+categorization in ${totalMs - reindexMs}ms (total ${totalMs}ms); `
     + `categorization=${categorization?.total ?? '?'}`);

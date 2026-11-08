@@ -35,14 +35,10 @@ export async function runIndexCmd(argv, { print = console.log, build = buildGrap
   return 0;
 }
 
-// The same refresh the hook payload runs (scripts/reindex.mjs): the graph, then the briefs that read it.
+// The refresh the hook payload runs too. Imported on use, so reading `enableSteps` does not load the indexer.
 async function buildGraph(repoRoot) {
-  const { ensureFresh } = await import('../../mcp/stdio/freshness/orchestrator.js');
-  const { generateBrief } = await import('../../mcp/stdio/brief/generator.js');
-  const { writeUnresolvedCategorization } = await import('../../mcp/stdio/freshness/unresolved-categorization.js');
-  await ensureFresh({ repoRoot });
-  generateBrief({ repoRoot });
-  await writeUnresolvedCategorization({ repoRoot });
+  const { refreshGraph } = await import('./refresh-graph.mjs');
+  await refreshGraph(repoRoot);
 }
 
 const git = (dir, args) => execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true }).trim();
