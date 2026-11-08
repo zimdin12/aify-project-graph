@@ -28,7 +28,9 @@ import { BACKENDS } from '../../../mcp/stdio/code-intel/backends.js';
 describe('the shape scan runs only where its detectors mean something', () => {
   it('★★★ POSITIVE CONTROL: the detectors really are C/C++ only, by their own tables', () => {
     // If this ever stops holding, the gate below is wrong and should be revisited rather than kept.
-    expect([...IMPL_EXTS, ...HEADER_EXTS].every((e) => /^\.(c|cc|cpp|cxx|c\+\+|h|hh|hpp|hxx|h\+\+|inc)$/.test(e)))
+    // .cp joined IMPL_EXTS when both sets started coming from the language registry's C++ `source` role (#7); the unity
+    // detector already counted it as a translation unit.
+    expect([...IMPL_EXTS, ...HEADER_EXTS].every((e) => /^\.(c|cc|cp|cpp|cxx|c\+\+|h|hh|hpp|hxx|h\+\+|inc)$/.test(e)))
       .toBe(true);
     expect(isImpl('a.ts'), 'a TypeScript file is not an implementation file to these detectors').toBe(false);
     expect(isHeader('a.py')).toBe(false);

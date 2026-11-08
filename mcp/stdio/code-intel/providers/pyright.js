@@ -7,6 +7,7 @@
 // coverage strategy (code-intel/coverage.js), so the verbs always degrade a
 // Python caller set to a FLOOR rather than "safe to delete".
 
+import { lspExtensions } from '../../language-registry.js';
 import { nodeLspSpawn } from '../node-bin.js';
 import { collectViaLsp } from './lsp-collect.js';
 import { enumerateFirstPartyFiles } from '../enumerate-first-party.js';
@@ -14,7 +15,9 @@ import { enumerateFirstPartyFiles } from '../enumerate-first-party.js';
 const PROVIDER_NAME = 'pyright';
 const PROVIDER_VERSION = '0.1.0';
 
-const EXTS = new Set(['.py', '.pyi']);
+// What this collector enumerates; the Python coverage denominator counts the same set (#7).
+export const ADMITTED_EXTENSIONS = new Set(lspExtensions('python'));
+const EXTS = ADMITTED_EXTENSIONS;
 // Python-specific ADDITIONS to the derived exclusion set — never a replacement for it. These are
 // real Python concerns that a generic .gitignore may not name; everything else (node_modules,
 // build output, and this repo's `reference/`) comes from the repository's own configuration.

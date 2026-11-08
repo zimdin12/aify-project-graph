@@ -14,6 +14,7 @@
 // Synthesis-only. No new data. Pulls from existing code graph + overlays
 // + git log.
 
+import { cppExtensions } from '../../language-registry.js';
 import { join } from 'node:path';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -193,7 +194,7 @@ function findMentioningTestFiles(db, repoRoot, symbols = []) {
 }
 
 /** Extensions a C/C++ implementation file's paired header can carry. */
-const HEADER_EXTS = ['.h', '.hpp', '.hh', '.hxx'];
+const HEADER_EXTS = cppExtensions('header');
 
 /**
  * The headers paired with the given implementation files, by stem.

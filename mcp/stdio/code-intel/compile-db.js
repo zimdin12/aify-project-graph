@@ -17,6 +17,7 @@
 // `<projectRoot>/.aify-graph/code-intel/` plus a structured summary the doctor
 // and provider consume.
 
+import { lspExtensions, cppExtensions } from '../language-registry.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -468,7 +469,7 @@ export function parseUnityIncludes(text) {
 }
 
 // C++ source extensions a unity member may carry (members are TUs, not headers).
-const UNITY_MEMBER_EXTS = new Set(['.cpp', '.cc', '.cxx', '.c', '.c++', '.cp']);
+const UNITY_MEMBER_EXTS = new Set(cppExtensions('source'));
 
 /**
  * Resolve one raw unity include target to an absolute host path on disk.
@@ -902,7 +903,7 @@ function stripInternal(entry) {
 }
 
 // The C/C++ source extensions the collector enumerates. The coverage denominator derives its C++ set from this (#7).
-export const CPP_EXTENSIONS = new Set(['.cpp', '.cc', '.cxx', '.c', '.h', '.hpp', '.hh', '.hxx']);
+export const CPP_EXTENSIONS = new Set(lspExtensions('cpp'));
 
 // ── Compile-DB COVERAGE (false-exhaustive guard) ─────────────────────────────
 // clangd's textDocument/references is best-effort over its index, and that index

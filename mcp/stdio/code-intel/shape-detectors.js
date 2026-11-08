@@ -11,12 +11,13 @@
 //
 // Preregistered populations, identity rules, claim ceilings and controls:
 // docs/evidence/shape-detectors/PREREGISTRATION.md
+import { cppExtensions } from '../language-registry.js';
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 
-export const IMPL_EXTS = Object.freeze(['.c', '.cc', '.cpp', '.cxx', '.c++']);
-export const HEADER_EXTS = Object.freeze(['.h', '.hh', '.hpp', '.hxx', '.h++', '.inc']);
+export const IMPL_EXTS = cppExtensions('source');
+export const HEADER_EXTS = cppExtensions('header');
 
 const extOf = (p) => path.extname(String(p)).toLowerCase();
 export const isImpl = (p) => IMPL_EXTS.includes(extOf(p));

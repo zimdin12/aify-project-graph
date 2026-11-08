@@ -5,6 +5,7 @@
 // and a tsconfig-based freshness basis. Standard LSP, so the generic LspClient
 // + collectViaLsp do the rest.
 
+import { lspExtensions } from '../../language-registry.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -15,7 +16,9 @@ import { enumerateFirstPartyFiles } from '../enumerate-first-party.js';
 const PROVIDER_NAME = 'ts-langserver';
 const PROVIDER_VERSION = '0.1.0';
 
-const EXTS = new Set(['.ts', '.tsx', '.mts', '.cts', '.js', '.jsx', '.mjs', '.cjs']);
+// What this collector enumerates; the TypeScript coverage denominator counts the same set (#7).
+export const ADMITTED_EXTENSIONS = new Set(lspExtensions('typescript'));
+const EXTS = ADMITTED_EXTENSIONS;
 
 export function tsSpawnFor(projectRoot) {
   return nodeLspSpawn({ pkgName: 'typescript-language-server', binName: 'typescript-language-server', args: ['--stdio'], projectRoot });

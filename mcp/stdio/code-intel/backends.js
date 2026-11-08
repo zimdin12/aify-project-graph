@@ -9,6 +9,7 @@
 // resolveNodeBin (project-local → plugin-local → PATH), so the host needs no
 // LSP config. C++ keeps detect-or-guide (clangd isn't an npm package).
 
+import { LSP_LANGUAGE_BY_EXTENSION } from '../language-registry.js';
 import { buildClangdSpawn } from './resolve-clangd.js';
 import { prepareCompileDb } from './compile-db.js';
 import { nodeLspSpawn } from './node-bin.js';
@@ -51,12 +52,8 @@ export function getBackend(language) {
   return BACKENDS[normalizeLanguage(language)] || null;
 }
 
-const EXT_TO_LANG = {
-  '.c': 'cpp', '.h': 'cpp', '.cc': 'cpp', '.cpp': 'cpp', '.cxx': 'cpp', '.hpp': 'cpp', '.hh': 'cpp', '.hxx': 'cpp',
-  '.ts': 'typescript', '.tsx': 'typescript', '.mts': 'typescript', '.cts': 'typescript',
-  '.js': 'typescript', '.jsx': 'typescript', '.mjs': 'typescript', '.cjs': 'typescript',
-  '.py': 'python', '.pyi': 'python',
-};
+// ext -> language server family; one table for every surface (#7).
+const EXT_TO_LANG = LSP_LANGUAGE_BY_EXTENSION;
 
 // Infer the backend language from a file path's extension. Returns null when the
 // extension maps to no backend (caller keeps its explicit/default language).

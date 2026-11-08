@@ -18,6 +18,7 @@
 // hundred tokens, never the raw records[]. For raw records, use code_intel_replay
 // / the DB (graph_pull's code_intel layer).
 
+import { LSP_LANGUAGE_BY_EXTENSION, lspExtensions, treeSitterExtensions } from '../../language-registry.js';
 import { join } from 'node:path';
 import { zeroFilesProcessedReason, ZERO_FILES_REASON_SCHEMA } from '../../code-intel/zero-files-reason.js';
 import { existsSync, mkdirSync } from 'node:fs';
@@ -29,20 +30,13 @@ import { createPyrightProvider } from '../../code-intel/providers/pyright.js';
 import { openDb, openExistingDb } from '../../storage/db.js';
 import { importV02Collection } from '../../ingest/code-intel/importer.js';
 import { loadEffectiveIgnoredDirs, pathContainsIgnoredDir } from '../../ingest/ignored-dirs.js';
-import { CPP_EXTENSIONS } from '../../code-intel/compile-db.js';
 
 // FIX 2 (test-round-2026-05-31): `language` used to be required-with-no-default,
 // inconsistent with every other code_intel_* verb (which default to 'cpp').
 // We now default to 'cpp' (the games are C++) and, when files[] are given,
 // infer from their extensions so a TS/JS file list selects the right provider
 // without the caller restating it. Explicit `language` always wins.
-const EXT_LANGUAGE = new Map([
-  ['.cpp', 'cpp'], ['.cc', 'cpp'], ['.cxx', 'cpp'], ['.c', 'cpp'],
-  ['.h', 'cpp'], ['.hpp', 'cpp'], ['.hh', 'cpp'], ['.hxx', 'cpp'], ['.inl', 'cpp'],
-  ['.ts', 'typescript'], ['.tsx', 'typescript'], ['.mts', 'typescript'], ['.cts', 'typescript'],
-  ['.js', 'typescript'], ['.jsx', 'typescript'], ['.mjs', 'typescript'], ['.cjs', 'typescript'],
-  ['.py', 'python'], ['.pyi', 'python']
-]);
+const EXT_LANGUAGE = new Map(Object.entries(LSP_LANGUAGE_BY_EXTENSION));
 
 // Infer a language from a files[] list by majority extension vote. Returns null
 // when files[] is empty or no extension is recognized (caller falls back to the
@@ -168,12 +162,13 @@ const MIN_COLLECT_BUDGET_MS = 5000;
 // ~7,200/file. Set well clear of both so it fires on the class, not on outliers.
 // Which file extensions a provider's language can collect. Used ONLY to size the eligible
 // denominator for a coverage claim — not to select files, which the provider owns.
+// Each denominator is the set its collector enumerates (#7): a hand list here left out .c/.hh/.hxx, then .mts/.cts
+// and .pyi, so covered files could exceed the files counted.
 export const LANGUAGE_FILE_EXTENSIONS = Object.freeze({
-  typescript: ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'],
-  javascript: ['.js', '.jsx', '.mjs', '.cjs'],
-  python: ['.py'],
-  // Derived from the collector's own set (#7): a hand list here missed .c, .hh and .hxx.
-  cpp: [...CPP_EXTENSIONS],
+  typescript: lspExtensions('typescript'),
+  javascript: treeSitterExtensions('javascript'),
+  python: lspExtensions('python'),
+  cpp: lspExtensions('cpp'),
 });
 
 const RECORDS_PER_FILE_ANOMALY = 1000;

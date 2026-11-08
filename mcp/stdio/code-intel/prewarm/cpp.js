@@ -16,10 +16,11 @@
 // Opt-out: APG_DISABLE_PREWARM=1 in env returns []. Tests can also
 // set a smaller cap via the param.
 
+import { lspExtensions } from '../../language-registry.js';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const CPP_EXTENSIONS = new Set(['.cpp', '.cc', '.cxx', '.c', '.h', '.hpp', '.hh', '.hxx']);
+const CPP_EXTENSIONS = new Set(lspExtensions('cpp'));
 const BUILD_DEP_PREFIXES = [
   'build/', 'build_', 'cmake-build-', '_build/', 'out/',
   '_deps/', 'deps/', 'third_party/', 'third-party/', 'vendor/',
