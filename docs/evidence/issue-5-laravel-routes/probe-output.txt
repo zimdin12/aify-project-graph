@@ -1,0 +1,19 @@
+== BEFORE (pushed code)
+apg 65ab39f5 on C:/Users/Administrator/AppData/Local/Temp/apg-specimens/BookStack 0b6b667
+route registrations written in routes/api.php, routes/web.php: 342
+Route nodes found: 72 (72 distinct labels)
+INVOKES refs: 72, naming a method that exists in app/: 72
+PASSES_THROUGH refs: 703
+  e.g. GET attachments
+  e.g. POST attachments
+  e.g. GET attachments/{id}
+== AFTER (this change, on top of the HEAD shown)
+apg 48d34b7b on C:/Users/Administrator/AppData/Local/Temp/apg-specimens/BookStack 0b6b667
+route registrations written in routes/api.php, routes/web.php: 342
+Route nodes found: 344 (344 distinct labels)
+INVOKES refs: 342, naming a method that exists in app/: 341
+PASSES_THROUGH refs: 3695
+  not found in app/: PageController.ajaxDestroy
+  e.g. GET pages
+  e.g. POST pages
+  e.g. GET pages/{id}

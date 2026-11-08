@@ -1,0 +1,4 @@
+{
+  "name": "fixture/tiny-laravel-routes",
+  "require": { "laravel/framework": "^11.0" }
+}

@@ -3,6 +3,8 @@ import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { createFrameworkPlugin } from '../extractors/base.js';
 import { dependencyFingerprint, structuralFingerprint } from '../fingerprint.js';
+import phpConfig from '../languages/php.js';
+import { readRouteDefinitions } from './_laravel_route_ast.js';
 
 function stableId(parts) {
   return createHash('sha1').update(parts.join('::')).digest('hex');
@@ -31,17 +33,6 @@ function routeNode(filePath, label) {
     }),
     extra: { qname },
   };
-}
-
-function parseRouteDefinitions(content) {
-  const matches = [...content.matchAll(/Route::([A-Za-z_]+)\(\s*['"]([^'"]+)['"]\s*,\s*\[([A-Za-z_][A-Za-z0-9_]*)::class\s*,\s*['"]([A-Za-z_][A-Za-z0-9_]*)['"]\s*\]\s*\)/gu)];
-  return matches.map((match) => ({
-    method: match[1].toUpperCase(),
-    path: match[2],
-    controller: match[3],
-    action: match[4],
-    middleware: [],
-  }));
 }
 
 function extractArrayProperty(content, propertyNames) {
@@ -164,54 +155,12 @@ function normalizeMiddlewareTarget(token, aliases, groups, seen = new Set()) {
   return [];
 }
 
-function parseMiddlewareContext(content, routeFile) {
-  const conventionalGroups = [];
-  if (routeFile === 'api.php') conventionalGroups.push('api');
-  if (routeFile === 'web.php') conventionalGroups.push('web');
-
-  const groupedDefinitions = [];
-  const consumedRanges = [];
-
-  const groupedPattern = /Route::middleware\(([\s\S]*?)\)\s*->group\(function\s*\(\)\s*(?::\s*[^({]+)?\s*\{([\s\S]*?)\}\s*\);/gu;
-  let match;
-  while ((match = groupedPattern.exec(content)) !== null) {
-    const middleware = [...conventionalGroups, ...parseMiddlewareTokens(match[1])];
-    groupedDefinitions.push(...parseRouteDefinitions(match[2]).map((definition) => ({
-      ...definition,
-      middleware,
-    })));
-    consumedRanges.push([match.index, match.index + match[0].length]);
-  }
-
-  const inlinePattern = /Route::middleware\(([\s\S]*?)\)\s*->([A-Za-z_]+)\(\s*['"]([^'"]+)['"]\s*,\s*\[([A-Za-z_][A-Za-z0-9_]*)::class\s*,\s*['"]([A-Za-z_][A-Za-z0-9_]*)['"]\s*\]\s*\)/gu;
-  while ((match = inlinePattern.exec(content)) !== null) {
-    groupedDefinitions.push({
-      method: match[2].toUpperCase(),
-      path: match[3],
-      controller: match[4],
-      action: match[5],
-      middleware: [...conventionalGroups, ...parseMiddlewareTokens(match[1])],
-    });
-    consumedRanges.push([match.index, match.index + match[0].length]);
-  }
-
-  const remaining = consumedRanges.length === 0
-    ? content
-    : consumedRanges
-      .sort((a, b) => a[0] - b[0])
-      .reduce((acc, [start, end], index, ranges) => {
-        const prevEnd = index === 0 ? 0 : ranges[index - 1][1];
-        return acc + content.slice(prevEnd, start) + ' '.repeat(end - start);
-      }, '')
-      + content.slice(consumedRanges.at(-1)?.[1] ?? 0);
-
-  return [
-    ...groupedDefinitions,
-    ...parseRouteDefinitions(remaining).map((definition) => ({
-      ...definition,
-      middleware: [...conventionalGroups],
-    })),
-  ];
+// Every route a route file registers, read from its syntax tree (_laravel_route_ast.js, #5), with the middleware group
+// Laravel applies to the file by convention ahead of the route's own.
+function routeDefinitionsOf(content, routeFile) {
+  const conventionalGroups = { 'api.php': ['api'], 'web.php': ['web'] }[routeFile] ?? [];
+  return readRouteDefinitions({ source: content, config: phpConfig, middlewareTokens: parseMiddlewareTokens })
+    .map((definition) => ({ ...definition, middleware: [...conventionalGroups, ...definition.middleware] }));
 }
 
 function parseKernelConfig(content) {
@@ -257,19 +206,20 @@ export const laravelRoutesPlugin = createFrameworkPlugin({
     for (const routeFile of routeFiles) {
       const relPath = `routes/${routeFile}`;
       const content = await readFile(join(routesDir, routeFile), 'utf8');
-      for (const definition of parseMiddlewareContext(content, routeFile)) {
+      for (const definition of routeDefinitionsOf(content, routeFile)) {
         const label = `${definition.method} ${definition.path}`;
         const node = routeNode(relPath, label);
         nodes.push(node);
 
-        const controllerQname = `${definition.controller}.${definition.action}`;
-        refs.push({
+        // A closure or view route is a route with no controller: it gets a node and its middleware, never a guessed target.
+        const controllerQname = definition.controller ? `${definition.controller}.${definition.action}` : null;
+        if (controllerQname) refs.push({
           from_id: node.id,
           from_label: node.label,
           relation: 'INVOKES',
           target: controllerQname,
           source_file: relPath,
-          source_line: 1,
+          source_line: definition.line,
           confidence: 0.75,
           provenance: 'INFERRED',
           // ⚠ Carried explicitly so this plugin no longer depends on the legacy
@@ -318,7 +268,7 @@ export const laravelRoutesPlugin = createFrameworkPlugin({
           });
         }
 
-        refs.push({
+        if (controllerQname) refs.push({
           from_target: middlewareTargets.at(-1),
           from_label: classBaseName(middlewareTargets.at(-1)),
           relation: 'PASSES_THROUGH',
