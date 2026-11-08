@@ -814,6 +814,12 @@ export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
     if (req.url?.startsWith('/api/diff')) {
       const url = new URL(req.url, 'http://localhost');
       const base = (url.searchParams.get('base') || 'HEAD').replace(/[^\w./~^-]/g, ''); // sanitize the rev
+      // A leading '-' would reach git as an option (-O<file>, --output, ...), not as a revision (#12).
+      if (base.startsWith('-')) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ files: [], changed: 0, error: 'base_is_an_option', base }));
+        return;
+      }
       const gitLines = (args) => {
         try {
           return execFileSync('git', ['-C', repoRoot, ...args], {
@@ -823,7 +829,12 @@ export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
       };
       // Tracked changes vs base (staged + unstaged) + untracked-but-not-ignored.
       const tracked = gitLines(['diff', '--name-only', base]);
-      if (tracked === null) { writeJson({ files: [], changed: 0, error: 'not_a_git_repo_or_git_missing', base }); return; }
+      if (tracked === null) {
+        // Two different failures: no repository (or no git) at all, or a revision this repository does not have.
+        const isRepo = gitLines(['rev-parse', '--git-dir']) !== null;
+        writeJson({ files: [], changed: 0, error: isRepo ? 'unknown_revision' : 'not_a_git_repo_or_git_missing', base });
+        return;
+      }
       const untracked = gitLines(['ls-files', '--others', '--exclude-standard']) || [];
       const all = [...new Set([...tracked, ...untracked].map(p => p.replace(/\\/g, '/')))];
       // Keep only files that are graph nodes — same allowlist contract as /api/source.
