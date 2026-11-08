@@ -28,10 +28,19 @@ const filters = watchIndex >= 0
 //
 // ⇒ Nothing about the suite is configured here now. include / timeouts / pool /
 // fileParallelism have exactly one home. Guarded by tests/unit/test-runner-config.test.js.
-const ctx = await startVitest(mode, filters, {
-  run: mode !== 'watch',
-  watch: mode === 'watch',
-});
+// ⚠ In run mode startVitest closes the run itself, and the global teardown can fail it there: a parallel unit-tier
+// test that started a language server (tests/helpers/temp-root.global.js). That rejection used to end the process
+// with exit 1 and no reason printed; the vitest CLI prints it, so this runner must too.
+let ctx;
+try {
+  ctx = await startVitest(mode, filters, {
+    run: mode !== 'watch',
+    watch: mode === 'watch',
+  });
+} catch (error) {
+  console.error(error?.message ?? error);
+  process.exit(1);
+}
 
 if (!ctx) {
   process.exit(1);
