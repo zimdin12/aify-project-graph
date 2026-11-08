@@ -385,5 +385,18 @@ export default {
       // catch the top-of-file `namespace_use_declaration` (the import form).
       { nodeTypes: ['use_declaration'], parentTypes: ['declaration_list'], descendantTypes: ['name'] },
     ],
+    // The generic default (identifier / type_identifier / name) minus two kinds of name that are not references to a
+    // declared symbol (#15, docs/evidence/issue-15-php-final-edges/):
+    //   - the `name` inside `$variable` (variable_name > name): every local and parameter became a REFERENCES, and the
+    //     resolver bound `$users`, `$editor`, ... to the same-named method;
+    //   - a property read's name (`$user->id`, `$x?->path`): bound to whichever class has a method of that name, e.g.
+    //     `$user->id` to ExternalBaseSessionGuard::id().
+    // Together 2521 REFERENCES edges on BookStack landed on a method this way. A method CALL is unaffected (its name
+    // sits under member_call_expression), and so is an Eloquent relation read through a property, which this name-only
+    // binding never proved anyway.
+    references: [{
+      nodeTypes: ['identifier', 'type_identifier', 'name'],
+      excludeParentTypes: ['variable_name', 'member_access_expression', 'nullsafe_member_access_expression'],
+    }],
   },
 };

@@ -145,6 +145,7 @@ function matchRule(node, rules = [], parent = null) {
   return rules.find((rule) =>
     rule.nodeTypes.includes(node.type)
     && (!rule.parentTypes?.length || (parent && rule.parentTypes.includes(parent.type)))
+    && !(rule.excludeParentTypes?.length && parent && rule.excludeParentTypes.includes(parent.type))
   );
 }
 

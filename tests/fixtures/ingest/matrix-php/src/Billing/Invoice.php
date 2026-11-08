@@ -36,6 +36,11 @@ class Invoice extends BaseDocument implements Payable, Totals
         return $this->amount->cents() + static::fee();
     }
 
+    public function label(): string
+    {
+        return $this->amount->currency;
+    }
+
     public static function fee(): int
     {
         return Cash::zero()->cents();

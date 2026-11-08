@@ -152,9 +152,19 @@ describe('PHP constructs (final edges of tests/fixtures/ingest/matrix-php)', () 
 
   // KNOWN DEFECTS, pinned so they cannot pass silently. `it.fails` turns RED the day the defect is fixed, and the fix
   // must then move the assertion to the expected block above.
-  it.fails('KNOWN DEFECT: the parameter `$cents` is bound to the method Money::cents', () => {
+  it('★★★ forbidden: a parameter named `$cents` is not bound to the method Money::cents', () => {
+    // php.js had no `references` rule, so the generic default took the `name` inside every `$variable` as a reference.
     expect(edge('__construct', 'REFERENCES', 'cents', 'Method')).toEqual([]);
     expect(edge('issue', 'REFERENCES', 'cents', 'Method')).toEqual([]);
+    expect(edge('total', 'CALLS', 'cents', 'Method')).toHaveLength(1); // control: the real call to cents() still binds
+  });
+
+  it('★★★ forbidden: a property read `$this->amount->currency` is not bound to the method Money::currency()', () => {
+    // On BookStack the same shape bound `$user->id` to ExternalBaseSessionGuard::id() and `$image->path` to
+    // ThemeModule::path(): a property name matched to whichever class has a method of that name.
+    expect(edge('label', 'REFERENCES', 'currency', 'Method')).toEqual([]);
+    expect(edgesOf('matrix-php').filter((e) => e.to_label === 'currency' && e.to_type === 'Method' && e.from_label !== 'Money'))
+      .toEqual([]);
   });
 
   // A qualified class name (which is what #4 rewrites an alias to) resolves to the FILE's Module node, not the class the
