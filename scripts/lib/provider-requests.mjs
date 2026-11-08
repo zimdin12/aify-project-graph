@@ -33,7 +33,10 @@ const CALLS = Object.freeze({
     const parsed = parseSubgraphArgs(args);
     if (!parsed.ok) return { ok: false, problem: parsed.problem, how: SUBGRAPH_HOW };
     const read = deps.readSubgraph(parsed.value);
-    return read.ok ? { ok: true, value: read.value, how: SUBGRAPH_HOW } : { ok: false, problem: read.problem, how: SUBGRAPH_HOW };
+    if (read.ok) return { ok: true, value: read.value, how: SUBGRAPH_HOW };
+    // A refusal's code, and for `no_index` its enable steps, travel as a value a reader can act on (#2).
+    const value = read.reasonCode ? { reasonCode: read.reasonCode, ...(read.enable ? { enable: read.enable } : {}) } : undefined;
+    return { ok: false, problem: read.problem, ...(value ? { value } : {}), how: SUBGRAPH_HOW };
   },
 });
 
@@ -54,7 +57,7 @@ export function answerRequest({ request, resolveItem, readSubgraph, head }) {
     };
   }
   const { how, ...answer } = CALLS[call]({ args: request?.args, deps: { resolveItem, readSubgraph }, head });
-  const versioned = answer.ok ? { ...answer, value: { formatVersion: PROVIDER_FORMAT_VERSION, ...answer.value } } : answer;
+  const versioned = answer.value === undefined ? answer : { ...answer, value: { formatVersion: PROVIDER_FORMAT_VERSION, ...answer.value } };
   return { ...versioned, provenance: provenanceOf(how, head) };
 }
 

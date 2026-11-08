@@ -22,6 +22,7 @@ import { join } from 'node:path';
 import { captureExistingSnapshot } from '../../mcp/stdio/storage/db.js';
 import { ATTESTATION, classifyAttestation, readGraphPublication } from '../../mcp/stdio/storage/publication-schema.js';
 import { CODE_NODE_TYPES, EDGE_PROVENANCE_TYPES, FILE_LEVEL_TYPES } from '../../mcp/stdio/storage/taxonomy.js';
+import { enableSteps } from './apg-index.mjs';
 
 /** The bounds agreed with dashboard-manager. The limit's ceiling keeps a full answer under the service's 1 MiB body cap. */
 export const SUBGRAPH_BOUNDS = Object.freeze({
@@ -276,7 +277,11 @@ function staleness(manifest, head) {
  */
 export function readSubgraph({ repoRoot, request, head }) {
   const dbPath = join(repoRoot, '.aify-graph', 'graph.sqlite');
-  if (!existsSync(dbPath)) return { ok: false, problem: `no graph index at ${dbPath}`, reasonCode: 'no_index' };
+  if (!existsSync(dbPath)) {
+    // ⛔ A read never builds (#2). It names the explicit steps instead, and the dashboard relays them word for word.
+    const enable = enableSteps(repoRoot);
+    return { ok: false, problem: `no graph index at ${dbPath}. Enable it with: ${enable[0]} ; keep it current with: ${enable[1]}`, reasonCode: 'no_index', enable };
+  }
   const manifest = readManifest(repoRoot);
   return captureExistingSnapshot(dbPath, (db) => {
     const attestation = classifyAttestation({

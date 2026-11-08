@@ -8,6 +8,10 @@ async function main() {
   switch (sub) {
     case 'code-intel':
       return runCodeIntelCmd(argv.slice(1));
+    case 'index': {
+      const { runIndexCmd } = await import('../scripts/lib/apg-index.mjs');
+      return runIndexCmd(argv.slice(1));
+    }
     case 'features': {
       const { runFeaturesCmd } = await import('../mcp/stdio/overlay/features-cmd.js');
       return runFeaturesCmd(argv.slice(1));
@@ -27,6 +31,7 @@ async function main() {
     case '-h':
       console.log('Usage: apg <subcommand>');
       console.log('Subcommands:');
+      console.log('  index [dir]         Build the code graph at the git top level of dir (default: here)');
       console.log('  code-intel <op>     Code-intel provider commands (collect, doctor)');
       console.log('  features <op>       Feature map: status (changed since confirmed), confirm <id>...|--all --by <who>');
       console.log('  --version           Print version');

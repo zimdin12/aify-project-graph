@@ -19,6 +19,16 @@
       "properties": {
         "ok": { "const": false },
         "problem": { "type": "string", "minLength": 1 },
+        "value": {
+          "description": "Present when the refusal has a code a reader can act on. no_index carries enable: the command that builds the graph, then the one that keeps it current, with the provider host's real paths.",
+          "type": "object",
+          "required": ["formatVersion", "reasonCode"],
+          "properties": {
+            "formatVersion": { "$ref": "#/$defs/formatVersion" },
+            "reasonCode": { "type": "string", "minLength": 1 },
+            "enable": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 2, "maxItems": 2 }
+          }
+        },
         "provenance": { "$ref": "#/$defs/provenance" }
       }
     }

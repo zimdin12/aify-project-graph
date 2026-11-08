@@ -1,0 +1,12 @@
+already ignored by the clone's own rules: yes
+clone HEAD d683d634, running from subdirectory '.githooks'
+apg index: built C:/Users/Administrator/AppData/Local/Temp/tmp.Mso2SWcE2K/clone/.aify-graph
+keep it current on every commit, pull and checkout: node "C:/Docker/aify-project-graph/scripts/install-graph-hook.mjs" "C:/Users/Administrator/AppData/Local/Temp/tmp.Mso2SWcE2K/clone"
+apg index exit=0
+graph.sqlite at top level: yes
+nested .aify-graph under .githooks: no
+.gitignore byte-identical: yes
+git status mentions .aify-graph: 0
+apg index: C:\Users\Administrator\AppData\Local\Temp\tmp.Mso2SWcE2K\plain is not a git repository, so nothing was written
+non-git exit=1
+non-git dir entries after: 0
