@@ -1,0 +1,12 @@
+started typescript
+started python
+started cpp
+descendants before teardown: 6
+  17568 node.exe (parent 74992)
+  21360 node.exe (parent 74992)
+  28916 clangd.exe (parent 74992)
+  13152 node.exe (parent 17568)
+  74420 node.exe (parent 17568)
+  28488 node.exe (parent 74420)
+shutdownAllSessions resolved in 5 ms
+still running 3 s later: 0
