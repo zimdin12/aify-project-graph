@@ -1,10 +1,7 @@
 import Cpp from 'tree-sitter-cpp';
 import { blankCommentsAndStrings } from '../../query/dynamic-boundaries.js';
 
-function nodeText(node, source) {
-  if (!node) return '';
-  return source.slice(node.startIndex, node.endIndex);
-}
+import { nodeText } from '../walker.js';
 
 // Flecs (and other ECS-style libs) register systems via a lambda attached
 // to `.each(...)` / `.iter(...)` / `.run(...)` chained off a system query.

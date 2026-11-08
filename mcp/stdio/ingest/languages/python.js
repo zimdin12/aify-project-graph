@@ -1,9 +1,6 @@
 import Python from 'tree-sitter-python';
 
-function nodeText(node, source) {
-  if (!node) return '';
-  return source.slice(node.startIndex, node.endIndex);
-}
+import { nodeText } from '../walker.js';
 
 // Decorators carry real dependency information in Python (framework routing,
 // pytest fixtures, SQLAlchemy mappers, Flask/FastAPI route registration,

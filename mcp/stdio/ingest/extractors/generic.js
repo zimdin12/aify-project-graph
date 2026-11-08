@@ -1,12 +1,9 @@
 import { basename, extname } from 'node:path';
-import { createHash } from 'node:crypto';
+import { stableId } from '../identity.js';
 import { dependencyFingerprint, structuralFingerprint } from '../fingerprint.js';
 import { nodeText, parseSource } from '../walker.js';
 import { codeSymbolSiteId, siteKindOf, siteSpanOf } from '../identity/code-symbol-site-id.js';
 
-function stableId(parts) {
-  return createHash('sha1').update(parts.join('::')).digest('hex');
-}
 
 function lineNumber(node) {
   return node ? node.startPosition.row + 1 : 0;

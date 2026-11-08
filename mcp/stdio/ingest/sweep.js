@@ -1,6 +1,6 @@
 import { readdir, readFile, stat as fsStat } from 'node:fs/promises';
 import { basename, dirname, extname, relative } from 'node:path';
-import { createHash } from 'node:crypto';
+import { stableId } from './identity.js';
 import { dependencyFingerprint, structuralFingerprint } from './fingerprint.js';
 
 import { IGNORED_DIRS, isIgnoredDirName, pathContainsIgnoredDir, loadEffectiveIgnoredDirs } from './ignored-dirs.js';
@@ -13,9 +13,6 @@ function toPosixPath(value) {
   return value.replace(/\\/g, '/');
 }
 
-function stableId(parts) {
-  return createHash('sha1').update(parts.join('::')).digest('hex');
-}
 
 function readLines(content) {
   return content.split(/\r?\n/u).map((line) => line.trim());

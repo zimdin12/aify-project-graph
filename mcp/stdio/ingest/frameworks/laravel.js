@@ -1,14 +1,11 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { createHash } from 'node:crypto';
+import { stableId } from '../identity.js';
 import { createFrameworkPlugin } from '../extractors/base.js';
 import { dependencyFingerprint, structuralFingerprint } from '../fingerprint.js';
 import phpConfig from '../languages/php.js';
 import { readRouteDefinitions } from './_laravel_route_ast.js';
 
-function stableId(parts) {
-  return createHash('sha1').update(parts.join('::')).digest('hex');
-}
 
 function routeNode(filePath, label) {
   const qname = `route:${filePath}:${label}`;

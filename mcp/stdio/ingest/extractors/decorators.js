@@ -1,7 +1,4 @@
-function nodeText(node, source) {
-  if (!node) return '';
-  return source.slice(node.startIndex, node.endIndex);
-}
+import { nodeText } from '../walker.js';
 
 function unwrapDecoratorTarget(node) {
   if (!node) return null;

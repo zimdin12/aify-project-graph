@@ -1,9 +1,6 @@
 import Php from 'tree-sitter-php';
 
-function nodeText(node, source) {
-  if (!node) return '';
-  return source.slice(node.startIndex, node.endIndex);
-}
+import { nodeText } from '../walker.js';
 
 // Laravel-style facade map. Calls like `Cache::get('key')` are static-looking
 // but at runtime resolve to a concrete manager class. We emit a REFERENCES

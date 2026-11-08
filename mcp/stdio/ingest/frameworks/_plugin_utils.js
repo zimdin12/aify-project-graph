@@ -4,13 +4,11 @@
 
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { join, extname } from 'node:path';
-import { createHash } from 'node:crypto';
 import { dependencyFingerprint, structuralFingerprint } from '../fingerprint.js';
 import { isIgnoredDirName, loadEffectiveIgnoredDirs } from '../ignored-dirs.js';
 
-export function stableId(parts) {
-  return createHash('sha1').update(parts.join('::')).digest('hex');
-}
+import { stableId } from '../identity.js';
+export { stableId };
 
 export function routeNode({ filePath, label, language, startLine = 1, confidence = 0.75 }) {
   const qname = `route:${filePath}:${label}`;
