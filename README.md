@@ -193,7 +193,7 @@ The [LLM Wiki critique](https://medium.com/data-science-in-your-pocket/andrej-ka
 | **Storage** | In-memory NetworkX (ephemeral) | SQLite (persistent across sessions) |
 | **Scale** | ~100k nodes (Python memory limit) | 350k+ nodes tested, 1M target |
 | **Freshness** | Full rebuild every run | Git-diff-aware incremental |
-| **Languages** | Per-language Python extractors | Config-driven generic walker (12 langs, ~30 lines per config) |
+| **Languages** | Per-language Python extractors | Config-driven generic walker (12 languages; configs of 29 to 622 lines) |
 | **Node types** | Code symbols only | Code + directories, docs, configs, routes, entry points, schemas |
 | **Path tracing** | No | `graph_path` — readable execution stories |
 | **Community detection** | Leiden | Leiden (ngraph.leiden, MIT) — matched |
@@ -483,15 +483,23 @@ PATH handleRequest src/server.ts:10
 
 ## Languages
 
-12 languages supported via config-driven generic extractor:
+12 languages are extracted by one config-driven walker (`mcp/stdio/ingest/languages/`); which extensions each covers is
+in `mcp/stdio/language-registry.js`.
 
-| Tier | Languages | Accuracy |
+What the graph gets right is asserted per construct in `tests/unit/ingest/language-matrix.test.js`, on the edges the index
+writes for a small fixture repository, expected and forbidden. A fixture result covers the constructs it names, in that
+fixture. It is not a percentage of real-world code, and the earlier tier percentages here were design goals that were
+never measured.
+
+| Language | Asserted on final edges | Not modelled (no edge, rather than a wrong one) |
 |---|---|---|
-| **Tier 1** (90%+) | Python, JavaScript, TypeScript, Go, Ruby, Java | Explicit imports + clear structure |
-| **Tier 2** (70-85%) | PHP (incl. traits/enums/interfaces, member/static/nullsafe calls, namespace-based module qname), C, C++ (incl. out-of-class `Class::method` definitions), Rust | Framework magic or preprocessor gaps |
-| **Tier 3** (60-70%) | C++ templates (specialisations `Foo<int>::bar` not yet handled), GLSL, CSS | Template-heavy C++, shader/style subset |
+| PHP | classes, interfaces and traits; methods contained by their owner; `extends`, plain and through an aliased `use`; `implements`; `static::` calls, static calls through an aliased class, instance calls on a typed property; a qualified or aliased class name binds to the class; a call two methods could answer binds to neither; a `$variable` or a property read is not a reference to a same-named method; a `Route::get` outside a Laravel repository makes no route | `new X()` as a call to the constructor; a trait `use` is recorded as IMPLEMENTS |
+| C++ (tree-sitter alone; clangd adds compiler-verified edges, see Code-Intel) | out-of-class definitions contained by their class; inheritance; virtual overrides; qualified static calls; free and template function calls; `#include` | constructor calls and `new`; base-class initializers; template specialisations (`Foo<int>::bar`); a call through a base reference stays unresolved rather than guessed |
+| Python, TypeScript, C | one function, one call to a helper, one import, per tiny fixture | everything else is unmeasured |
+| JavaScript, Go, Ruby, Java, Rust, GLSL, CSS | unmeasured | a probe for #15 found Go method receivers, Java constructors, `new` and records, and Ruby modules, `def self.` and superclasses not extracted |
 
-Adding a new language = writing a ~30-line config file.
+Adding a language means writing its config (29 lines for Java, 391 for PHP, 622 for C++), its rows in the language
+registry, and a fixture in the matrix.
 
 Project-level escape hatches at repo root:
 - `.gitignore` — add `.aify-graph/` here so derived graph state is not committed
