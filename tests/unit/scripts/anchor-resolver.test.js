@@ -52,6 +52,7 @@ const COMPLETE = Object.freeze({ parseHadError: false, depthCapFired: false, dep
 
 function deps({
   symbols = null, fp = 'FP1', docRefs = [{ written: 'src/code.js', fenced: false }], coverage = COMPLETE,
+  source = 'source text',
 } = {}) {
   return {
     // Only `.js` has a code extractor here, which is the real shape: `.md` and `.gitattributes` both throw.
@@ -60,7 +61,7 @@ function deps({
       throw new Error(`No language config found for ${rel}`);
     },
     isDocument: (rel) => rel.endsWith('.md'),
-    readSource: () => 'source text',
+    readSource: () => source,
     extract: ({ relPath }) => ({
       nodes: [
         { type: 'File', label: relPath },
@@ -199,18 +200,47 @@ describe('the three coverage paths are all asked before an absence is reported',
     expect(unknown.row.reason).toBe(UNWATCHED_REASONS.unsupported_anchor_kind);
   });
 
-  it('★★★ a file covered by NEITHER path is `unwatched`, naming the absence as an absence', () => {
-    const item = {
-      watchId: 'w-attr',
-      anchor: { project: 'p', path: '.gitattributes', name: 'git-attributes', kind: 'module' },
-      stamp: null,
-    };
-    const out = resolveAnchor({ repoRoot, item, deps: deps() });
+});
+
+// ⛔ #23, SEEN LIVE: the dashboard's own feature graph anchors `ui/src/lib/StateCard.svelte` as kind "file", and
+// every sweep refused it as `unhandled_language`, so drift in its UI files was never detected. A whole-file anchor
+// needs no parser: the file's content is the thing watched. A SYMBOL anchor there still needs one, so it refuses.
+describe('a whole-file anchor in a language with no extractor is watched by its content', () => {
+  const svelte = (stamp, kind = 'file') => ({
+    watchId: 'w-svelte', anchor: { project: 'p', path: 'ui/StateCard.svelte', name: 'StateCard', kind }, stamp,
+  });
+  beforeEach(async () => {
+    await mkdir(join(repoRoot, 'ui'), { recursive: true });
+    await writeFile(join(repoRoot, 'ui', 'StateCard.svelte'), '<p>state</p>\n');
+  });
+
+  it('★★★ first sweep baselines, an unedited file is `unchanged`, an edited one is `changed`', () => {
+    const first = resolveAnchor({ repoRoot, item: svelte(null), deps: deps({ source: '<p>state</p>\n' }) });
+    expect(first.kind, 'the anchor must be watched, not refused').toBe('result');
+    expect(first.row.status).toBe('restamp');
+    expect(first.row.stamp.stampVersion).toBe(STAMP_VERSIONS.content);
+    const stored = { ...first.row.stamp, commit: 'c1' };
+
+    // ⛔ BOTH DIRECTIONS. A stamp that never moved would pass the first; one that always moved, the second.
+    const same = resolveAnchor({ repoRoot, item: svelte(stored), deps: deps({ source: '<p>state</p>\n' }) });
+    expect(same.row.status).toBe('unchanged');
+    const edited = resolveAnchor({ repoRoot, item: svelte(stored), deps: deps({ source: '<p>health</p>\n' }) });
+    expect(edited.row.status).toBe('changed');
+  });
+
+  it('★★★ CRLF and LF of the same text are the same content', () => {
+    // ⛔ The sweep reads a commit (LF from git) and the reconfirm may read the working tree (CRLF under
+    // autocrlf). Hashing raw bytes would report `changed` for a file nobody edited.
+    const lf = resolveAnchor({ repoRoot, item: svelte(null), deps: deps({ source: 'a\nb\n' }) });
+    const stored = { ...lf.row.stamp, commit: 'c1' };
+    const crlf = resolveAnchor({ repoRoot, item: svelte(stored), deps: deps({ source: 'a\r\nb\r\n' }) });
+    expect(crlf.row.status).toBe('unchanged');
+  });
+
+  it('★★★ a SYMBOL anchor in that file still refuses: naming a symbol needs a parser', () => {
+    const out = resolveAnchor({ repoRoot, item: svelte(null, 'symbol'), deps: deps() });
     expect(out.kind).toBe('unwatched');
-    expect(out.row.reason).toBe(UNWATCHED_REASONS.unhandled_language);
-    // ⚠ The wording matters as much as the routing: "absence of coverage, not a clean result" is what stops
-    // a reader treating a silent anchor as a verified one.
-    expect(out.row.reason).toMatch(/absence of coverage, not a clean result/u);
+    expect(out.row.reason).toBe(UNWATCHED_REASONS.unsupported_anchor_kind);
   });
 });
 

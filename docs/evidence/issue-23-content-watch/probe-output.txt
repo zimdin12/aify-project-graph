@@ -1,0 +1,8 @@
+dashboard HEAD 2349774c4de029144e5c8d4217410ac7656ad361
+commit, no baseline                result restamp apg-file-content-1 c0ff5c32c259
+working tree, same baseline        result unchanged apg-file-content-1 c0ff5c32c259
+commit, same baseline              result unchanged apg-file-content-1 c0ff5c32c259
+scratch copy as CRLF               result unchanged apg-file-content-1 c0ff5c32c259
+scratch copy, one line added       result changed apg-file-content-1 a7e47ff62284
+symbol anchor, same file           unwatched unsupported_anchor_kind 
+control: README.md as file         result restamp apg-doc-linkset-1 942a7e327b3c

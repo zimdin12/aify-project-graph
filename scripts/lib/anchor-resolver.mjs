@@ -16,7 +16,7 @@
 //     getLanguageConfig('AGENTS.md')      THROWS            — yet AGENTS.md HAS a Document node
 //     getLanguageConfig('.gitattributes') THROWS            — and .gitattributes has NO node at all
 // So the code extractor's refusal does NOT mean the file is uncovered. `resolveAnchor` asks the code path,
-// then the document path, and only then reports an absence.
+// then the document path, and only then falls back to watching a whole file by its content (#23).
 //
 // ⛔ AN ABSENCE HAS NO SKIP RECORD. Files the code extractor never sees are filtered out before any
 // extractor runs, so `skippedFiles` is EMPTY for them: there was no skip, there was an absence. A provider
@@ -42,6 +42,7 @@ export const STAMP_VERSIONS = Object.freeze({
   code: 'apg-file-structural-1',
   symbol: 'apg-symbol-shape-1',
   doc: 'apg-doc-linkset-1',
+  content: 'apg-file-content-1',
 });
 
 /**
@@ -51,7 +52,9 @@ export const STAMP_VERSIONS = Object.freeze({
  * `apg-<family>-<n>` would make the version string's spelling load-bearing. When a family is bumped, its old version
  * goes here, and `restampCause` reports `format-version` for it instead of `unknown-format`.
  */
-export const RETIRED_STAMP_VERSIONS = Object.freeze({ code: Object.freeze([]), symbol: Object.freeze([]), doc: Object.freeze([]) });
+export const RETIRED_STAMP_VERSIONS = Object.freeze(
+  Object.fromEntries(Object.keys(STAMP_VERSIONS).map((family) => [family, Object.freeze([])])),
+);
 
 /**
  * Why a stored baseline cannot be compared with what this provider computes for the anchor NOW.
@@ -72,8 +75,6 @@ export function restampCause(storedVersion, neededVersion, retired = RETIRED_STA
 
 /** Reasons an anchor goes unwatched. Each names what was not looked at, and why, in an operator's terms. */
 export const UNWATCHED_REASONS = Object.freeze({
-  unhandled_language: 'aify-project-graph has no code extractor and no document handler for this file type, '
-    + 'so it was never read — this is an absence of coverage, not a clean result',
   symbol_kind_not_modelled: 'the file parses and is covered, but aify-project-graph extracted NO symbols '
     + 'from it at all, so it cannot tell a deleted symbol from one it never models (it models functions, '
     + 'including const-assigned arrows; it does not model data constants) — refusing rather than reporting '
@@ -241,11 +242,19 @@ export function resolveAnchor({ repoRoot, item, deps }) {
     config = null;
   }
 
-  // ── The document path. Asked BEFORE reporting an absence, because the code extractor's refusal is not a
+  // ── The document path. Asked BEFORE the content fallback, because the code extractor's refusal is not a
   // statement about coverage — AGENTS.md throws there and still has a Document node.
   if (config === null) {
     if (kind === 'symbol') return unwatched(watchId, 'unsupported_anchor_kind');
-    if (!deps.isDocument(relPath)) return unwatched(watchId, 'unhandled_language');
+    // ── No extractor and no document handler (a `.svelte` UI file, say). A whole-file anchor needs no parser, so
+    // the file's text is what is watched. CRLF is folded to LF first: the sweep reads a commit and a reconfirm may
+    // read a working tree under autocrlf, and the same text must stamp the same from either.
+    if (!deps.isDocument(relPath)) {
+      return decide(watchId, stamp, STAMP_VERSIONS.content, hashOf(source.replaceAll('\r\n', '\n')), {
+        evidence: `content of ${relPath}, line endings folded to LF. No parser covers this file type, so every `
+          + 'other edit, including whitespace and comments, is a change',
+      });
+    }
     const links = docLinkSet(deps.docReferences(source));
     return decide(watchId, stamp, STAMP_VERSIONS.doc, hashOf(links), {
       evidence: `link set of ${relPath}: ${links.length} distinct non-fenced references `
