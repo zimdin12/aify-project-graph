@@ -388,12 +388,18 @@ describe('the dashboard is wired to the repo it is inspecting', () => {
     // release it.
     repoRoot = await makeRepo();
     await graphDashboard({ repoRoot, port: 0 });
+    // ⚠ B's fixture is made BEFORE the teardown starts, as in the arm above and for the same reason. Made after it,
+    // under the parallel unit tier the three git calls outlasted the teardown's 2000 ms budget; the teardown gave up on
+    // A's held close and finished, B started in the new generation and rightly published `running`, and its open DB
+    // was all the leak check reported (gate run of 2026-11-08, at 840935c6). B's call still has to finish within that
+    // budget, which its freshness check normally does by a wide margin.
+    const second = await makeRepo();
 
     let releaseClose;
     closeDelay = new Promise((r) => { releaseClose = r; });   // one-shot: holds A's close
     const tearing = stopAllDashboards();
 
-    const second = await makeRepo();
+    let failure = null;
     try {
       // B starts AND completes while teardown is parked. Its own close is not gated,
       // because the delay was consumed by A.
@@ -411,10 +417,20 @@ describe('the dashboard is wired to the repo it is inspecting', () => {
       releaseClose();
       await tearing;
       expect(activeDashboardCount(), 'teardown completes with nothing left').toBe(0);
-    } finally {
-      closeDelay = null;
-      await removeFixture(second);
+    } catch (error) {
+      failure = error;
     }
+    // The leak check must not replace a failed assertion: a start that wrongly published leaves its DB open too.
+    closeDelay = null;
+    releaseClose();
+    if (failure) await stopAllDashboards(); // release what the failed case left running, so cleanup can proceed
+    try {
+      await removeFixture(second);
+    } catch (leak) {
+      if (!failure) throw leak;
+      failure.message += `\n(and at cleanup: ${leak.message})`;
+    }
+    if (failure) throw failure;
   }, 20_000);
 
   it('★★ a startup failure reports the STARTUP cause, not the cleanup error', async () => {
