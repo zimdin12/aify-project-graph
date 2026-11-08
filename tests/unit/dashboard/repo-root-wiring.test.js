@@ -284,6 +284,14 @@ describe('the dashboard is wired to the repo it is inspecting', () => {
     // `activeDashboards.clear()`, so a dashboard registered after the snapshot was dropped
     // from the registry WITHOUT its server or DB ever being closed. Erasing a resource is
     // not releasing it, and from outside the two are indistinguishable.
+    //
+    // ⚠ WHAT THIS ARM CATCHES TODAY (measured 2026-11-08): a start that completes during the teardown and
+    // PUBLISHES instead of releasing itself (deleting the orphan-release branch turns it red). It does NOT catch
+    // the unconditional clear() any more, and no arm can without pinning a worse answer: since starts that land
+    // during a teardown release themselves, clear() only erases reservations whose starters release anyway. Its
+    // one visible effect is on a same-key call made AFTER the teardown while such a start is still in flight:
+    // the real code makes that call join the doomed start and answer `shutting_down`; with clear() it gets a
+    // running dashboard. Asserting the first would pin a stale answer as correct.
     repoRoot = await makeRepo();
     await graphDashboard({ repoRoot, port: 0 });
     expect(activeDashboardCount()).toBe(1);
@@ -299,6 +307,9 @@ describe('the dashboard is wired to the repo it is inspecting', () => {
     closeDelay = new Promise((r) => { releaseClose = r; });
 
     const tearing = stopAllDashboards();          // parks inside A's server.close
+    // ⚠ The leak check below must not REPLACE a failed assertion: a dashboard that wrongly published also leaves its
+    // DB open, and a bare `finally` reported only "LEAK", which hid the real failure in the gate run of 2026-11-08.
+    let failure = null;
     try {
       // ⚠ NOT awaited before the release: B's own close now uses the same held promise, so
       // awaiting here deadlocks the fixture. That deadlock is a property of my mock, not of
@@ -318,10 +329,18 @@ describe('the dashboard is wired to the repo it is inspecting', () => {
       expect(resultB?.status, 'a start completing during teardown must not publish')
         .toBe('shutting_down');
       expect(activeDashboardCount(), 'and must leave nothing registered').toBe(0);
-    } finally {
-      closeDelay = null;
-      await removeFixture(second);
+    } catch (error) {
+      failure = error;
     }
+    closeDelay = null;
+    if (failure) await stopAllDashboards(); // release what the failed case left running, so cleanup can proceed
+    try {
+      await removeFixture(second);
+    } catch (leak) {
+      if (!failure) throw leak;
+      failure.message += `\n(and at cleanup: ${leak.message})`;
+    }
+    if (failure) throw failure;
   }, 20_000);
 
   it('★★ a SECOND same-key call joins the in-flight start, it is not told a lie', async () => {
