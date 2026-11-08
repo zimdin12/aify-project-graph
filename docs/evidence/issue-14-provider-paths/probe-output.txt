@@ -1,0 +1,10 @@
+commit reader (provider queue)
+  inside.dat                                       restamp    inside.dat content
+  ../outside/marker.dat                            gone       
+  C:/Users/Administrator/AppData/Local/Temp/apg-14-zumvUY/outside/marker.dat gone       
+  link.dat                                         restamp    link target text (the symlink itself)
+working-tree reader (sweep, reconfirm; worktree symlink not created (EPERM))
+  inside.dat                                       restamp    inside.dat content
+  ../outside/marker.dat                            gone       
+  C:/Users/Administrator/AppData/Local/Temp/apg-14-zumvUY/outside/marker.dat gone       
+  link.dat                                         gone       
