@@ -291,11 +291,14 @@ describe('the dashboard is wired to the repo it is inspecting', () => {
     // ⚠ B must register WHILE A is closing, not after teardown finishes. My first version
     // started B afterwards, which an unconditional clear() cannot affect — so the mutant
     // survived and the case proved nothing. Holding A's close open creates the real window.
+    // ⚠ B's fixture is made BEFORE the teardown starts. Made after it, the await sat inside the window: under the
+    // parallel unit tier makeRepo took longer than the teardown's 2000 ms budget, the teardown finished, and B
+    // then started after it and rightly published `running`. The gate run of 2026-11-08 failed exactly so.
+    const second = await makeRepo();
     let releaseClose;
     closeDelay = new Promise((r) => { releaseClose = r; });
 
     const tearing = stopAllDashboards();          // parks inside A's server.close
-    const second = await makeRepo();
     try {
       // ⚠ NOT awaited before the release: B's own close now uses the same held promise, so
       // awaiting here deadlocks the fixture. That deadlock is a property of my mock, not of
