@@ -5,6 +5,7 @@
 // edges from route → handler function. Middleware in the args list
 // becomes PASSES_THROUGH edges so graph_path can trace request flow.
 
+import { languageExtensions } from '../../language-registry.js';
 import { createFrameworkPlugin } from '../extractors/base.js';
 import { walkFiles, tryReadFile, relPath, routeNode, invokesRef } from './_plugin_utils.js';
 
@@ -100,7 +101,7 @@ export const nodeWebPlugin = createFrameworkPlugin({
   async enrich({ repoRoot, result }) {
     const nodes = [...result.nodes];
     const refs = [...result.refs];
-    const files = await walkFiles(repoRoot, ['.js', '.mjs', '.cjs', '.ts', '.mts', '.cts']);
+    const files = await walkFiles(repoRoot, languageExtensions('javascript', 'typescript'));
 
     for (const abs of files) {
       const content = await tryReadFile(abs);

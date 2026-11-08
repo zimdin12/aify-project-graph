@@ -16,6 +16,7 @@
 // 3. **Catch2** — TEST_CASE("desc", "[tags]"), SCENARIO("desc") become
 //    Test-type nodes with label = description.
 
+import { languageExtensions } from '../../language-registry.js';
 import { createFrameworkPlugin } from '../extractors/base.js';
 import { walkFiles, tryReadFile, relPath, stableId } from './_plugin_utils.js';
 import { dependencyFingerprint, structuralFingerprint } from '../fingerprint.js';
@@ -136,7 +137,7 @@ async function hasCppIndicators(repoRoot) {
   // Detect presence of any C/C++ source. We don't gate on a specific
   // framework — it's cheap to scan a handful of cpp files for Qt/GTest
   // patterns and emit nothing if none match.
-  const samples = await walkFiles(repoRoot, ['.cpp', '.cc', '.cxx', '.h', '.hpp'], { maxFiles: 1 });
+  const samples = await walkFiles(repoRoot, languageExtensions('cpp'), { maxFiles: 1 });
   return samples.length > 0;
 }
 
@@ -151,7 +152,7 @@ export const cppFrameworksPlugin = createFrameworkPlugin({
     const nodes = [...result.nodes];
     const refs = [...result.refs];
 
-    const files = await walkFiles(repoRoot, ['.cpp', '.cc', '.cxx', '.h', '.hpp']);
+    const files = await walkFiles(repoRoot, languageExtensions('cpp'));
     for (const abs of files) {
       const content = await tryReadFile(abs);
       if (!content) continue;

@@ -10,6 +10,7 @@
 // We don't try to be a full parser — Rails routing is Turing-complete
 // at the DSL level. We cover the 90% shapes seen in real apps.
 
+import { languageExtensions } from '../../language-registry.js';
 import { createFrameworkPlugin } from '../extractors/base.js';
 import { walkFiles, tryReadFile, relPath, routeNode, invokesRef } from './_plugin_utils.js';
 
@@ -166,7 +167,7 @@ export const railsPlugin = createFrameworkPlugin({
     const nodes = [...result.nodes];
     const refs = [...result.refs];
     // Rails has one canonical routes file + optional engine routes.
-    const files = await walkFiles(repoRoot, ['.rb'], { maxFiles: 1000 });
+    const files = await walkFiles(repoRoot, languageExtensions('ruby'), { maxFiles: 1000 });
     // Normalize Windows backslashes before suffix-match so the filter works
     // cross-platform. walkFiles returns absolute paths in native form.
     const routeFiles = files.filter((f) => {

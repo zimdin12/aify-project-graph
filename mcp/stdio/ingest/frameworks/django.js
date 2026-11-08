@@ -21,6 +21,7 @@
 // path or the symbol before .as_view()). include() calls don't get a
 // Route node — they're discovery breadcrumbs, not endpoints.
 
+import { languageExtensions } from '../../language-registry.js';
 import { createFrameworkPlugin } from '../extractors/base.js';
 import { walkFiles, tryReadFile, relPath, routeNode, invokesRef } from './_plugin_utils.js';
 
@@ -116,7 +117,7 @@ export const djangoPlugin = createFrameworkPlugin({
   async enrich({ repoRoot, result }) {
     const nodes = [...result.nodes];
     const refs = [...result.refs];
-    const files = await walkFiles(repoRoot, ['.py']);
+    const files = await walkFiles(repoRoot, languageExtensions('python'));
 
     for (const abs of files) {
       const rp = relPath(repoRoot, abs);

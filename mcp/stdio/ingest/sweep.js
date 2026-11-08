@@ -1,3 +1,4 @@
+import { languageOfExtension } from '../language-registry.js';
 import { readdir, readFile, stat as fsStat } from 'node:fs/promises';
 import { basename, dirname, extname, relative } from 'node:path';
 import { stableId } from './identity.js';
@@ -156,22 +157,9 @@ function isSchema(relPath) {
     || normalized.endsWith('schema.prisma');
 }
 
+// The language a file is written in, from the one registry (#7); the hand switch here missed .h, .tsx, .mjs and more.
 function detectLanguage(relPath) {
-  switch (extname(relPath).toLowerCase()) {
-    case '.py': return 'python';
-    case '.php': return 'php';
-    case '.js': return 'javascript';
-    case '.ts': return 'typescript';
-    case '.rb': return 'ruby';
-    case '.go': return 'go';
-    case '.rs': return 'rust';
-    case '.java': return 'java';
-    case '.c': return 'c';
-    case '.cpp':
-    case '.cc':
-    case '.cxx': return 'cpp';
-    default: return '';
-  }
+  return languageOfExtension(extname(relPath)) ?? '';
 }
 
 // ⛔ HEADINGS ARE THE AUTHOR'S OWN STRUCTURAL CLAIM ABOUT SUBJECT MATTER, which is why they are

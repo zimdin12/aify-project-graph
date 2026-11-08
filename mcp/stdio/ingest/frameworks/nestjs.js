@@ -9,6 +9,7 @@
 // Also captures @UseGuards / @UseInterceptors / @UsePipes on the
 // controller class or method as PASSES_THROUGH hops.
 
+import { languageExtensions } from '../../language-registry.js';
 import { createFrameworkPlugin } from '../extractors/base.js';
 import { walkFiles, tryReadFile, relPath, routeNode, invokesRef } from './_plugin_utils.js';
 
@@ -109,7 +110,7 @@ export const nestjsPlugin = createFrameworkPlugin({
   async enrich({ repoRoot, result }) {
     const nodes = [...result.nodes];
     const refs = [...result.refs];
-    const files = await walkFiles(repoRoot, ['.ts', '.js']);
+    const files = await walkFiles(repoRoot, languageExtensions('typescript', 'javascript'));
 
     for (const abs of files) {
       const content = await tryReadFile(abs);

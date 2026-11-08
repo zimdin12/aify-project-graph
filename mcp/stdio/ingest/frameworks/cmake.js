@@ -15,6 +15,7 @@
 // Source→target file edges are deferred (File node ids are not recomputable in a
 // plugin); sources are captured in extra.sources for now.
 
+import { languageExtensions } from '../../language-registry.js';
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { join, extname, basename } from 'node:path';
 import { createFrameworkPlugin } from '../extractors/base.js';
@@ -26,7 +27,7 @@ import { stableId, relPath } from './_plugin_utils.js';
 // add_library / add_executable but are NOT targets or sources.
 const LINK_SCOPE_KEYWORDS = new Set(['PUBLIC', 'PRIVATE', 'INTERFACE', 'LINK_PUBLIC', 'LINK_PRIVATE']);
 const TARGET_TYPE_KEYWORDS = new Set(['STATIC', 'SHARED', 'MODULE', 'INTERFACE', 'OBJECT', 'EXCLUDE_FROM_ALL', 'IMPORTED', 'ALIAS', 'WIN32', 'MACOSX_BUNDLE']);
-const SOURCE_EXTS = new Set(['.c', '.cc', '.cpp', '.cxx', '.h', '.hpp', '.hxx', '.inl', '.ipp']);
+const SOURCE_EXTS = new Set(languageExtensions('c', 'cpp'));
 
 // Collect CMakeLists.txt + *.cmake files under the repo (skips ignored dirs).
 async function collectCmakeFiles(root, { maxFiles = 2000, maxBytes = 1_000_000 } = {}) {

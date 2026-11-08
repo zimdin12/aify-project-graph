@@ -8,6 +8,7 @@
 //   public User find(@PathVariable Long id) { ... }  ← GET /api/users/{id} → find
 // }
 
+import { languageExtensions } from '../../language-registry.js';
 import { createFrameworkPlugin } from '../extractors/base.js';
 import { walkFiles, tryReadFile, relPath, routeNode, invokesRef } from './_plugin_utils.js';
 
@@ -116,7 +117,7 @@ export const springPlugin = createFrameworkPlugin({
   async enrich({ repoRoot, result }) {
     const nodes = [...result.nodes];
     const refs = [...result.refs];
-    const files = await walkFiles(repoRoot, ['.java', '.kt']);
+    const files = await walkFiles(repoRoot, languageExtensions('java', 'kotlin'));
 
     for (const abs of files) {
       const content = await tryReadFile(abs);

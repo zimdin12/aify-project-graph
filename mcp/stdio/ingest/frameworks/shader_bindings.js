@@ -22,28 +22,20 @@
 //      `.dstBinding = N` descriptor-write sites as VkBindingWrite records so
 //      the verb can show a (heuristic) binding-number contract.
 
+import { languageExtensions } from '../../language-registry.js';
 import { createFrameworkPlugin } from '../extractors/base.js';
 import { walkFiles, tryReadFile, relPath, stableId } from './_plugin_utils.js';
 import { dependencyFingerprint, structuralFingerprint } from '../fingerprint.js';
 import { extractGlslBindings, extractGlslIncludes } from '../languages/glsl_bindings.js';
 
-// Shader file extensions (compound `.comp.glsl` handled by endsWith). Mirrors
-// languages/glsl.js plus sand_castle's bare `.comp`/`.frag`/etc.
-const SHADER_EXTS = [
-  '.comp.glsl', '.vert.glsl', '.frag.glsl', '.geom.glsl', '.mesh.glsl', '.task.glsl',
-  '.tesc.glsl', '.tese.glsl', '.rgen.glsl', '.rmiss.glsl', '.rchit.glsl',
-  '.glsl',
-  '.comp', '.vert', '.frag', '.geom', '.mesh', '.task',
-  '.tesc', '.tese', '.rgen', '.rmiss', '.rchit', '.rahit', '.rint', '.rcall',
-];
+// Shader file extensions, from the language registry's GLSL rows (#7). Matched with endsWith, so a compound name
+// such as `foo.comp.glsl` is covered by `.glsl`; the compound entries this list used to carry were redundant.
+const SHADER_EXTS = languageExtensions('glsl');
 
 // File extensions we walk for the GLSL pass.
-const GLSL_WALK_EXTS = [
-  '.glsl', '.comp', '.vert', '.frag', '.geom', '.mesh', '.task',
-  '.tesc', '.tese', '.rgen', '.rmiss', '.rchit', '.rahit', '.rint', '.rcall',
-];
+const GLSL_WALK_EXTS = SHADER_EXTS;
 
-const CPP_WALK_EXTS = ['.cpp', '.cc', '.cxx', '.h', '.hpp', '.hh', '.hxx'];
+const CPP_WALK_EXTS = languageExtensions('cpp');
 
 // C++ string literal whose value looks like a shader filename. Captures the
 // inner path. We match the trailing extension against SHADER_EXTS rather than
