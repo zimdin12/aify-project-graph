@@ -94,25 +94,32 @@ describe('language config matrix', () => {
 // This block is what README now cites instead: each construct below is asserted on the edges the index writes for a
 // small fixture repository (tests/fixtures/ingest/matrix-php), expected AND forbidden. It covers these constructs in
 // this fixture, not a percentage of real-world PHP.
-const PHP_FIXTURE = join(process.cwd(), 'tests', 'fixtures', 'ingest', 'matrix-php');
-let phpRepo;
-let phpEdges;
-beforeAll(() => {
-  phpRepo = join(mkdtempSync(join(tmpdir(), 'apg-matrix-php-')), 'repo');
-  cpSync(PHP_FIXTURE, phpRepo, { recursive: true });
-  const git = (...a) => execFileSync('git', ['-C', phpRepo, '-c', 'user.name=t', '-c', 'user.email=t@t', ...a], { stdio: 'ignore' });
+// Index a fixture repository the way a user would (a git checkout, `apg index`) and read back every edge with both
+// ends' type, label and file. A construct claim is about these edges, not about what the extractor emitted.
+const indexed = new Map();
+function indexFixture(name) {
+  const repo = join(mkdtempSync(join(tmpdir(), `apg-matrix-${name}-`)), 'repo');
+  cpSync(join(process.cwd(), 'tests', 'fixtures', 'ingest', name), repo, { recursive: true });
+  const git = (...a) => execFileSync('git', ['-C', repo, '-c', 'user.name=t', '-c', 'user.email=t@t', ...a], { stdio: 'ignore' });
   git('init', '-q'); git('add', '-A'); git('commit', '-qm', 'fixture');
-  execFileSync(process.execPath, [join(process.cwd(), 'bin', 'apg.js'), 'index', phpRepo], { stdio: 'ignore' });
-  const db = openExistingDb(join(phpRepo, '.aify-graph', 'graph.sqlite'));
+  execFileSync(process.execPath, [join(process.cwd(), 'bin', 'apg.js'), 'index', repo], { stdio: 'ignore' });
+  const db = openExistingDb(join(repo, '.aify-graph', 'graph.sqlite'));
   try {
-    phpEdges = db.all(`SELECT f.label AS from_label, f.type AS from_type, e.relation, t.label AS to_label, t.type AS to_type,
-      t.file_path AS to_file FROM edges e JOIN nodes f ON f.id = e.from_id JOIN nodes t ON t.id = e.to_id`);
+    indexed.set(name, { repo, edges: db.all(`SELECT f.label AS from_label, f.type AS from_type, f.file_path AS from_file,
+      e.relation, t.label AS to_label, t.type AS to_type, t.file_path AS to_file
+      FROM edges e JOIN nodes f ON f.id = e.from_id JOIN nodes t ON t.id = e.to_id`) });
   } finally { db.close(); }
-}, 120_000);
-afterAll(() => { try { rmSync(join(phpRepo, '..'), { recursive: true, force: true }); } catch { /* win lock */ } });
-
-const edge = (from, relation, to, toType) => phpEdges.filter((e) => e.from_label === from && e.relation === relation
-  && e.to_label === to && (!toType || e.to_type === toType));
+}
+beforeAll(() => { indexFixture('matrix-php'); indexFixture('matrix-cpp'); }, 180_000);
+afterAll(() => {
+  for (const { repo } of indexed.values()) { try { rmSync(join(repo, '..'), { recursive: true, force: true }); } catch { /* win lock */ } }
+});
+const edgesOf = (name) => indexed.get(name).edges;
+const edgeIn = (name) => (from, relation, to, toType) => edgesOf(name).filter((e) => e.from_label === from
+  && e.relation === relation && e.to_label === to && (!toType || e.to_type === toType));
+const edge = edgeIn('matrix-php');
+let phpEdges;
+beforeAll(() => { phpEdges = edgesOf('matrix-php'); });
 
 describe('PHP constructs (final edges of tests/fixtures/ingest/matrix-php)', () => {
   it('★★★ expected: inheritance by a plain class name, and interface implementation', () => {
@@ -156,5 +163,32 @@ describe('PHP constructs (final edges of tests/fixtures/ingest/matrix-php)', () 
   it.fails('KNOWN DEFECT: an aliased (qualified) class name binds to the file Module, not the class', () => {
     expect(edge('Invoice', 'EXTENDS', 'Document', 'Class')).toHaveLength(1);
     expect(edge('Invoice', 'REFERENCES', 'App.Support.Money', 'Module')).toEqual([]);
+  });
+});
+
+// ── C++ constructs, on the final edges of tests/fixtures/ingest/matrix-cpp (#15), tree-sitter only (no clangd) ──────
+describe('C++ constructs (final edges of tests/fixtures/ingest/matrix-cpp)', () => {
+  const cpp = edgeIn('matrix-cpp');
+  const edgesFrom = (file, relation) => edgesOf('matrix-cpp').filter((e) => e.from_file === file && e.relation === relation);
+
+  it('★★★ expected: out-of-class definitions belong to their class; inheritance; a virtual override', () => {
+    expect(cpp('Shape', 'CONTAINS', 'sides', 'Method').map((e) => e.to_file).sort()).toEqual(['src/shape.cpp', 'src/shape.h']);
+    expect(cpp('Shape', 'CONTAINS', 'unit', 'Method').map((e) => e.to_file)).toEqual(['src/shape.cpp']);
+    expect(cpp('Square', 'EXTENDS', 'Shape', 'Class').map((e) => e.to_file)).toEqual(['src/shape.h']);
+    const overrides = edgesFrom('src/shape.h', 'OVERRIDDEN_BY').filter((e) => e.from_label === 'area');
+    expect(overrides.map((e) => e.to_file).sort()).toEqual(['src/shape.cpp', 'src/shape.h']);
+  });
+
+  it('★★★ expected: a qualified static call, a free function call, a template call, and an #include', () => {
+    expect(cpp('main', 'CALLS', 'unit', 'Method').map((e) => e.to_file)).toEqual(['src/shape.cpp']);
+    expect(cpp('main', 'CALLS', 'report', 'Function')).toHaveLength(1);
+    expect(edgesFrom('src/shape.cpp', 'CALLS').filter((e) => e.to_label === 'twice' && e.to_type === 'Function')).toHaveLength(1);
+    expect(cpp('main.cpp', 'IMPORTS', 'shape.h', 'File')).toHaveLength(1);
+  });
+
+  it('★★★ forbidden: a call through a base reference, which two methods could answer, binds to neither', () => {
+    // `shape.area()` on a `const geo::Shape&`: Shape::area and Square::area both exist; only the type system can say.
+    expect(cpp('report', 'CALLS', 'area', 'Method')).toEqual([]);
+    expect(cpp('report', 'CALLS', 'area')).toHaveLength(1); // control: the call is recorded, unresolved
   });
 });
