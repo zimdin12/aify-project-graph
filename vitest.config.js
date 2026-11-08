@@ -1,7 +1,24 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig, configDefaults } from 'vitest/config';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { REFUSALS_FILE } from './tests/helpers/temp-root.global.js';
+
+// Test files that start a real language server (clangd, typescript-language-server, pyright). They run in the serial
+// `lsp` tier below. Derived by running every file in the unit tier with the guard on and moving each file it refused.
+const LSP_TIER = [
+  'tests/integration/code-intel/**/*.test.js',
+  'tests/integration/m1-cpp-caller-sets.test.js',
+  'tests/integration/m1-caller-sets-do-not-merge.test.js',
+  // These three start only a fake server or a `--version` probe, which the guard cannot tell from a real server.
+  // Serial costs them seconds; the alternative is a guard that guesses.
+  'tests/unit/code-intel/incoherent-location-refused.test.js',
+  'tests/unit/code-intel/cli/serve-lsp.test.js',
+  'tests/unit/code-intel/cli/doctor.test.js',
+];
+const UNIT_TIER_SETUP = './tests/helpers/unit-tier.setup.js';
+const UNIT_TIER_GUARD = fileURLToPath(new URL('./tests/helpers/unit-tier-forbids-language-servers.js', import.meta.url));
 
 // ⛔ EVERY TEST'S TEMP DIRECTORY LIVES INSIDE ONE PER-RUN ROOT THAT IS DELETED WHOLESALE.
 //
@@ -16,15 +33,26 @@ import { tmpdir } from 'node:os';
 //
 // ⇒ Computed at config-evaluation time because the value has to reach BOTH the worker `env` below
 // and the globalSetup teardown, which runs in this process.
-const RUN_TMP = join(tmpdir(), `apg-vitest-${process.pid}-${Date.now()}`);
+//
+// ⚠ ONE ROOT PER PROCESS, NOT PER EVALUATION. Each `extends: true` project below makes vitest evaluate this file again,
+// and when each evaluation made its own root, workers wrote into one while the teardown deleted another: two roots
+// leaked per run and the language-server record was never read. A nested vitest a test starts is another process and
+// still gets its own.
+const RUN_TMP = process.env.APG_TEST_TMP_ROOT_PID === String(process.pid) && process.env.APG_TEST_TMP_ROOT
+  ? process.env.APG_TEST_TMP_ROOT
+  : join(tmpdir(), `apg-vitest-${process.pid}-${Date.now()}`);
+process.env.APG_TEST_TMP_ROOT_PID = String(process.pid);
 mkdirSync(RUN_TMP, { recursive: true });
 process.env.APG_TEST_TMP_ROOT = RUN_TMP;
+// Where the unit-tier guard records each refusal; the run-root teardown reads it and fails the run on any.
+process.env.APG_LANGUAGE_SERVER_REFUSALS = join(RUN_TMP, REFUSALS_FILE);
 
 export default defineConfig({
   test: {
     // Deletes RUN_TMP after the run, and prunes roots abandoned by a crashed one.
     globalSetup: ['./tests/helpers/temp-root.global.js'],
-    include: ['tests/**/*.test.js'],
+    // `include` lives in each project below: with `extends: true` vitest CONCATENATES a root include into a project's,
+    // which put every file in both tiers.
     // ⛔ A LIMIT ON HANGS, NOT ON SPEED. On 2026-10-01 five of nine full runs went red with no regression, on a
     // machine other sessions share. Two were tests passing 30s under load that take 6-11s alone
     // (incremental-equals-rebuild, overlay-coverage-verdict). A test whose subject is time sets its own limit;
@@ -50,7 +78,42 @@ export default defineConfig({
     // timeout. A flaky test is worse than a slow one: it teaches the reader to
     // re-run rather than to look, which is exactly how a real regression gets waved
     // through.
-    fileParallelism: false,
+    //
+    // ⇒ TWO TIERS, RUN ONE AFTER THE OTHER (#10). Serialising everything made each gate run ~13 minutes for the
+    // sake of the files that start a server. `unit` runs every other file in parallel; `lsp` runs LSP_TIER in a single
+    // fork, one file at a time, and only after `unit` has finished (groupOrder), so a server never shares the
+    // machine with another server or with the parallel tier. vitest 3 cannot set fileParallelism per project, so the
+    // root allows it and the lsp project's singleFork is what serialises that tier.
+    //
+    // Membership is decided by behaviour: tests/helpers/unit-tier.setup.js makes starting a language server from the
+    // unit tier throw and fail the run, so a file missing from LSP_TIER is caught, never quietly raced.
+    fileParallelism: true,
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'unit',
+          include: ['tests/**/*.test.js'],
+          exclude: [...configDefaults.exclude, ...LSP_TIER],
+          setupFiles: [UNIT_TIER_SETUP],
+          sequence: { groupOrder: 0 },
+          env: {
+            APG_LANGUAGE_SERVER_REFUSALS: process.env.APG_LANGUAGE_SERVER_REFUSALS,
+            // A script a test runs in a child process is held to the same rule.
+            NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ''} --import=${pathToFileURL(UNIT_TIER_GUARD).href}`.trim(),
+          },
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'lsp',
+          include: LSP_TIER,
+          sequence: { groupOrder: 1 },
+          poolOptions: { forks: { singleFork: true } },
+        },
+      },
+    ],
     // ⚠ PINNED, NOT INHERITED. `tests/unit/freshness/relative-reporoot.test.js` calls
     // process.chdir() to prove a RELATIVE repoRoot resolves the same as an absolute one —
     // and process.chdir() throws inside vitest's `threads` pool ("not supported in

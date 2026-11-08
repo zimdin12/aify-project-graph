@@ -54,15 +54,26 @@ describe('the running suite is configured by vitest.config.js', () => {
     expect(resolved.hookTimeout, 'hookTimeout is not the configured 120000 — was vitest.config.js loaded?').toBe(120000);
   });
 
-  it('★★★ the config still carries both pins', () => {
-    // Closes the loop on fileParallelism, which workers cannot see: the arm above proves
-    // the file was loaded, and this proves the loaded file still says what it must. A
-    // runner correctly deferring to a config that had lost the pins would otherwise be the
-    // same failure with the blame moved.
+  it('★★★ the config still carries the pool pin', () => {
+    // The arm above proves the file was loaded, and this proves the loaded file still says what it must. A runner
+    // correctly deferring to a config that had lost the pin would otherwise be the same failure with the blame moved.
     const configSrc = readFileSync(join(import.meta.dirname, '..', '..', 'vitest.config.js'), 'utf8');
     expect(configSrc, 'pool: forks — process.chdir() throws in the threads pool')
       .toMatch(/pool\s*:\s*['"]forks['"]/);
-    expect(configSrc, 'fileParallelism: false — real language-server tests race for CPU')
-      .toMatch(/fileParallelism\s*:\s*false/);
+  });
+
+  it('★★★ real language-server files run in a serial tier that starts after the parallel tier finishes (#10)', async () => {
+    // Workers cannot see the other project's settings, so this reads the config object. Concurrent clangd / tsserver
+    // / pyright starve each other of CPU and a correct cross-file query fails; the lsp tier must be one fork, one
+    // file at a time, in a later group than everything else, and the parallel tier must carry the guard that
+    // refuses a server.
+    const config = (await import('../../vitest.config.js')).default;
+    const project = (name) => config.test.projects.find((p) => p.test?.name === name)?.test;
+    const unit = project('unit'); const lsp = project('lsp');
+    expect(lsp?.poolOptions?.forks?.singleFork, 'the lsp tier runs in a single fork').toBe(true);
+    expect(lsp.sequence.groupOrder, 'the lsp tier runs after the unit tier').toBeGreaterThan(unit.sequence.groupOrder);
+    expect(unit.setupFiles.some((f) => f.includes('unit-tier.setup')), 'the unit tier refuses a language server').toBe(true);
+    expect(lsp.include.length, 'the lsp tier is not empty').toBeGreaterThan(0);
+    expect(unit.exclude, 'every lsp-tier file is kept out of the unit tier').toEqual(expect.arrayContaining(lsp.include));
   });
 });

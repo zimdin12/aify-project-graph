@@ -98,7 +98,8 @@ function vitestCarrier() {
     // ⚠ An INHERITED pool is reported as such rather than as a value. The suite passed on
     // an inherited `forks` for months while requiring it — that is the defect this names.
     pool: pool ?? 'INHERITED FROM VITEST DEFAULT (undeclared — a default is not a decision)',
-    fileParallelism: /fileParallelism:\s*false/.test(cfg) ? false : 'default',
+    fileParallelism: /fileParallelism:\s*false/.test(cfg) ? false
+      : /singleFork:\s*true/.test(cfg) ? 'tiered: unit files in parallel, then lsp files serially' : 'default',
     configDigest: cfg ? createHash('sha256').update(cfg).digest('hex').slice(0, 12) : null,
   };
 }
