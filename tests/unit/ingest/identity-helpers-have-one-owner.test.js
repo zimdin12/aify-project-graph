@@ -8,7 +8,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { stableId } from '../../../mcp/stdio/ingest/identity.js';
+import { stableId } from '../../../mcp/stdio/ingest/identity/stable-id.js';
 
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const walk = (dir) => readdirSync(dir, { withFileTypes: true })

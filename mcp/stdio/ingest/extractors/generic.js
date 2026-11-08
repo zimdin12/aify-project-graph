@@ -1,5 +1,5 @@
 import { basename, extname } from 'node:path';
-import { stableId } from '../identity.js';
+import { stableId } from '../identity/stable-id.js';
 import { dependencyFingerprint, structuralFingerprint } from '../fingerprint.js';
 import { nodeText, parseSource } from '../walker.js';
 import { codeSymbolSiteId, siteKindOf, siteSpanOf } from '../identity/code-symbol-site-id.js';

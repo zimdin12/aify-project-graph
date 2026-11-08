@@ -1,7 +1,7 @@
 import { languageOfExtension } from '../language-registry.js';
 import { readdir, readFile, stat as fsStat } from 'node:fs/promises';
 import { basename, dirname, extname, relative } from 'node:path';
-import { stableId } from './identity.js';
+import { stableId } from './identity/stable-id.js';
 import { dependencyFingerprint, structuralFingerprint } from './fingerprint.js';
 
 import { IGNORED_DIRS, isIgnoredDirName, pathContainsIgnoredDir, loadEffectiveIgnoredDirs } from './ignored-dirs.js';

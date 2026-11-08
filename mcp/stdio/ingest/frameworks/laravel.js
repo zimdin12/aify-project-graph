@@ -1,6 +1,6 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { stableId } from '../identity.js';
+import { stableId } from '../identity/stable-id.js';
 import { createFrameworkPlugin } from '../extractors/base.js';
 import { dependencyFingerprint, structuralFingerprint } from '../fingerprint.js';
 import phpConfig from '../languages/php.js';

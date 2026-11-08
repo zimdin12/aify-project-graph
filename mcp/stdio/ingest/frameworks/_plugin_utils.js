@@ -7,7 +7,7 @@ import { join, extname } from 'node:path';
 import { dependencyFingerprint, structuralFingerprint } from '../fingerprint.js';
 import { isIgnoredDirName, loadEffectiveIgnoredDirs } from '../ignored-dirs.js';
 
-import { stableId } from '../identity.js';
+import { stableId } from '../identity/stable-id.js';
 export { stableId };
 
 export function routeNode({ filePath, label, language, startLine = 1, confidence = 0.75 }) {
