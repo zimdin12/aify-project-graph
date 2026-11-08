@@ -1,3 +1,4 @@
+import { treeSitterExtensions } from '../../language-registry.js';
 import Css from 'tree-sitter-css';
 
 // CSS extractor keeps the agent-relevant surface narrow to avoid creating
@@ -31,7 +32,7 @@ function extractImportTarget({ node, source }) {
 export default {
   language: 'css',
   parser: Css,
-  extensions: ['.css'],
+  extensions: treeSitterExtensions('css'),
   confidence: {
     node: 0.7,
     import: 0.7,

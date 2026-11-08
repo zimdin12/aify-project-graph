@@ -1,9 +1,10 @@
+import { treeSitterExtensions } from '../../language-registry.js';
 import Ruby from 'tree-sitter-ruby';
 
 export default {
   language: 'ruby',
   parser: Ruby,
-  extensions: ['.rb'],
+  extensions: treeSitterExtensions('ruby'),
   confidence: {
     node: 0.9,
     import: 0.9,

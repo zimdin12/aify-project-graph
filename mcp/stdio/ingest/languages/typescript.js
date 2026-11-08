@@ -1,3 +1,4 @@
+import { treeSitterExtensions } from '../../language-registry.js';
 import { posix } from 'node:path';
 import TypeScript from 'tree-sitter-typescript';
 import { extractDecoratorReferences } from '../extractors/decorators.js';
@@ -57,7 +58,7 @@ export default {
   language: 'typescript',
   parser: TypeScript.typescript,
   postExtract: postExtractTypeScript,
-  extensions: ['.ts', '.tsx'],
+  extensions: treeSitterExtensions('typescript'),
   testDetector: ({ label, resolvedType, filePath }) =>
     ['Function', 'Method'].includes(resolvedType)
     && (/\.test\./u.test(filePath) || /\.spec\./u.test(filePath) || filePath.includes('/__tests__/'))

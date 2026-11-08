@@ -1,9 +1,10 @@
+import { treeSitterExtensions } from '../../language-registry.js';
 import Go from 'tree-sitter-go';
 
 export default {
   language: 'go',
   parser: Go,
-  extensions: ['.go'],
+  extensions: treeSitterExtensions('go'),
   confidence: {
     node: 0.9,
     import: 0.9,

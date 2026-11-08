@@ -1,3 +1,4 @@
+import { treeSitterExtensions } from '../../language-registry.js';
 import Glsl from 'tree-sitter-glsl';
 
 // tree-sitter-glsl is based on tree-sitter-c, so the AST shape closely
@@ -15,14 +16,7 @@ export default {
   // Covers standard GLSL (.glsl), the per-stage conventions Khronos
   // recommends (.vert/.frag/.geom/.tesc/.tese/.comp), mesh/task shaders,
   // and Vulkan raytracing pipeline stages (.rgen/.rmiss/.rchit/.rahit/.rint/.rcall).
-  extensions: [
-    '.glsl',
-    '.vert', '.frag', '.geom',
-    '.tesc', '.tese',
-    '.comp',
-    '.mesh', '.task',
-    '.rgen', '.rmiss', '.rchit', '.rahit', '.rint', '.rcall',
-  ],
+  extensions: treeSitterExtensions('glsl'),
   confidence: {
     node: 0.75,
     import: 0.75,

@@ -1,3 +1,4 @@
+import { treeSitterExtensions } from '../../language-registry.js';
 import Cpp from 'tree-sitter-cpp';
 import { blankCommentsAndStrings } from '../../query/dynamic-boundaries.js';
 
@@ -560,7 +561,7 @@ export default {
   preParse: blankCppClassHeadMacros,
   postExtract: postExtractCpp,
   normalizeCallTarget: normalizeCppCallTarget,
-  extensions: ['.cc', '.cpp', '.cxx', '.hpp', '.hh', '.hxx', '.h'],
+  extensions: treeSitterExtensions('cpp'),
   confidence: {
     node: 0.6,
     import: 0.6,

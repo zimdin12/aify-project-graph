@@ -1,3 +1,4 @@
+import { treeSitterExtensions } from '../../language-registry.js';
 import Python from 'tree-sitter-python';
 
 import { nodeText } from '../walker.js';
@@ -77,7 +78,7 @@ export default {
   language: 'python',
   parser: Python,
   postExtract: postExtractPython,
-  extensions: ['.py'],
+  extensions: treeSitterExtensions('python'),
   testDetector: ({ label, resolvedType }) =>
     ['Function', 'Method'].includes(resolvedType) && label.startsWith('test_'),
   confidence: {

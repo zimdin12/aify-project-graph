@@ -1,3 +1,4 @@
+import { treeSitterExtensions } from '../../language-registry.js';
 import Php from 'tree-sitter-php';
 
 import { nodeText } from '../walker.js';
@@ -331,7 +332,7 @@ function aliasesOf(tree, source) {
 export default {
   language: 'php',
   parser: Php.php ?? Php,
-  extensions: ['.php'],
+  extensions: treeSitterExtensions('php'),
   moduleFromAst,
   postExtract: postExtractPhp,
   testDetector: ({ label, resolvedType }) =>

@@ -1,9 +1,10 @@
+import { treeSitterExtensions } from '../../language-registry.js';
 import Rust from 'tree-sitter-rust';
 
 export default {
   language: 'rust',
   parser: Rust,
-  extensions: ['.rs'],
+  extensions: treeSitterExtensions('rust'),
   confidence: {
     node: 0.75,
     import: 0.75,

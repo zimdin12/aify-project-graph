@@ -1,9 +1,10 @@
+import { treeSitterExtensions } from '../../language-registry.js';
 import Java from 'tree-sitter-java';
 
 export default {
   language: 'java',
   parser: Java,
-  extensions: ['.java'],
+  extensions: treeSitterExtensions('java'),
   confidence: {
     node: 0.9,
     import: 0.9,
