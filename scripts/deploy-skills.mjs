@@ -117,6 +117,13 @@ const report = [];
 let anyRootPresent = false;
 let overallOk = true;
 
+// ⛔ A NAME ANOTHER OWNER HOLDS IN ANY ROOT IS NOT OURS TO CREATE IN ANOTHER. Seen 2026-11-08: blast-radius is
+// agents-setup's junction in ~/.claude/skills and absent from ~/.codex/skills, so a plain deploy would have created
+// apg's same-named skill there, beside agents-setup's copy in ~/.agents/skills. Refusing the link (#21) protected one
+// root; the name is the thing with one owner.
+const ownedElsewhere = new Set(RUNTIMES.flatMap((rt) => discoverSources(rt.sourceRoot).flatMap((s) =>
+  [...new Set(rt.candidates)].filter((p) => existsSync(p)).some((root) => foreignTarget(root, s.name)) ? [s.name] : [])));
+
 for (const rt of RUNTIMES) {
   const sources = discoverSources(rt.sourceRoot);
   if (sources.length === 0) {
@@ -147,20 +154,21 @@ for (const rt of RUNTIMES) {
 
   for (const root of liveRoots) {
     let rows = classifyAll(sources, root);
-    let deployed = 0;
-    let refused = 0;
+    const written = [];
+    const refusals = [];
 
     if (!CHECK_ONLY) {
       for (const r of rows) {
         if (r.ok) continue;
         // ⛔ NEVER, not even with --force: another source owns what this name leads to (#21).
-        if (r.state === 'foreign') { refused += 1; continue; }
-        if ((r.state === 'diverged' || r.state === 'unreadable') && !FORCE) { refused += 1; continue; }
+        if (r.state === 'foreign') { refusals.push({ name: r.name, reason: 'foreign_link' }); continue; }
+        if (r.state === 'missing' && ownedElsewhere.has(r.name)) { refusals.push({ name: r.name, reason: 'owned_elsewhere' }); continue; }
+        if ((r.state === 'diverged' || r.state === 'unreadable') && !FORCE) { refusals.push({ name: r.name, reason: `${r.state}_needs_force` }); continue; }
         const src = sources.find((s) => s.name === r.name);
         const dest = join(root, r.name, 'SKILL.md');
         mkdirSync(dirname(dest), { recursive: true });
         writeFileSync(dest, readFileSync(src.path, 'utf8'));
-        deployed += 1;
+        written.push(r.name);
       }
       // ⭐ RE-CLASSIFY FROM DISK. The verdict must come from reading the artifact back, never from
       // the fact that a write call returned without throwing.
@@ -170,7 +178,8 @@ for (const rt of RUNTIMES) {
     const summary = summariseDeployment(rows);
     if (!summary.ok) overallOk = false;
     rootReports.push({
-      root, ok: summary.ok, deployed, refused, total: summary.total, byState: summary.byState,
+      root, ok: summary.ok, deployed: written.length, refused: refusals.length, written, refusals,
+      total: summary.total, byState: summary.byState,
       failures: summary.failures.map((f) => ({ name: f.name, state: f.state, sourceBytes: f.sourceBytes, installedBytes: f.installedBytes })),
     });
   }

@@ -78,4 +78,28 @@ describe('deploy-skills and a skill name that is a link out of the root', () => 
     expect(existsSync(gone), 'the dangling target must not be recreated').toBe(false);
     expect(rows.failures.find((f) => f.name === 'safe-to-delete')?.state).toBe('foreign');
   });
+
+  // Seen on this host 2026-11-08: blast-radius is agents-setup's junction in ~/.claude/skills and absent from
+  // ~/.codex/skills, so a plain deploy would have CREATED apg's same-named skill there, beside agents-setup's copy in
+  // ~/.agents/skills. A name another owner holds in any root is not apg's to create in another.
+  it('★★★ a name that is foreign in one root is not created in another; an ordinary skill still is (control)', () => {
+    const codex = join(home, '.codex', 'skills');
+    mkdirSync(codex, { recursive: true });
+    const { status, report } = deployReport();
+    expect(existsSync(join(codex, 'blast-radius')), 'apg must not create a name another owner holds').toBe(false);
+    expect(existsSync(join(codex, 'graph-guide', 'SKILL.md')), 'control: an ordinary skill is deployed there').toBe(true);
+    const codexRoot = report.runtimes.find((r) => r.runtime === 'codex').roots[0];
+    expect(codexRoot.refusals).toEqual([{ name: 'blast-radius', reason: 'owned_elsewhere' }]);
+    expect(codexRoot.written).toContain('graph-guide');
+    expect(status, 'a refused name leaves the root out of sync, so the run says so').toBe(1);
+  });
 });
+
+function deployReport(...flags) {
+  const env = { ...process.env, HOME: home, USERPROFILE: home };
+  delete env.CODEX_HOME; delete env.HERMES_HOME;
+  const seen = spawnSync(process.execPath, ['-e', 'process.stdout.write(require("os").homedir())'], { env, encoding: 'utf8' }).stdout;
+  if (seen !== home) throw new Error(`refusing to run deploy-skills: the child's home is ${seen}, not the scratch ${home}`);
+  const run = spawnSync(process.execPath, [SCRIPT.pathname.replace(/^\/(\w:)/u, '$1'), ...flags], { env, encoding: 'utf8' });
+  return { status: run.status, report: JSON.parse(run.stdout.slice(run.stdout.indexOf('{'))) };
+}
