@@ -501,6 +501,22 @@ never measured.
 Adding a language means writing its config (29 lines for Java, 391 for PHP, 622 for C++), its rows in the language
 registry, and a fixture in the matrix.
 
+### Not supported yet
+
+These gaps come from [the language registry](mcp/stdio/language-registry.js). The registry test checks this block
+against its current rows, so changes cannot silently leave a stale support list here.
+
+<!-- registry-support:start -->
+- No live code-intel backend: `css`, `glsl`, `go`, `java`, `kotlin`, `php`, `ruby`, `rust`.
+- No static symbol extraction for these registered extensions: `.c++`, `.cp`, `.h++`, `.inc`, `.inl`, `.ipp`, `.kt`, `.pyi`.
+<!-- registry-support:end -->
+
+An extension absent from the registry has no registered symbol-extraction or live code-intel support.
+Whole-file content watching is separate. An extractor being present does not establish coverage of unmeasured
+constructs; use the construct table above for what has been tested.
+
+If you need it, tell the operator or file an issue in [zimdin12/aify-project-graph](https://github.com/zimdin12/aify-project-graph/issues).
+
 Project-level escape hatches at repo root:
 - `.gitignore` — add `.aify-graph/` here so derived graph state is not committed
 - `.aifyignore` — additional dirs or path/glob patterns to exclude on top of defaults
