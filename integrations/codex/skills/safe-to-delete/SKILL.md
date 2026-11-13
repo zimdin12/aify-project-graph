@@ -27,7 +27,9 @@ reporting high confidence.
 compiler resolved. Those callers are real, they are not text matches, and you should not spend a
 grep re-checking them. Published measurement puts that precision at 1.00 against 0.76 for grep.
 
-So: the tools are for finding callers, and rg is for proving there are none.
+Use these tools to find callers. Resolve closure through the repository's current reference resolver
+and bounded manual checks. A text-search zero establishes only that searched population; it cannot
+close dynamic, generated or cross-language callers.
 
 ## Steps
 
