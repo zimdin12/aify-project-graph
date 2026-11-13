@@ -62,6 +62,14 @@ describe('the running suite is configured by vitest.config.js', () => {
       .toMatch(/pool\s*:\s*['"]forks['"]/);
   });
 
+  it('★★★ the shared-host worker budget is explicitly bounded at eight (#10)', async () => {
+    const config = (await import('../../vitest.config.js')).default;
+    const workers = config.test.maxWorkers;
+    expect(Number.isInteger(workers), 'an unset budget lets Vitest take all but one available CPU').toBe(true);
+    expect(workers).toBeGreaterThanOrEqual(1);
+    expect(workers).toBeLessThanOrEqual(8);
+  });
+
   it('★★★ real language-server files run in a serial tier that starts after the parallel tier finishes (#10)', async () => {
     // Workers cannot see the other project's settings, so this reads the config object. Concurrent clangd / tsserver
     // / pyright starve each other of CPU and a correct cross-file query fails; the lsp tier must be one fork, one

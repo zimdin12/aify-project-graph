@@ -1,7 +1,7 @@
 import { defineConfig, configDefaults } from 'vitest/config';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { tmpdir } from 'node:os';
+import { tmpdir, availableParallelism } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { REFUSALS_FILE } from './tests/helpers/temp-root.global.js';
 
@@ -90,6 +90,11 @@ export default defineConfig({
     // Membership is decided by behaviour: tests/helpers/unit-tier.setup.js makes starting a language server from the
     // unit tier throw and fail the run, so a file missing from LSP_TIER is caught, never quietly raced.
     fileParallelism: true,
+    // This host is shared: take at most a quarter of its available CPUs, capped at eight forks, at least one.
+    // Vitest's unset default selected 31/32 CPUs here. Three governing runs ended in onTaskUpdate RPC timeouts with
+    // only 553/564 files reported; the unchanged b5edad59 candidate passed 3/3 with VITEST_MAX_FORKS=8.
+    // Keep the work bounded rather than extending a timeout. The single-fork LSP tier and group ordering are unchanged.
+    maxWorkers: Math.max(1, Math.min(8, Math.floor(availableParallelism() / 4))),
     projects: [
       {
         extends: true,
