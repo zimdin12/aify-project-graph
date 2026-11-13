@@ -15,8 +15,8 @@
 // a harness summary. A harness notification has twice reported "exit code 0" for a RED suite in this
 // project, so the log carries VITEST_EXIT and the log is the authority.
 import { spawn, execFileSync } from 'node:child_process';
-import { createWriteStream, mkdirSync, copyFileSync, appendFileSync, readFileSync, rmSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { createWriteStream, mkdirSync, copyFileSync, appendFileSync, readFileSync, rmSync, existsSync } from 'node:fs';
+import { join, dirname, basename } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { classifyRunIntegrity } from './lib/suite-run-integrity.mjs';
@@ -147,8 +147,7 @@ child.on('close', (code) => {
     appendFileSync(SCRATCH, namedSkips());
     appendFileSync(SCRATCH, `\nSUITE FOR COMMIT ${headAtStart}\nFINISHED ${new Date().toISOString()}\nVITEST_EXIT=${code}\n`);
     copyFileSync(SCRATCH, DEST);
-    // The repo copy is the record. Both scratch files used to stay in the temp directory, two per gate run.
-    for (const scratch of [SCRATCH, RESULTS_JSON]) rmSync(scratch, { force: true });
+    rmSync(SCRATCH, { force: true }); // the finished repo log is the record
     console.log(`suite exit ${code} — log copied to docs/evidence/suite/latest.log`);
 
     // ⛔⛔ DID THE TREE HOLD STILL? The entry check refuses a dirty START and then never looks again,
@@ -160,10 +159,19 @@ child.on('close', (code) => {
       headAtStart,
       headAtEnd: readHead(),
       dirtyAtEnd: readDirty()?.map((row) => row.path) ?? null,
-      // The copy two lines above put this file there. Without naming it the guard would void every
-      // run, which is how a check becomes noise.
+      // The completed log was copied above. JSON retention happens only after this integrity measurement.
       expectedWrites: ['docs/evidence/suite/latest.log'],
     });
+    if (code === 0 && integrity.valid) {
+      rmSync(RESULTS_JSON, { force: true });
+    } else if (existsSync(RESULTS_JSON)) {
+      // A failed run's JSON identifies unreported files. Three RPC-timeout runs lost that evidence on 2026-11-13.
+      // Retain invalid runs too: vitest exiting zero is not enough to call a moving-tree run green.
+      const retained = `docs/evidence/suite/${basename(RESULTS_JSON)}`;
+      copyFileSync(RESULTS_JSON, join(REPO, retained)); // temp and repo may be on different volumes
+      rmSync(RESULTS_JSON); // remove only the temp copy after retention succeeds
+      console.log(`failed-run JSON report retained at ${retained}`);
+    }
     if (!integrity.valid) {
       console.error(`\n⛔ VOID — ${integrity.reason}.`);
       console.error('This run measured a moving target, so its exit code says nothing about any commit.');
