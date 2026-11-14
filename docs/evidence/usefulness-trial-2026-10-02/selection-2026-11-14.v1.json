@@ -1,0 +1,141 @@
+{
+  "version": 1,
+  "date": "2026-11-14",
+  "scope": "Frozen candidate selection and conflict audit only. Not authorized or certified for execution.",
+  "populationHead": "c3dbb3ebd2ec44fc26a1f82c120d1f0536521be4",
+  "map": {
+    "created": "59cbae3a6c77d673960562b90a67c18a5e99d8b5",
+    "imported": "550643ef8379b78517c918b6e2e71b3914426226",
+    "path": ".aify-graph/functionality.json",
+    "blob": "89bd13b5299742b0bf225ab4abc0cf03242d344f"
+  },
+  "protocol": {
+    "repository": "aify-dashboard",
+    "revision": "2c1a2589084a17465d8ae7b3ca3681b2eed1dd41",
+    "path": "docs/PREREGISTRATION-v0.8.md",
+    "blob": "3c2306300282bed4d5631c7e7c5dc9e3fe679067",
+    "taskCount": 8,
+    "maximumPerFeature": 3
+  },
+  "audit": {
+    "eligibilityCertified": false,
+    "reviewBoundary": "Positive authoring events and targeted recorded reviews were inspected. The available history does not establish a complete exclusion of grader participation for these eight. Zero search hits and a shared Git byline do not close that gap.",
+    "historicalTranscript": "d8ba8de3-22d0-4a21-b690-2b74722f7e8e.jsonl",
+    "transcriptCutoffExclusive": "2026-11-14T06:00:00Z",
+    "verdictDefinitions": {
+      "CLEAR": "Authorship and review independence established for the selected merged solution.",
+      "EXCLUDE": "Recorded grader authorship or review of the selected merged solution.",
+      "UNVERIFIED": "Evidence inspected but independence remains unresolved. Does not count toward the eligible eight."
+    }
+  },
+  "excluded": [
+    {
+      "commit": "72996bce49b95f530b5d32396558410199efcbfb",
+      "verdict": "EXCLUDE",
+      "evidence": "Commit body credits grader pre-code review shaping the fixed-point closure. Recorded post-merge review 1790384296417-022901c6 was also read."
+    },
+    {
+      "commit": "27c5c4224165caae72709269e8134c3f47cf9aed",
+      "verdict": "EXCLUDE",
+      "evidence": "Review 1790392117036-5d4e369a assesses existsWithExactCase in descendant 7933c475. path-exists.js has the same blob at both commits: 905a6f09f6faf1fb3b17a960f6ef2c8c29fcd684. The commit-name screen did not flag this conflict."
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T1",
+      "commit": "6a367db8dccd7c3ee7598a285135661e9b183c7e",
+      "base": "813f7c428a15156b86682be072cbf9d2182fdf5f",
+      "change": "Reject option-like /api/diff bases and distinguish unknown revisions.",
+      "featureIds": ["dashboard"],
+      "fileAnchor": "mcp/stdio/dashboard/server.js",
+      "authoringEvidence": "Parent-session source/test edits, last event 2bc732ec-db1b-4943-b41c-0f0553663286@222885; commit call 9e494029-1c63-47ff-9c81-a75016cb0b7b@222895; result fb43fcd0-ddcc-44b3-aa7a-b9237fa26b31@222905.",
+      "reviewRecordsRead": ["1788843607137-4835246a", "1779459116983-e61d05f3"],
+      "reviewFinding": "Older dashboard and /api/diff reviews concern different changes. They do not establish review of this later base-option fix, nor prove independence.",
+      "verdict": "UNVERIFIED"
+    },
+    {
+      "id": "T2",
+      "commit": "bfafcdcbe3abb466709270b0aad94cfdad48d3f9",
+      "base": "75a704b43199e3292f123daad47aa18814a32ff4",
+      "change": "Enforce viewer Host admission and remove ACAO:null.",
+      "featureIds": ["dashboard"],
+      "fileAnchor": "mcp/stdio/dashboard/server.js",
+      "authoringEvidence": "Production patch event 8da8fd85-11d5-4a7f-aa52-7c568263b33c@220517 and test Write 9dd6e895-d967-4709-a540-cf6acd8cc25d@220498 were read. Commit call d84c5da2-3976-4247-bbf5-e66e29a2e034@220545; COMMIT=bfafcdcb result 4b66c49a-c8cb-40a0-a06a-053986ab5bb0@220546.",
+      "reviewRecordsRead": ["1788847191291-a9492c40", "1779459116983-e61d05f3"],
+      "reviewFinding": "Older viewer/route assessments are not automatically review of this Host/header patch. Targeted history inspection did not establish complete independence.",
+      "verdict": "UNVERIFIED"
+    },
+    {
+      "id": "T3",
+      "commit": "75a704b43199e3292f123daad47aa18814a32ff4",
+      "base": "9c7f61011e52974255bd184998b70d9a7be83fd2",
+      "change": "Derive the C++ coverage denominator extensions from the collector owner.",
+      "featureIds": ["lsp-trust-spine"],
+      "fileAnchor": "mcp/stdio/query/verbs/collect_code_intel.js",
+      "authoringEvidence": "Parent-session source/test updates, last ba13afb8-09a1-4acb-b0a5-1536e9e65a5c@220456; native commit call 87e9f97f-2246-4216-9a17-d42bdb16e8e8@220464. Actual diff imports CPP_EXTENSIONS instead of copying a list.",
+      "reviewRecordsRead": ["1788122644412-acd69756", "1791193580949-1e731ccd"],
+      "reviewFinding": "Collector-budget advice and rehearsal health-ratio grading concern other solutions. No task-specific positive conflict found in the inspected records; the complete review history remains unestablished.",
+      "verdict": "UNVERIFIED"
+    },
+    {
+      "id": "T4",
+      "commit": "702b54c02c8731f088ccdfa8c052ba38a142d0c0",
+      "base": "aa2b7648c3d076a58288dbb70ce81557b031d7e1",
+      "change": "Refuse unmapped file extensions instead of silently choosing clangd.",
+      "featureIds": ["live-code-intel"],
+      "fileAnchor": "mcp/stdio/code-intel/backends.js",
+      "authoringEvidence": "Direct parent edits cb6d00ff-5d3e-4ad5-8959-eed0e19d1e57@219527 through 259acf9a-94dd-482f-a978-9e9fd7ee3477@219655; native commit call 9f201ce3-e132-42a8-bc2c-33a5df35c86d@219713. Actual backend/live/hierarchy diffs were read.",
+      "reviewRecordsRead": ["1790961322921-318193f7"],
+      "reviewFinding": "Grader acceptance establishes the role and exclusion rule, not independence for this solution. Commit/topic searches alone cannot clear it.",
+      "verdict": "UNVERIFIED"
+    },
+    {
+      "id": "T5",
+      "commit": "16aa04e3cd06bdc37fd7212dd57b1478040a146e",
+      "base": "ec4bfe3a9ee5a3e748144fe24f6c3190c0b7ae3a",
+      "change": "Share LSP record helpers and normalize missing ranges to null.",
+      "featureIds": ["live-code-intel"],
+      "fileAnchor": "mcp/stdio/query/verbs/code_intel_live.js",
+      "authoringEvidence": "Direct parent edit f80f7e1a-fc3f-4d60-903f-7a0ab6ec89a6@223525; commit call 62c321b1-d74e-490c-a3fc-de778075de4c@223558 and result 59c94f5b-edd9-4713-a666-09aa0f41287b@223559. Shared lsp-records.js and consumer diffs were read.",
+      "reviewRecordsRead": ["1788250092284-9e8dc395", "1788247783466-740221b3"],
+      "reviewFinding": "Earlier rangeFromLsp discussion concerns C++ coherence and one-based positions, not necessarily this later shared-owner extraction. Outbound message source was read at transcript event 0a8fed48-5dcd-46e9-abdf-130e25950a6d@119989. This does not settle all review history.",
+      "verdict": "UNVERIFIED"
+    },
+    {
+      "id": "T6",
+      "commit": "bfe62b498a8cb0157f27f66007144d53104594f2",
+      "base": "85aa0156cd7fa44809b170884a2a662879ab0555",
+      "change": "Serve serial host requests and retain/close owned LSP sessions.",
+      "featureIds": ["live-code-intel"],
+      "fileAnchor": "mcp/stdio/code-intel/live.js",
+      "authoringEvidence": "Parent-session writes cover all six changed files, events 2c1f499f-08de-4dc2-9333-d6973659a43e@231222 through 1748a7cb-3903-4465-826a-697900d552a7@231994. Commit call f67c7a83-cc4d-46db-af14-4527c1b17048@232385; result 9159e7b2-7215-4dbb-8664-98dbc1ebef9c@232386.",
+      "reviewRecordsRead": ["1790804679823-a0e5626d"],
+      "reviewFinding": "Full earlier review, forwarded in 1794665852160-914758ae, only inspected anchor-resolver.mjs at 28a73b07. It did not mention apg provide or review this worker. That disproves the loose search-hit interpretation, not every possible conflict.",
+      "verdict": "UNVERIFIED"
+    },
+    {
+      "id": "T7",
+      "commit": "d8c946ad0e68934aa5cf76f7245e9dd78f89d32e",
+      "base": "c140d14038741a178a30cfb5137b686fb765d65f",
+      "change": "Make the packet live-enrichment timeout budget injectable while retaining its default.",
+      "featureIds": ["context-packets"],
+      "fileAnchor": "mcp/stdio/query/verbs/packet-live.js",
+      "authoringEvidence": "Production patch 38206ebd-77f6-4ac6-957a-80b1afb763c7@201641 and test writes 9b319b72-a4d7-4d29-893e-d01b52c9dc61@201595 / bb2944df-74e8-4765-b57e-958d6cb5815a@201631 were read. Commit call 3164135a-4170-4109-9fd4-8bd903ab852c@201732; result 75629223-2d64-4664-8e9c-4fef2d535c99@201733.",
+      "reviewRecordsRead": ["1788122644412-acd69756", "1788250092284-9e8dc395"],
+      "reviewFinding": "Earlier collector/index-wait budget discussions concern a different call path. They neither establish a task-specific conflict nor complete independence for packet enrichLive.",
+      "verdict": "UNVERIFIED"
+    },
+    {
+      "id": "T8",
+      "commit": "a0d5b13146c8408345ea94ade689c52e8f6cceb8",
+      "base": "6a93a5296f92f4f33f3050080cbb215de9a7c768",
+      "change": "Give CODE_NODE_TYPES one taxonomy owner instead of local copies.",
+      "featureIds": ["health-and-trust"],
+      "fileAnchor": "mcp/stdio/query/verbs/health.js",
+      "authoringEvidence": "Parent-session source/test updates 51afb640-2a77-4943-9f3b-2744960423dd@194425 through 0016a555-a152-4780-971c-f91a40523616@195457; native commit creation d7abbf64-c819-47c5-93f3-497455f3a286@195475. Later Git observation fa1d7de5-27a3-41fc-87a7-733b7312a1a3@195507 is not creation evidence.",
+      "reviewRecordsRead": ["1791193580949-1e731ccd"],
+      "reviewFinding": "Rehearsal T2 graded earlier health-ratio fix dcda0f71, not this subsequent taxonomy-owner extraction. Same-file familiarity is not a positive conflict, but does not prove complete independence.",
+      "verdict": "UNVERIFIED"
+    }
+  ]
+}
