@@ -12,6 +12,10 @@ async function main() {
       const { runIndexCmd } = await import('../scripts/lib/apg-index.mjs');
       return runIndexCmd(argv.slice(1));
     }
+    case 'provide': {
+      const { runProvide } = await import('../scripts/lib/provider-worker.mjs');
+      return runProvide(argv.slice(1));
+    }
     case 'features': {
       const { runFeaturesCmd } = await import('../mcp/stdio/overlay/features-cmd.js');
       return runFeaturesCmd(argv.slice(1));
@@ -33,6 +37,7 @@ async function main() {
       console.log('Subcommands:');
       console.log('  index [dir]         Build the code graph at the git top level of dir (default: here)');
       console.log('  code-intel <op>     Code-intel provider commands (collect, doctor)');
+      console.log('  provide             Serve JSON-lines provider requests on stdin/stdout');
       console.log('  features <op>       Feature map: status (changed since confirmed), confirm <id>...|--all --by <who>');
       console.log('  --version           Print version');
       return 0;

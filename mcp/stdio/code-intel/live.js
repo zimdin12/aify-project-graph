@@ -11,6 +11,7 @@ import { LspClient } from './lsp-client.js';
 import { getBackend, normalizeLanguage } from './backends.js';
 
 const SESSIONS = new Map();
+let retainers = 0;
 // In-flight start promises, keyed the same as SESSIONS. Audit 2026-06-12: two
 // concurrent verb calls for the same (language, projectRoot) both awaited
 // client.start() and both SESSIONS.set — the loser's spawned server was
@@ -36,6 +37,7 @@ export function idleMsFrom(env = process.env) {
 // keep the process alive.
 function armIdle(key, session) {
   clearTimeout(session.idleTimer);
+  if (retainers > 0) return;
   session.idleTimer = setTimeout(() => {
     if (SESSIONS.get(key) !== session) return;
     if (session.client.pending?.size > 0) { armIdle(key, session); return; }
@@ -122,6 +124,19 @@ export async function getLiveSession({ language, projectRoot, spawn } = {}) {
   } finally {
     STARTING.delete(key);
   }
+}
+
+/** The host worker owns session lifetime until stdin closes. Standalone MCP sessions keep their idle policy. */
+export function retainLiveSessions() {
+  retainers += 1;
+  for (const session of SESSIONS.values()) clearTimeout(session.idleTimer);
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    retainers -= 1;
+    if (retainers === 0) for (const [key, session] of SESSIONS) armIdle(key, session);
+  };
 }
 
 export async function shutdownAllSessions() {
