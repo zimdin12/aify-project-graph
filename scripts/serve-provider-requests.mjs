@@ -10,12 +10,9 @@
 // project. Configuration is environment variables, read by scripts/lib/provider-runtime.mjs: APG_DASHBOARD_URL,
 // APG_DASHBOARD_KEY or APG_DASHBOARD_ENV, APG_DASHBOARD_PROJECT, APG_DASHBOARD_HOST, APG_DASHBOARD_REPORTER.
 //
-// ⛔ EVERYTHING IS READ AT THE COMMIT, NOT THE WORKING TREE (`git show <head>:<path>`, DESIGN-GRAPHS amendment 2), so
-// a developer's uncommitted edits neither change an answer nor make it fail. That is why, unlike the sweep, this
-// does not refuse a dirty tree.
-// ⚠ EXCEPT `subgraph`, which reads the graph INDEX, read-only. The index describes whatever it was last built from,
-// so that answer names its own commit beside HEAD and says `stale`, with the reason, when they differ or when the
-// index was built over uncommitted changes.
+// stamp and resolve read committed contents with git show. Graph-backed calls read the attested index without
+// refreshing it and disclose its commit and staleness. references and definitions ask the language server about
+// the WORKING TREE and say so in their answers. A dirty working tree is therefore not a blanket refusal.
 //
 // ⛔ A CLAIMED REQUEST IS ALWAYS ANSWERED, `ok: false` with the reason when it cannot be served, never left to
 // expire. An expired claim goes back to the queue for somebody else, who would get the same non-answer later.
@@ -23,11 +20,11 @@
 // EXIT CODES ARE THE SCHEDULER'S WHOLE INTERFACE (scripts/lib/serve-exit.mjs, agreed with dashboard-manager):
 //   0 fine, including nothing claimed · 2 stop until the configuration is fixed · 3 try again next tick ·
 //   1 unexpected, a bug. Several outcomes in one run: the most severe wins.
-import { resolveAnchor } from './lib/anchor-resolver.mjs';
 import { DashboardSignalsClient, SignalsRefused, resultBody, isNoAnswer } from './lib/dashboard-signals-client.mjs';
-import { makeInstruments, readProviderConfig, headOf } from './lib/provider-runtime.mjs';
+import { readProviderConfig } from './lib/provider-runtime.mjs';
 import { answerRequest } from './lib/provider-requests.mjs';
-import { readSubgraph } from './lib/provider-subgraph.mjs';
+import { providerReaders, readProviderRepository } from './lib/provider-readers.mjs';
+import { shutdownAllSessions } from '../mcp/stdio/code-intel/live.js';
 import { exitForRun } from './lib/serve-exit.mjs';
 
 const repoRoot = process.cwd();
@@ -60,15 +57,18 @@ async function main() {
   let limit;
   let client;
   let head;
+  let repository;
   try {
     ({ limit } = parseArgs(process.argv.slice(2)));
     client = new DashboardSignalsClient(readProviderConfig());
-    head = headOf(repoRoot);
+    repository = readProviderRepository(repoRoot);
+    if (!repository.ok) throw new Error(repository.problem);
+    head = repository.head;
   } catch (error) {
     console.error(`serve-provider-requests: ${error.message}`);
     return exitForRun([{ kind: 'config' }]);
   }
-  const instruments = makeInstruments(repoRoot, { at: head });
+  const readers = providerReaders({ repoRoot: repository.repoRoot, head });
   console.log(`endpoint      ${client.describe()}`);
   console.log(`host          ${client.hostKey}`);
   console.log(`head          ${head}`);
@@ -87,12 +87,7 @@ async function main() {
   const failures = [];
   for (const request of claimed) {
     const answer = request.projectId === client.projectId
-      ? answerRequest({
-        request,
-        resolveItem: (item) => resolveAnchor({ repoRoot, item, deps: instruments }),
-        readSubgraph: (parsed) => readSubgraph({ repoRoot, request: parsed, head }),
-        head,
-      })
+      ? await answerRequest({ request, ...readers, head })
       // The claim is scoped to this project, so this needs a misbehaving service. Answered, not dropped.
       : { ok: false, problem: `this host serves project ${client.projectId}, not ${request.projectId}`, provenance: null };
     // Logged from the body as sent: an answer over the service's size cap goes out as a refusal, not as itself.
@@ -117,5 +112,7 @@ try {
 } catch (error) {
   console.error(`serve-provider-requests: unexpected: ${error.stack ?? error.message}`);
   code = exitForRun([{ kind: 'unexpected' }]);
+} finally {
+  await shutdownAllSessions();
 }
 process.exit(code);

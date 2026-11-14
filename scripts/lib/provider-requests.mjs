@@ -9,6 +9,9 @@
 // say who computed it and how much they saw.
 
 import { parseSubgraphArgs, SUBGRAPH_HOW } from './provider-subgraph.mjs';
+import { LOOKUP_CALLS, parseLookupArgs, LOOKUP_HOW } from './provider-lookups.mjs';
+import { LIVE_CALLS, parseLiveArgs, LIVE_HOW } from './provider-live.mjs';
+import { repoRelativeProblem } from './provider-paths.mjs';
 
 /**
  * The answer format, published in docs/schemas/provider-answer.v1.schema.json (#1). Every ok value carries it, so a
@@ -29,25 +32,45 @@ const CALLS = Object.freeze({
     { stamps: anchors.map((anchor, i) => stampEntry(anchor, outcomes[i], head)) })),
   resolve: ({ args, deps }) => byAnchor(args, deps, (anchors, outcomes) => (
     { results: anchors.map((anchor, i) => resolveEntry(anchor, outcomes[i])) })),
-  subgraph: ({ args, deps }) => {
-    const parsed = parseSubgraphArgs(args);
-    if (!parsed.ok) return { ok: false, problem: parsed.problem, how: SUBGRAPH_HOW };
-    const read = deps.readSubgraph(parsed.value);
-    if (read.ok) return { ok: true, value: read.value, how: SUBGRAPH_HOW };
-    // A refusal's code, and for `no_index` its enable steps, travel as a value a reader can act on (#2).
-    const value = read.reasonCode ? { reasonCode: read.reasonCode, ...(read.enable ? { enable: read.enable } : {}) } : undefined;
-    return { ok: false, problem: read.problem, ...(value ? { value } : {}), how: SUBGRAPH_HOW };
-  },
+  subgraph: ({ args, deps }) => byRead(parseSubgraphArgs(args), deps.readSubgraph, SUBGRAPH_HOW),
+  ...Object.fromEntries(LOOKUP_CALLS.map((call) => [call, ({ args, deps }) =>
+    byRead(parseLookupArgs(call, args), deps.readLookup && ((parsed) => deps.readLookup(call, parsed)), LOOKUP_HOW)])),
+  ...Object.fromEntries(LIVE_CALLS.map((call) => [call, ({ args, deps }) =>
+    byRead(parseLiveArgs(args), deps.readLive && ((parsed) => deps.readLive(call, parsed)), LIVE_HOW)])),
 });
+
+export const PROVIDER_CALLS = Object.freeze(Object.keys(CALLS));
+
+/** Parse before touching a reader. Readers may be async, but all answers share one completion path. */
+function byRead(parsed, reader, how) {
+  if (!parsed.ok) return readerAnswer(parsed, how);
+  if (typeof reader !== 'function') return readerAnswer({ ok: false, problem: 'this provider has no reader for the call', reasonCode: 'reader_unavailable' }, how);
+  const failed = (error) => readerAnswer({ ok: false, problem: `the reader could not answer: ${error?.message ?? String(error)}`, reasonCode: 'reader_failed' }, how);
+  try {
+    const read = reader(parsed.value);
+    return typeof read?.then === 'function' ? read.then((result) => readerAnswer(result, how)).catch(failed) : readerAnswer(read, how);
+  } catch (error) { return failed(error); }
+}
+
+function readerAnswer(read, how) {
+  if (read.ok) return { ok: true, value: read.value, how };
+  const value = read.reasonCode ? { reasonCode: read.reasonCode } : undefined;
+  for (const key of ['enable', 'candidates', 'matched', 'truncated']) {
+    if (value && read[key] !== undefined) value[key] = read[key];
+  }
+  return { ok: false, problem: read.problem, ...(value ? { value } : {}), how };
+}
 
 /**
  * @param request      { call, args } as claimed
  * @param resolveItem  (item) => the anchor resolver's verdict for { watchId, anchor, stamp }
  * @param readSubgraph (parsedArgs) => provider-subgraph.mjs readSubgraph for this repository at `head`
- * @param head         the commit everything was read at
- * @returns {{ ok: true, value, provenance } | { ok: false, problem, provenance }}
+ * @param readLookup   (call, parsedArgs) => a synchronous graph lookup
+ * @param readLive     (call, parsedArgs) => a promise of a working-tree LSP answer
+ * @param head         repository HEAD; graph and live answers disclose their distinct observation basis
+ * @returns An answer envelope, or a promise of one for a live reader. Existing synchronous calls stay synchronous.
  */
-export function answerRequest({ request, resolveItem, readSubgraph, head }) {
+export function answerRequest({ request, resolveItem, readSubgraph, readLookup, readLive, head }) {
   const call = request?.call;
   if (!Object.hasOwn(CALLS, call)) {
     return {
@@ -56,9 +79,12 @@ export function answerRequest({ request, resolveItem, readSubgraph, head }) {
       provenance: provenanceOf(HOW, head),
     };
   }
-  const { how, ...answer } = CALLS[call]({ args: request?.args, deps: { resolveItem, readSubgraph }, head });
-  const versioned = answer.value === undefined ? answer : { ...answer, value: { formatVersion: PROVIDER_FORMAT_VERSION, ...answer.value } };
-  return { ...versioned, provenance: provenanceOf(how, head) };
+  const answer = CALLS[call]({ args: request?.args, deps: { resolveItem, readSubgraph, readLookup, readLive }, head });
+  const finish = ({ how, ...result }) => {
+    const versioned = result.value === undefined ? result : { ...result, value: { formatVersion: PROVIDER_FORMAT_VERSION, ...result.value } };
+    return { ...versioned, provenance: provenanceOf(how, head) };
+  };
+  return typeof answer?.then === 'function' ? answer.then(finish) : finish(answer);
 }
 
 const provenanceOf = (how, head) => ({ providerCommit: head, exhaustive: false, provenance: how });
@@ -79,6 +105,8 @@ function anchorsProblem(anchors) {
   if (anchors.length === 0) return 'args.anchors is empty: there is nothing to answer';
   const bad = anchors.findIndex((a) => a === null || typeof a !== 'object' || Array.isArray(a));
   if (bad !== -1) return `args.anchors[${bad}] is not an anchor object`;
+  const unsafe = anchors.findIndex((a) => typeof a.path === 'string' && repoRelativeProblem(a.path) !== null);
+  if (unsafe !== -1) return `args.anchors[${unsafe}].path must be repository-relative`;
   return null;
 }
 

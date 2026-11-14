@@ -9,7 +9,7 @@
 // without it (queue.ts provenanceFrom). exhaustive is false: a tree-sitter extraction is not a full build.
 import { describe, it, expect } from 'vitest';
 import { resolveAnchor, STAMP_VERSIONS } from '../../../scripts/lib/anchor-resolver.mjs';
-import { answerRequest, PROVIDER_FORMAT_VERSION } from '../../../scripts/lib/provider-requests.mjs';
+import { answerRequest, PROVIDER_FORMAT_VERSION, PROVIDER_CALLS } from '../../../scripts/lib/provider-requests.mjs';
 import { SUBGRAPH_HOW } from '../../../scripts/lib/provider-subgraph.mjs';
 
 const HEAD = 'c'.repeat(40);
@@ -95,11 +95,20 @@ describe('what is refused outright, with the reason', () => {
     expect(seen[0].start).toEqual({ path: 'src/a.js' });
   });
 
+  it.each(['sync', 'async'])('a %s reader failure stays in band through the shared dispatcher', async (mode) => {
+    const fail = () => { throw new Error('fixture read failed'); };
+    const readLookup = mode === 'sync' ? fail : async () => fail();
+    const out = await answerRequest({ request: { call: 'find', args: { symbol: 'alpha' } }, readLookup, head: HEAD });
+    expect(out).toMatchObject({ ok: false, value: { formatVersion: PROVIDER_FORMAT_VERSION, reasonCode: 'reader_failed' } });
+    expect(out.problem).toContain('fixture read failed');
+    expect(out.provenance.exhaustive).toBe(false);
+  });
+
   it('★★★ a call this provider does not know, including the retired `signals`, is refused by name', () => {
     for (const call of ['signals', 'drop_tables', '']) {
       const out = ask(call, { anchors: [anchor('alpha')] });
       expect(out.ok, call).toBe(false);
-      expect(out.problem, call).toMatch(/not a call this provider answers \(it answers: stamp, resolve, subgraph\)/u);
+      expect(out.problem, call).toContain(`not a call this provider answers (it answers: ${PROVIDER_CALLS.join(', ')})`);
     }
   });
 

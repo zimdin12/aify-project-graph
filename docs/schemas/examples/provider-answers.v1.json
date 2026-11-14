@@ -1,6 +1,6 @@
 {
   "generator": "node scripts/provider-examples.mjs",
-  "head": "fdc9bf6e6656fcb0a330a1fce8ac605dd0a31f23",
+  "head": "0f7f320d537d15942bdec0f0e0d05ec8d50c7d88",
   "answers": {
     "stamp": {
       "ok": true,
@@ -16,7 +16,7 @@
             "stamp": {
               "hash": "687fccb07a749fafe76bff5c685ad64f7e652cb98892e3531c8d98dd63edfcb9",
               "stampVersion": "apg-symbol-shape-1",
-              "commit": "fdc9bf6e6656fcb0a330a1fce8ac605dd0a31f23"
+              "commit": "0f7f320d537d15942bdec0f0e0d05ec8d50c7d88"
             }
           },
           {
@@ -25,9 +25,9 @@
               "kind": "file"
             },
             "stamp": {
-              "hash": "54772f22ce3dcb10efa5d5181cab865736fdc46f0941699115261e3f185a9bf9",
+              "hash": "88eb82afb1df9612904379fa2e1a188d2c58135998092f496b216fa68cfb774e",
               "stampVersion": "apg-file-structural-1",
-              "commit": "fdc9bf6e6656fcb0a330a1fce8ac605dd0a31f23"
+              "commit": "0f7f320d537d15942bdec0f0e0d05ec8d50c7d88"
             }
           },
           {
@@ -36,12 +36,12 @@
               "kind": "file"
             },
             "refused": "gone",
-            "reason": "scripts/no-such-file.mjs is not present in commit fdc9bf6e6656, spelled exactly"
+            "reason": "scripts/no-such-file.mjs is not present in commit 0f7f320d537d, spelled exactly"
           }
         ]
       },
       "provenance": {
-        "providerCommit": "fdc9bf6e6656fcb0a330a1fce8ac605dd0a31f23",
+        "providerCommit": "0f7f320d537d15942bdec0f0e0d05ec8d50c7d88",
         "exhaustive": false,
         "provenance": "apg tree-sitter extraction of the commit (git show), not a full build"
       }
@@ -76,7 +76,7 @@
         ]
       },
       "provenance": {
-        "providerCommit": "fdc9bf6e6656fcb0a330a1fce8ac605dd0a31f23",
+        "providerCommit": "0f7f320d537d15942bdec0f0e0d05ec8d50c7d88",
         "exhaustive": false,
         "provenance": "apg tree-sitter extraction of the commit (git show), not a full build"
       }
@@ -85,13 +85,13 @@
       "ok": true,
       "value": {
         "formatVersion": 1,
-        "indexCommit": "fdc9bf6e6656fcb0a330a1fce8ac605dd0a31f23",
+        "indexCommit": "0f7f320d537d15942bdec0f0e0d05ec8d50c7d88",
+        "head": "0f7f320d537d15942bdec0f0e0d05ec8d50c7d88",
         "stale": false,
         "staleBecause": [],
-        "head": "fdc9bf6e6656fcb0a330a1fce8ac605dd0a31f23",
         "matched": {
-          "nodes": 30,
-          "edges": 59,
+          "nodes": 32,
+          "edges": 63,
           "dropped": {
             "external": 14
           }
@@ -230,16 +230,408 @@
         ]
       },
       "provenance": {
-        "providerCommit": "fdc9bf6e6656fcb0a330a1fce8ac605dd0a31f23",
+        "providerCommit": "0f7f320d537d15942bdec0f0e0d05ec8d50c7d88",
         "exhaustive": false,
         "provenance": "apg graph index, read-only (tree-sitter extraction; an edge is compiler-resolved only where its resolution says compiler)"
       }
     },
+    "find": {
+      "ok": true,
+      "value": {
+        "formatVersion": 1,
+        "indexCommit": "0f7f320d537d15942bdec0f0e0d05ec8d50c7d88",
+        "head": "0f7f320d537d15942bdec0f0e0d05ec8d50c7d88",
+        "stale": false,
+        "staleBecause": [],
+        "definitions": [
+          {
+            "id": "ec323531f1374fdac4d7190691b8c5703b6d49c4",
+            "kind": "Function",
+            "name": "resolveAnchor",
+            "qname": "scripts.lib.anchor-resolver.resolveAnchor",
+            "path": "scripts/lib/anchor-resolver.mjs",
+            "lineRange": [
+              207,
+              343
+            ],
+            "anchor": {
+              "kind": "symbol",
+              "path": "scripts/lib/anchor-resolver.mjs",
+              "name": "resolveAnchor"
+            }
+          }
+        ],
+        "matched": 1,
+        "withheld": {
+          "outsideRepository": 0
+        },
+        "truncated": false,
+        "searchedTypes": [
+          "Function",
+          "Method",
+          "Class",
+          "Interface",
+          "Type",
+          "Variable",
+          "Test",
+          "Route",
+          "Entrypoint"
+        ]
+      },
+      "provenance": {
+        "providerCommit": "0f7f320d537d15942bdec0f0e0d05ec8d50c7d88",
+        "exhaustive": false,
+        "provenance": "apg graph index, read-only (tree-sitter extraction; an edge is compiler-resolved only where its resolution says compiler); exact indexed declarations and one-hop execution edges, not repository absence"
+      }
+    },
+    "callers": {
+      "ok": true,
+      "value": {
+        "formatVersion": 1,
+        "indexCommit": "0f7f320d537d15942bdec0f0e0d05ec8d50c7d88",
+        "head": "0f7f320d537d15942bdec0f0e0d05ec8d50c7d88",
+        "stale": false,
+        "staleBecause": [],
+        "target": {
+          "id": "ec323531f1374fdac4d7190691b8c5703b6d49c4",
+          "kind": "Function",
+          "name": "resolveAnchor",
+          "qname": "scripts.lib.anchor-resolver.resolveAnchor",
+          "path": "scripts/lib/anchor-resolver.mjs",
+          "lineRange": [
+            207,
+            343
+          ],
+          "anchor": {
+            "kind": "symbol",
+            "path": "scripts/lib/anchor-resolver.mjs",
+            "name": "resolveAnchor"
+          }
+        },
+        "callers": [
+          {
+            "from": {
+              "id": "8353e84e7ff3573a2a2e3815b03c45999305ed8e",
+              "kind": "File",
+              "name": "anchor-resolver-ambiguity.test.js",
+              "qname": "tests/unit/scripts/anchor-resolver-ambiguity.test.js",
+              "path": "tests/unit/scripts/anchor-resolver-ambiguity.test.js",
+              "lineRange": [
+                1,
+                93
+              ],
+              "anchor": {
+                "kind": "file",
+                "path": "tests/unit/scripts/anchor-resolver-ambiguity.test.js"
+              }
+            },
+            "to": {
+              "id": "ec323531f1374fdac4d7190691b8c5703b6d49c4",
+              "kind": "Function",
+              "name": "resolveAnchor",
+              "qname": "scripts.lib.anchor-resolver.resolveAnchor",
+              "path": "scripts/lib/anchor-resolver.mjs",
+              "lineRange": [
+                207,
+                343
+              ],
+              "anchor": {
+                "kind": "symbol",
+                "path": "scripts/lib/anchor-resolver.mjs",
+                "name": "resolveAnchor"
+              }
+            },
+            "type": "CALLS",
+            "provenance": "EXTRACTED",
+            "resolution": "name",
+            "confidence": 0.9
+          },
+          {
+            "from": {
+              "id": "31f30d3356f316ab351414065d7deddcd33d674f",
+              "kind": "File",
+              "name": "anchor-resolver-causes.test.js",
+              "qname": "tests/unit/scripts/anchor-resolver-causes.test.js",
+              "path": "tests/unit/scripts/anchor-resolver-causes.test.js",
+              "lineRange": [
+                1,
+                133
+              ],
+              "anchor": {
+                "kind": "file",
+                "path": "tests/unit/scripts/anchor-resolver-causes.test.js"
+              }
+            },
+            "to": {
+              "id": "ec323531f1374fdac4d7190691b8c5703b6d49c4",
+              "kind": "Function",
+              "name": "resolveAnchor",
+              "qname": "scripts.lib.anchor-resolver.resolveAnchor",
+              "path": "scripts/lib/anchor-resolver.mjs",
+              "lineRange": [
+                207,
+                343
+              ],
+              "anchor": {
+                "kind": "symbol",
+                "path": "scripts/lib/anchor-resolver.mjs",
+                "name": "resolveAnchor"
+              }
+            },
+            "type": "CALLS",
+            "provenance": "EXTRACTED",
+            "resolution": "name",
+            "confidence": 0.9
+          },
+          {
+            "from": {
+              "id": "489abee91f8efe1bf5f2ba6058dde2c023af7234",
+              "kind": "File",
+              "name": "anchor-resolver.test.js",
+              "qname": "tests/unit/scripts/anchor-resolver.test.js",
+              "path": "tests/unit/scripts/anchor-resolver.test.js",
+              "lineRange": [
+                1,
+                426
+              ],
+              "anchor": {
+                "kind": "file",
+                "path": "tests/unit/scripts/anchor-resolver.test.js"
+              }
+            },
+            "to": {
+              "id": "ec323531f1374fdac4d7190691b8c5703b6d49c4",
+              "kind": "Function",
+              "name": "resolveAnchor",
+              "qname": "scripts.lib.anchor-resolver.resolveAnchor",
+              "path": "scripts/lib/anchor-resolver.mjs",
+              "lineRange": [
+                207,
+                343
+              ],
+              "anchor": {
+                "kind": "symbol",
+                "path": "scripts/lib/anchor-resolver.mjs",
+                "name": "resolveAnchor"
+              }
+            },
+            "type": "CALLS",
+            "provenance": "EXTRACTED",
+            "resolution": "name",
+            "confidence": 0.9
+          },
+          {
+            "from": {
+              "id": "ee99050cb35e5038106eba8d060576eaffa09117",
+              "kind": "Function",
+              "name": "ask",
+              "qname": "scripts.provider-examples.ask",
+              "path": "scripts/provider-examples.mjs",
+              "lineRange": [
+                17,
+                22
+              ],
+              "anchor": {
+                "kind": "symbol",
+                "path": "scripts/provider-examples.mjs",
+                "name": "ask"
+              }
+            },
+            "to": {
+              "id": "ec323531f1374fdac4d7190691b8c5703b6d49c4",
+              "kind": "Function",
+              "name": "resolveAnchor",
+              "qname": "scripts.lib.anchor-resolver.resolveAnchor",
+              "path": "scripts/lib/anchor-resolver.mjs",
+              "lineRange": [
+                207,
+                343
+              ],
+              "anchor": {
+                "kind": "symbol",
+                "path": "scripts/lib/anchor-resolver.mjs",
+                "name": "resolveAnchor"
+              }
+            },
+            "type": "CALLS",
+            "provenance": "EXTRACTED",
+            "resolution": "name",
+            "confidence": 0.9
+          },
+          {
+            "from": {
+              "id": "775befc693c09ce53940f567e49185362a0686a6",
+              "kind": "Function",
+              "name": "ask",
+              "qname": "tests.unit.scripts.provider-answer-schema.test.ask",
+              "path": "tests/unit/scripts/provider-answer-schema.test.js",
+              "lineRange": [
+                29,
+                31
+              ],
+              "anchor": {
+                "kind": "symbol",
+                "path": "tests/unit/scripts/provider-answer-schema.test.js",
+                "name": "ask"
+              }
+            },
+            "to": {
+              "id": "ec323531f1374fdac4d7190691b8c5703b6d49c4",
+              "kind": "Function",
+              "name": "resolveAnchor",
+              "qname": "scripts.lib.anchor-resolver.resolveAnchor",
+              "path": "scripts/lib/anchor-resolver.mjs",
+              "lineRange": [
+                207,
+                343
+              ],
+              "anchor": {
+                "kind": "symbol",
+                "path": "scripts/lib/anchor-resolver.mjs",
+                "name": "resolveAnchor"
+              }
+            },
+            "type": "CALLS",
+            "provenance": "EXTRACTED",
+            "resolution": "name",
+            "confidence": 0.9
+          }
+        ],
+        "matched": 17,
+        "withheld": {
+          "outsideRepository": {
+            "targets": 0,
+            "callers": 0
+          }
+        },
+        "truncated": true,
+        "locationKind": "caller_declaration",
+        "searchedRelations": [
+          "CALLS",
+          "INVOKES",
+          "PASSES_THROUGH"
+        ],
+        "unsearchedRelations": [
+          "REFERENCES"
+        ]
+      },
+      "provenance": {
+        "providerCommit": "0f7f320d537d15942bdec0f0e0d05ec8d50c7d88",
+        "exhaustive": false,
+        "provenance": "apg graph index, read-only (tree-sitter extraction; an edge is compiler-resolved only where its resolution says compiler); exact indexed declarations and one-hop execution edges, not repository absence"
+      }
+    },
+    "references": {
+      "ok": true,
+      "value": {
+        "formatVersion": 1,
+        "file": "scripts/lib/anchor-resolver.mjs",
+        "position": {
+          "line": 207,
+          "col": 17
+        },
+        "observed": "working_tree",
+        "resultState": "not_found_after_retry",
+        "freshness": "unknown",
+        "references": [],
+        "declarations": [
+          {
+            "path": "scripts/lib/anchor-resolver.mjs",
+            "range": {
+              "start": {
+                "line": 207,
+                "col": 17
+              },
+              "end": {
+                "line": 207,
+                "col": 30
+              }
+            },
+            "provenance": "ts-langserver@live"
+          }
+        ],
+        "declarationSource": "definition_request",
+        "matched": {
+          "references": 0,
+          "declarations": 1
+        },
+        "withheld": {
+          "outsideRepository": {
+            "references": 0,
+            "declarations": 0
+          }
+        },
+        "truncated": false,
+        "evidence": {
+          "exhaustive": false,
+          "fallback": "Read the working-tree source and search the repository before making an absence, deletion or rename decision.",
+          "ready": false,
+          "cause": "cold_index",
+          "confidence": "low",
+          "contractVersion": 2
+        }
+      },
+      "provenance": {
+        "providerCommit": "0f7f320d537d15942bdec0f0e0d05ec8d50c7d88",
+        "exhaustive": false,
+        "provenance": "apg live language server over the working tree, not the commit (locations are compiler-resolved; the set is a floor, never complete)"
+      }
+    },
+    "definitions": {
+      "ok": true,
+      "value": {
+        "formatVersion": 1,
+        "file": "scripts/lib/anchor-resolver.mjs",
+        "position": {
+          "line": 207,
+          "col": 17
+        },
+        "observed": "working_tree",
+        "freshness": "unknown",
+        "definitions": [
+          {
+            "path": "scripts/lib/anchor-resolver.mjs",
+            "range": {
+              "start": {
+                "line": 207,
+                "col": 17
+              },
+              "end": {
+                "line": 207,
+                "col": 30
+              }
+            },
+            "provenance": "ts-langserver@live"
+          }
+        ],
+        "matched": {
+          "definitions": 1
+        },
+        "withheld": {
+          "outsideRepository": {
+            "definitions": 0
+          }
+        },
+        "truncated": false,
+        "evidence": {
+          "exhaustive": false,
+          "fallback": "Read the working-tree source and search the repository before making an absence, deletion or rename decision.",
+          "ready": false,
+          "cause": "unknown",
+          "confidence": "medium"
+        }
+      },
+      "provenance": {
+        "providerCommit": "0f7f320d537d15942bdec0f0e0d05ec8d50c7d88",
+        "exhaustive": false,
+        "provenance": "apg live language server over the working tree, not the commit (locations are compiler-resolved; the set is a floor, never complete)"
+      }
+    },
     "refusal": {
       "ok": false,
-      "problem": "\"signals\" is not a call this provider answers (it answers: stamp, resolve, subgraph)",
+      "problem": "\"signals\" is not a call this provider answers (it answers: stamp, resolve, subgraph, find, callers, references, definitions)",
       "provenance": {
-        "providerCommit": "fdc9bf6e6656fcb0a330a1fce8ac605dd0a31f23",
+        "providerCommit": "0f7f320d537d15942bdec0f0e0d05ec8d50c7d88",
         "exhaustive": false,
         "provenance": "apg tree-sitter extraction of the commit (git show), not a full build"
       }
