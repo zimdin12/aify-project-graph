@@ -16,13 +16,9 @@
 //
 // ⛔ `stale` IS SAID, NEVER HIDDEN. The index describes the commit it was built at, which can be behind HEAD. The
 // answer names both commits and why they differ. Refreshing is the host's job, on commit.
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-
-import { captureExistingSnapshot } from '../../mcp/stdio/storage/db.js';
-import { ATTESTATION, classifyAttestation, readGraphPublication } from '../../mcp/stdio/storage/publication-schema.js';
 import { CODE_NODE_TYPES, EDGE_PROVENANCE_TYPES, FILE_LEVEL_TYPES } from '../../mcp/stdio/storage/taxonomy.js';
-import { enableSteps } from './apg-index.mjs';
+import { readAttestedSnapshot } from './provider-snapshot.mjs';
+import { repoRelativeProblem } from './provider-paths.mjs';
 
 /** The bounds agreed with dashboard-manager. The limit's ceiling keeps a full answer under the service's 1 MiB body cap. */
 export const SUBGRAPH_BOUNDS = Object.freeze({
@@ -77,6 +73,10 @@ export function parseSubgraphArgs(args) {
   if (hasAnchor === hasPath) return { ok: false, problem: 'give exactly one of args.anchor or args.path' };
   if (hasAnchor && !isPlainObject(args.anchor)) return { ok: false, problem: 'args.anchor must be an anchor object' };
   if (hasPath && (typeof args.path !== 'string' || args.path.trim() === '')) return { ok: false, problem: 'args.path must be a non-empty string' };
+  const path = hasPath ? args.path.trim() : args.anchor.path;
+  if (typeof path === 'string' && repoRelativeProblem(path.trim()) !== null) {
+    return { ok: false, problem: 'the path must be repository-relative', reasonCode: 'invalid_request' };
+  }
 
   const depth = boundedInteger(args.depth, 'depth', SUBGRAPH_BOUNDS.depth);
   if (depth.problem) return { ok: false, problem: depth.problem };
@@ -106,7 +106,7 @@ export function parseSubgraphArgs(args) {
 // ── Reading the index.
 
 /** The graph as one pinned read snapshot exposes it. Lives only inside `captureExistingSnapshot`'s callback. */
-class GraphView {
+export class GraphView {
   #db;
   #edgeKinds;
 
@@ -229,7 +229,7 @@ function edgesAmong(view, ids) {
 }
 
 /** One node as the answer carries it, with the anchor that pins it, or null where nothing can. */
-function nodeEntry(view, row) {
+export function nodeEntry(view, row) {
   const extra = extraOf(row);
   const path = row.file_path ? row.file_path : null;
   return {
@@ -253,45 +253,9 @@ function anchorOf(view, row, path, extra) {
   return extra.qname ? { kind: 'symbol', path, name: extra.qname } : null;
 }
 
-/** What the manifest says about the index, read BEFORE the database: it is the other side of the attestation. */
-function readManifest(repoRoot) {
-  try {
-    return JSON.parse(readFileSync(join(repoRoot, '.aify-graph', 'manifest.json'), 'utf8'));
-  } catch {
-    return null;
-  }
-}
-
-function staleness(manifest, head) {
-  const reasons = [];
-  const indexCommit = typeof manifest?.commit === 'string' && manifest.commit !== '' ? manifest.commit : null;
-  if (indexCommit === null) reasons.push('index_commit_unknown');
-  else if (indexCommit !== head) reasons.push('index_behind_head');
-  if (Array.isArray(manifest?.dirtyFiles) && manifest.dirtyFiles.length > 0) reasons.push('indexed_with_uncommitted_changes');
-  return { indexCommit, stale: reasons.length > 0, staleBecause: reasons };
-}
-
-/**
- * Read one subgraph. `request` is `parseSubgraphArgs(...).value`.
- * @returns {{ ok: true, value } | { ok: false, problem, reasonCode?, candidates? }}
- */
+/** Read one subgraph from the same attested snapshot gate as every provider graph lookup. */
 export function readSubgraph({ repoRoot, request, head }) {
-  const dbPath = join(repoRoot, '.aify-graph', 'graph.sqlite');
-  if (!existsSync(dbPath)) {
-    // ⛔ A read never builds (#2). It names the explicit steps instead, and the dashboard relays them word for word.
-    const enable = enableSteps(repoRoot);
-    return { ok: false, problem: `no graph index at ${dbPath}. Enable it with: ${enable[0]} ; keep it current with: ${enable[1]}`, reasonCode: 'no_index', enable };
-  }
-  const manifest = readManifest(repoRoot);
-  return captureExistingSnapshot(dbPath, (db) => {
-    const attestation = classifyAttestation({
-      dbGeneration: readGraphPublication(db)?.generation ?? null,
-      manifestGeneration: manifest?.generation ?? null,
-      manifestUsable: manifest !== null,
-    });
-    if (attestation !== ATTESTATION.ATTESTED) {
-      return { ok: false, problem: `the index cannot be read as one whole build (${attestation})`, reasonCode: 'index_not_attested' };
-    }
+  return readAttestedSnapshot({ repoRoot, head, capture: (db) => {
     const view = new GraphView(db, request.edgeKinds);
     const start = startNode(view, request.start);
     if (!start.node) return { ok: false, ...start };
@@ -300,13 +264,11 @@ export function readSubgraph({ repoRoot, request, head }) {
     return {
       ok: true,
       value: {
-        ...staleness(manifest, head),
-        head,
         matched: { nodes: order.length, edges: edgesAmong(view, order).length, dropped: { external: droppedExternal } },
         truncated: order.length > kept.length,
         nodes: kept.map((id) => nodeEntry(view, view.node(id))),
         edges: edgesAmong(view, kept),
       },
     };
-  });
+  } });
 }
